@@ -377,6 +377,12 @@ pub struct Session {
     /// Performance). Independent of undo so a restore survives later edits.
     #[serde(default)]
     pub midi_originals: std::collections::BTreeMap<u64, soundcraft_midi::Sequence>,
+    /// Data that extensions (add-ins built into an app) keep with the document, each under its own
+    /// key (for example `"plenio"`). SoundCraft saves, undoes, autosaves and bundles the text with
+    /// the rest of the session but never reads it. An extension parses its own entry and treats it
+    /// as untrusted, since it comes from a file. Bounded on load ([`Session::MAX_EXTENSIONS`]).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extensions: std::collections::BTreeMap<String, std::sync::Arc<str>>,
     #[serde(skip)]
     pub pool: SourcePool,
     /// The folder relative source paths point into: where the session was opened or last saved.
@@ -415,6 +421,7 @@ impl Session {
             next_id: 1,
             comments: String::new(),
             midi_originals: std::collections::BTreeMap::new(),
+            extensions: std::collections::BTreeMap::new(),
             pool: SourcePool::default(),
             folder: None,
         };
@@ -428,6 +435,73 @@ impl Session {
         let id = self.next_id.max(1);
         self.next_id = id.saturating_add(1);
         id
+    }
+
+    // ---- extension data ------------------------------------------------------------------
+
+    /// The most extension entries a session keeps.
+    pub const MAX_EXTENSIONS: usize = 64;
+    /// The longest extension key, in bytes.
+    pub const MAX_EXTENSION_KEY: usize = 64;
+    /// The largest extension entry, in bytes.
+    pub const MAX_EXTENSION_BYTES: usize = 16 * 1024 * 1024;
+    /// The most bytes all extension entries keep together.
+    pub const MAX_EXTENSIONS_BYTES: usize = 64 * 1024 * 1024;
+
+    /// Whether `key` may name an extension entry: 1 to [`Self::MAX_EXTENSION_KEY`] bytes of
+    /// lowercase ASCII letters, digits, `.`, `-` and `_`, starting with a letter.
+    pub fn extension_key_ok(key: &str) -> bool {
+        key.len() <= Self::MAX_EXTENSION_KEY
+            && key.starts_with(|c: char| c.is_ascii_lowercase())
+            && key.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'_'))
+    }
+
+    /// An extension's entry, if the session has one.
+    pub fn extension(&self, key: &str) -> Option<&str> {
+        self.extensions.get(key).map(|text| text.as_ref())
+    }
+
+    /// Set an extension's entry; an empty text removes it. Refused when the key is not valid or the
+    /// entry would break the count or size budgets.
+    pub fn set_extension(&mut self, key: &str, text: impl Into<std::sync::Arc<str>>) -> Result<(), SessionError> {
+        let text = text.into();
+        if !Self::extension_key_ok(key) {
+            return Err(SessionError::Invalid(format!("not an extension key: {key:?}")));
+        }
+        if text.is_empty() {
+            self.extensions.remove(key);
+            return Ok(());
+        }
+        if text.len() > Self::MAX_EXTENSION_BYTES {
+            return Err(SessionError::Invalid(format!("extension data for {key} is over {} bytes", Self::MAX_EXTENSION_BYTES)));
+        }
+        let others: usize = self.extensions.iter().filter(|(k, _)| k.as_str() != key).map(|(_, t)| t.len()).sum();
+        if others.saturating_add(text.len()) > Self::MAX_EXTENSIONS_BYTES {
+            return Err(SessionError::Invalid(format!("extension data is over {} bytes in all", Self::MAX_EXTENSIONS_BYTES)));
+        }
+        if !self.extensions.contains_key(key) && self.extensions.len() >= Self::MAX_EXTENSIONS {
+            return Err(SessionError::Invalid(format!("a session keeps at most {} extension entries", Self::MAX_EXTENSIONS)));
+        }
+        self.extensions.insert(key.to_string(), text);
+        Ok(())
+    }
+
+    /// Keep the valid extension entries that fit the count and size budgets, in key order; drop
+    /// the rest (a file may hold anything).
+    fn bound_extensions(&mut self) {
+        let (mut kept, mut total) = (0usize, 0usize);
+        self.extensions.retain(|key, text| {
+            let fits = Self::extension_key_ok(key)
+                && !text.is_empty()
+                && text.len() <= Self::MAX_EXTENSION_BYTES
+                && kept < Self::MAX_EXTENSIONS
+                && total.saturating_add(text.len()) <= Self::MAX_EXTENSIONS_BYTES;
+            if fits {
+                kept += 1;
+                total = total.saturating_add(text.len());
+            }
+            fits
+        });
     }
 
     // ---- lookups -------------------------------------------------------------------------
@@ -843,6 +917,7 @@ impl Session {
         let clip_ids: std::collections::BTreeSet<u64> =
             self.tracks.iter().flat_map(|t| t.playlists.iter().flat_map(|p| p.clips.iter().map(|c| c.id.0))).collect();
         self.midi_originals.retain(|id, _| clip_ids.contains(id));
+        self.bound_extensions();
         self.prune_auto_names();
         self.auto_names.values_mut().for_each(crate::AutoName::sanitize);
         if !self.edit.zoom.samples_per_px.is_finite() || self.edit.zoom.samples_per_px <= 0.0 {
@@ -1132,6 +1207,59 @@ mod tests {
         let back = Session::from_json(&s.to_json().unwrap()).unwrap();
         assert_eq!(back.track(t).map(|tr| tr.name.chars().count()), Some(MAX_NAME_CHARS));
         assert_eq!(back.comments.len(), MAX_COMMENT_CHARS);
+    }
+
+    #[test]
+    fn extension_data_round_trips_and_is_left_out_when_empty() {
+        let mut s = Session::default();
+        assert!(!s.to_json().unwrap().contains("\"extensions\""));
+        s.set_extension("plenio", r#"{"songs":[]}"#).unwrap();
+        s.set_extension("other.addin-2_x", "text").unwrap();
+        let back = Session::from_json(&s.to_json().unwrap()).unwrap();
+        assert_eq!(back, s);
+        assert_eq!(back.extension("plenio"), Some(r#"{"songs":[]}"#));
+        assert_eq!(back.extension("missing"), None);
+        // An empty text removes the entry.
+        s.set_extension("plenio", "").unwrap();
+        assert_eq!(s.extension("plenio"), None);
+    }
+
+    #[test]
+    fn extension_keys_and_sizes_are_checked() {
+        let mut s = Session::default();
+        for key in ["", "Plenio", "1plenio", "ple nio", "plénio", &"p".repeat(Session::MAX_EXTENSION_KEY + 1)] {
+            assert!(s.set_extension(key, "x").is_err(), "{key:?}");
+        }
+        assert!(s.set_extension(&"p".repeat(Session::MAX_EXTENSION_KEY), "x").is_ok());
+        assert!(s.set_extension("big", "x".repeat(Session::MAX_EXTENSION_BYTES + 1)).is_err());
+        let mut s = Session::default();
+        for i in 0..Session::MAX_EXTENSIONS {
+            s.set_extension(&format!("k{i}"), "x").unwrap();
+        }
+        assert!(s.set_extension("one-more", "x").is_err());
+        // Replacing an entry is not a new one.
+        assert!(s.set_extension("k0", "y").is_ok());
+    }
+
+    #[test]
+    fn extension_data_from_a_file_is_bounded() {
+        let mut v = serde_json::to_value(Session::default()).unwrap();
+        let mut map = serde_json::Map::new();
+        map.insert("Bad Key".into(), serde_json::json!("x"));
+        map.insert("empty".into(), serde_json::json!(""));
+        map.insert("good".into(), serde_json::json!("kept"));
+        for i in 0..Session::MAX_EXTENSIONS + 5 {
+            map.insert(format!("n{i:03}"), serde_json::json!("x"));
+        }
+        v["extensions"] = serde_json::Value::Object(map);
+        let s = Session::from_json(&v.to_string()).unwrap();
+        assert_eq!(s.extensions.len(), Session::MAX_EXTENSIONS);
+        assert_eq!(s.extension("good"), Some("kept"));
+        assert!(s.extension("Bad Key").is_none() && s.extension("empty").is_none());
+        // A session written before extensions existed has none.
+        let old = serde_json::to_value(Session::default()).unwrap();
+        assert!(old.get("extensions").is_none());
+        assert!(Session::from_json(&old.to_string()).unwrap().extensions.is_empty());
     }
 
     #[test]
