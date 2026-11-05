@@ -17,6 +17,7 @@ mod edit;
 mod edit_more;
 mod event;
 mod event_more;
+mod extensions;
 mod file;
 mod health;
 mod instrument;
@@ -64,6 +65,7 @@ mod panic_probe {
 pub use file::bounce_job;
 
 pub(crate) use edit::remember_selection;
+pub use extensions::{MAX_EXTENSION_COMMANDS, MAX_EXTENSION_ID, extension_command_id_ok, refused_extension_commands, register_extension_commands};
 pub use strip_silence::strip_silence_scan;
 
 pub type Run = fn(&mut Engine, &Value) -> Result<Value>;
@@ -164,6 +166,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(strip_silence::specs());
         #[cfg(test)]
         v.extend(panic_probe::specs());
+        extensions::close_into(&mut v);
         v
     })
 }
