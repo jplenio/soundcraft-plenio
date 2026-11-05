@@ -120,3 +120,40 @@ fn status_and_bad_parameters(e: &mut Engine, song: u64) {
     soundcraft_plenio_commands::set_activated(false);
     assert!(e.execute("plenio.song.new", &json!({})).is_err());
 }
+
+#[test]
+fn stems_play_instead_of_the_mix_and_only_for_their_take() {
+    soundcraft_plenio_commands::register();
+    soundcraft_plenio_commands::set_activated(true);
+    let dir = std::env::temp_dir().join(format!("scp-stems-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let audio = dir.join("take.wav");
+    wav(&audio);
+    let path = audio.to_string_lossy().to_string();
+    let mut e = Engine::default();
+    let made = e.execute("plenio.song.new", &json!({"title": "Stems"})).unwrap();
+    let song = made["song"].as_u64().unwrap();
+    let mix = TrackId(made["tracks"]["mix"].as_u64().unwrap());
+    for job in ["a", "b"] {
+        e.execute("plenio.take.add", &json!({"song": song, "audio": path, "take": take(job, json!([]))})).unwrap();
+    }
+    e.execute("plenio.stems.add", &json!({"song": song, "take": 2, "stems": [["vocals", path], ["rest", path]]})).unwrap();
+    let p = Project::load(e.session()).unwrap();
+    let data = p.song(song).unwrap();
+    let vocals = data.track(Role::Vocals).unwrap();
+    assert!(data.track(Role::Rest).is_some());
+    assert!(e.session().track(mix).unwrap().mixer.mute, "the stems play, not the mix");
+    assert_eq!(e.session().track(vocals).unwrap().clips().len(), 1);
+    // Take 1 has no stems: the mix plays, the stem tracks are silent.
+    e.execute("plenio.take.select", &json!({"song": song, "take": 1})).unwrap();
+    assert!(!e.session().track(mix).unwrap().mixer.mute);
+    assert!(e.session().track(vocals).unwrap().clips().is_empty());
+    e.execute("plenio.take.select", &json!({"song": song, "take": 2})).unwrap();
+    assert!(e.session().track(mix).unwrap().mixer.mute);
+    assert_eq!(e.session().track(vocals).unwrap().clips().len(), 1);
+    // The folder took the song's title from its first take.
+    let folder = data.track(Role::Song).unwrap();
+    assert_eq!(e.session().track(folder).unwrap().name, "Night Drive");
+    assert!(e.execute("plenio.stems.add", &json!({"song": song, "take": 2, "stems": [["kazoo", path]]})).is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}

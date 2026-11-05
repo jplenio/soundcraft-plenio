@@ -6,6 +6,13 @@ use soundcraft_plenio_backend::song::{Document, Job, JobStatus, Record};
 use soundcraft_plenio_project::Role;
 use soundcraft_ui_egui::Services;
 
+/// The add-in's activation is one switch for the process: the tests that use it take turns.
+static ACTIVATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    ACTIVATION.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 /// Commands first: the registry of this test binary is built on its first read.
 fn app() -> SoundApp {
     register_commands();
@@ -57,6 +64,7 @@ fn frames(app: &mut SoundApp, n: usize) {
 
 #[test]
 fn activation_is_kept_in_the_settings_folder() {
+    let _turn = turn();
     let dir = temp("activation");
     let mut app = app();
     let mut ui = PlenioUi::new(Some(dir.clone()));
@@ -76,11 +84,13 @@ fn activation_is_kept_in_the_settings_folder() {
 
 #[test]
 fn a_delivered_take_lands_on_the_songs_tracks() {
+    let _turn = turn();
     let dir = temp("deliver");
     let audio = dir.join("take.flac.wav");
     wav(&audio);
-    let mut app = app();
+    // The add-in reads its activation from its settings: made first, the app activates it.
     let mut ui = quiet_ui();
+    let mut app = app();
     let made = app.run("plenio.song.new", json!({"title": "Garden", "fields": {"vocals": "sung"}})).unwrap();
     let song = made["song"].as_u64().unwrap();
     let score = "X:1\nM:2/4\nL:1/16\nQ:1/4=120\nV: Vocal clef=treble\nK:Am\n% verse\nV: Vocal\nz8|z8|\n% chorus\nV: Vocal\nz8|z8|\n";
@@ -98,6 +108,7 @@ fn a_delivered_take_lands_on_the_songs_tracks() {
         seeds: [("take".to_string(), 7u64)].into_iter().collect(),
         title: "Garden".into(),
         seconds: 0.5,
+        folder: String::new(),
         files: Vec::new(),
         error: String::new(),
         warnings: Vec::new(),
@@ -127,6 +138,7 @@ fn a_delivered_take_lands_on_the_songs_tracks() {
 
 #[test]
 fn every_window_draws_without_a_studio() {
+    let _turn = turn();
     let mut app = app();
     app.run("plenio.song.new", json!({"title": "Garden"})).unwrap();
     let mut ui = quiet_ui();
@@ -161,4 +173,34 @@ fn every_window_draws_without_a_studio() {
     app.add_extension(Box::new(ui));
     frames(&mut app, 4);
     assert_eq!(app.extensions(), vec![("plenio", true)]);
+}
+
+#[test]
+fn a_plenio_song_is_brought_in_with_its_take_and_lyrics() {
+    let _turn = turn();
+    let dir = temp("import");
+    let mut ui = quiet_ui();
+    let mut app = app();
+    wav(&dir.join("2026-11-05 Garden.flac"));
+    std::fs::write(dir.join("2026-11-05 Garden (lines).srt"), "1\n00:00:00,100 --> 00:00:00,400\nMorning light\n").unwrap();
+    let record = json!({"schema": "plenio.record/1", "title": "Garden", "documents": {
+        "lyrics": {"state": "auto", "status": "", "sha256": "", "text": "[verse]\nMorning light"},
+        "score": {"state": "auto", "status": "", "sha256": "", "text": "X:1\nM:4/4\nQ:1/4=100\nK:C\n% verse\nV: Vocal\nz8|\n"}},
+        "audio": {"seconds": 0.5, "sample_rate": 48000}, "quality": {"stars": 3.5}});
+    let path = dir.join("2026-11-05 Garden.plenio.json");
+    std::fs::write(&path, record.to_string()).unwrap();
+    ui.import_record(&mut app, path);
+    let p = Project::load(app.engine.session()).unwrap();
+    let song = p.songs.first().unwrap();
+    assert_eq!(song.title, "Garden");
+    let take = song.active_take().unwrap();
+    assert_eq!((take.stars, take.lines.len(), take.bpm), (Some(3.5), 1, Some(100.0)));
+    let lyrics = song.track(Role::Lyrics).unwrap();
+    assert_eq!(app.engine.session().track(lyrics).unwrap().clips().first().map(|c| c.name.as_str()), Some("Morning light"));
+    // Not a Plenio record: refused with a message, nothing made.
+    let other = dir.join("other.plenio.json");
+    std::fs::write(&other, "{\"hello\": 1}").unwrap();
+    ui.import_record(&mut app, other);
+    assert_eq!(Project::load(app.engine.session()).unwrap().songs.len(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
 }

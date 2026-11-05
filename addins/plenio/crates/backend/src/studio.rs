@@ -63,6 +63,12 @@ pub enum Request {
         tag: u64,
         path: PathBuf,
     },
+    /// Start the Plenio Player (when it does not run) on the studio's output; answered with
+    /// [`Event::Player`].
+    Player {
+        config_dir: PathBuf,
+        comfyui: Option<PathBuf>,
+    },
     /// Download model files (`url`, target, expected bytes).
     DownloadModels {
         files: Vec<(String, PathBuf, u64)>,
@@ -87,13 +93,37 @@ pub struct Delivery {
 #[derive(Debug, Clone)]
 pub enum Event {
     State(State),
-    Answer { tag: String, result: Result<Value, String> },
-    Job { tag: u64, job: Job },
-    Delivered { tag: u64, delivery: Box<Delivery> },
-    Uploaded { tag: u64, result: Result<String, String> },
-    ModelProgress { file: String, done: u64, total: u64 },
-    ModelDone { file: String, result: Result<(), String> },
-    Failed { tag: Option<u64>, message: String },
+    Answer {
+        tag: String,
+        result: Result<Value, String>,
+    },
+    Job {
+        tag: u64,
+        job: Job,
+    },
+    Delivered {
+        tag: u64,
+        delivery: Box<Delivery>,
+    },
+    Uploaded {
+        tag: u64,
+        result: Result<String, String>,
+    },
+    /// The Plenio Player's address, or why it does not run.
+    Player(Result<String, String>),
+    ModelProgress {
+        file: String,
+        done: u64,
+        total: u64,
+    },
+    ModelDone {
+        file: String,
+        result: Result<(), String>,
+    },
+    Failed {
+        tag: Option<u64>,
+        message: String,
+    },
 }
 
 /// The handle the UI keeps.
@@ -122,8 +152,9 @@ impl Studio {
     pub fn spawn() -> Studio {
         let (tx, requests) = channel::<Request>();
         let (events, rx) = channel::<Event>();
-        let spawned =
-            std::thread::Builder::new().name("plenio-studio".into()).spawn(move || Worker { events, instance: None, client: None }.run(requests));
+        let spawned = std::thread::Builder::new()
+            .name("plenio-studio".into())
+            .spawn(move || Worker { events, instance: None, client: None, player: None, install: None }.run(requests));
         if let Err(e) = spawned {
             log::error!("Plenio studio thread not started: {e}");
         }
@@ -151,6 +182,9 @@ struct Worker {
     events: Sender<Event>,
     instance: Option<Instance>,
     client: Option<Client>,
+    player: Option<crate::player::Player>,
+    /// The ComfyUI the instance runs on.
+    install: Option<Install>,
 }
 
 impl Worker {
@@ -196,6 +230,10 @@ impl Worker {
                             .and_then(|v| v.get("name").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "the upload has no name".into()))
                     });
                     self.emit(Event::Uploaded { tag, result });
+                }
+                Request::Player { config_dir, comfyui } => {
+                    let answer = self.player(&config_dir, comfyui.as_deref());
+                    self.emit(Event::Player(answer));
                 }
                 Request::DownloadModels { files } => {
                     let events = self.events.clone();
@@ -250,7 +288,42 @@ impl Worker {
         }
     }
 
+    /// Start the player when it does not run, and wait until it answers.
+    fn player(&mut self, config_dir: &std::path::Path, chosen: Option<&std::path::Path>) -> Result<String, String> {
+        if let Some(p) = &mut self.player
+            && !p.ended()
+        {
+            return Ok(crate::player::url(p.port));
+        }
+        let install = match &self.install {
+            Some(i) => i.clone(),
+            None => discover::find(chosen).ok_or("no ComfyUI found for the Plenio Player's Python")?,
+        };
+        let layout = Layout::new(config_dir);
+        let source = instance::source_dir().map_err(|e| e.to_string())?;
+        instance::install_package(&source, &layout).map_err(|e| e.to_string())?;
+        let port = instance::free_port().map_err(|e| e.to_string())?;
+        let studio_port = self.instance.as_ref().map(|i| i.port);
+        let player = crate::player::Player::start(&install, &layout, studio_port, port).map_err(|e| e.to_string())?;
+        self.player = Some(player);
+        let probe: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(3))).build().into();
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(90) {
+            if self.player.as_mut().is_some_and(crate::player::Player::ended) {
+                self.player = None;
+                return Err(format!("the Plenio Player ended while starting; its log: {}", layout.root.join("player.log").display()));
+            }
+            let answer = probe.get(&format!("http://127.0.0.1:{port}/api/info")).call().ok().and_then(|mut r| r.body_mut().read_to_string().ok());
+            if answer.is_some_and(|a| a.contains("plenio-player")) {
+                return Ok(crate::player::url(port));
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+        Err("the Plenio Player did not answer within 90 s".into())
+    }
+
     fn launch(&mut self, install: &Install, layout: &Layout) -> Result<(u16, String, String), String> {
+        self.install = Some(install.clone());
         self.emit(Event::State(State::Starting("installing the add-in into its ComfyUI".into())));
         let source = instance::source_dir().map_err(|e| e.to_string())?;
         instance::install_package(&source, layout).map_err(|e| e.to_string())?;
@@ -280,6 +353,9 @@ impl Worker {
         self.client = None;
         if let Some(mut instance) = self.instance.take() {
             instance.stop();
+        }
+        if let Some(mut player) = self.player.take() {
+            player.stop();
         }
     }
 }
@@ -472,6 +548,31 @@ mod tests {
         studio.send(Request::Stop);
         assert!(matches!(studio.wait(Duration::from_secs(30)), Some(Event::State(State::Stopped))));
         assert!(!Client::local(port).alive());
+        let _ = std::fs::remove_dir_all(&config);
+    }
+
+    /// The Plenio Player starts on the studio's output and stops with the studio.
+    /// `SCP_TEST_START=1 cargo test -p soundcraft-plenio-backend -- --ignored`.
+    #[test]
+    #[ignore = "starts the Plenio Player (SCP_TEST_START=1)"]
+    fn the_player_starts_on_its_own_state_and_stops() {
+        if std::env::var("SCP_TEST_START").is_err() {
+            return;
+        }
+        let config = std::env::temp_dir().join(format!("scp-player-start-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&config);
+        let studio = Studio::spawn();
+        studio.send(Request::Player { config_dir: config.clone(), comfyui: None });
+        let url = match studio.wait(Duration::from_secs(120)) {
+            Some(Event::Player(Ok(url))) => url,
+            other => panic!("{other:?}"),
+        };
+        eprintln!("player at {url}");
+        let info = Client::new(url.trim_end_matches('/')).get("/api/info").unwrap();
+        assert_eq!(info["app"], "plenio-player");
+        assert!(info["state"].as_str().is_some_and(|s| s.contains("player-state")), "{info}");
+        studio.send(Request::Stop);
+        assert!(matches!(studio.wait(Duration::from_secs(30)), Some(Event::State(State::Stopped))));
         let _ = std::fs::remove_dir_all(&config);
     }
 

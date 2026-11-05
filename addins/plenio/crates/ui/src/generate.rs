@@ -159,6 +159,16 @@ impl PlenioUi {
                 files.insert(role.into(), Value::String(p));
             }
         }
+        // The take as the studio keeps it, for the stems (the studio reads only its own output).
+        let studio_file = |f: Option<&soundcraft_plenio_backend::song::JobFile>| {
+            f.filter(|_| !d.job.folder.is_empty()).map(|f| PathBuf::from(&d.job.folder).join(&f.name).to_string_lossy().into_owned())
+        };
+        if let Some(p) = studio_file(d.job.file("")) {
+            files.insert("studio_song".into(), Value::String(p));
+        }
+        if let Some(p) = studio_file(d.job.file("original")) {
+            files.insert("studio_original".into(), Value::String(p));
+        }
         let unmastered = Project::load(app.engine.session()).ok().and_then(|p| p.song(pending.song).map(|s| s.unmastered)).unwrap_or(false);
         let audio = if unmastered { path(&d.original).or(path(&d.song)) } else { path(&d.song).or(path(&d.original)) };
         let Some(audio) = audio else {
@@ -237,6 +247,216 @@ impl PlenioUi {
         if let Ok(project) = Project::load(app.engine.session()) {
             self.submit(app, &project, song, mode);
         }
+    }
+}
+
+impl PlenioUi {
+    /// Split a take into stems in the studio (Plenio's separation), then put them on stem tracks.
+    pub fn split_stems(&mut self, app: &mut SoundApp, song: u64, take: u32) {
+        let Ok(project) = Project::load(app.engine.session()) else { return };
+        let Some(t) = project.song(song).and_then(|s| s.takes.iter().find(|t| t.number == take)) else { return };
+        let key = if project.song(song).is_some_and(|s| s.unmastered) { "studio_original" } else { "studio_song" };
+        let Some(file) = t.files.get(key).or_else(|| t.files.get("studio_song")).cloned() else {
+            app.engine.message("Plenio: this take is not in the studio any more; make a new take to split it.");
+            return;
+        };
+        if !self.ready() {
+            app.engine.message("Plenio: start the studio first (Plenio > Studio and Models).");
+            return;
+        }
+        app.engine.message(format!("Plenio: splitting {} into stems.", t.label()));
+        self.splitting.insert(song);
+        self.studio.send(Request::Post { tag: format!("stems:{song}:{take}"), path: "/scp/v1/stems".into(), body: json!({"file": file}) });
+    }
+
+    /// The stems arrived: copy them beside the take and put them on the song's stem tracks.
+    pub fn stems_done(&mut self, app: &mut SoundApp, song: u64, take: u32, result: Result<Value, String>) {
+        self.splitting.remove(&song);
+        let answer = match result {
+            Ok(v) => v,
+            Err(e) => {
+                app.engine.message(format!("Plenio: no stems: {e}"));
+                return;
+            }
+        };
+        let folder = Project::load(app.engine.session())
+            .ok()
+            .and_then(|p| p.song(song)?.takes.iter().find(|t| t.number == take)?.files.get("song").cloned())
+            .and_then(|f| PathBuf::from(f).parent().map(|p| p.join("stems")));
+        let mut stems = Vec::new();
+        for name in answer.get("order").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str) {
+            let Some(from) = answer.get("stems").and_then(|s| s.get(name)).and_then(Value::as_str) else { continue };
+            let from = PathBuf::from(from);
+            let path = match &folder {
+                Some(dir) => {
+                    let to = dir.join(format!("{name}.flac"));
+                    match std::fs::create_dir_all(dir).and_then(|()| std::fs::copy(&from, &to)) {
+                        Ok(_) => to,
+                        Err(_) => from,
+                    }
+                }
+                None => from,
+            };
+            stems.push(json!([name, path.to_string_lossy()]));
+        }
+        match app.run("plenio.stems.add", json!({"song": song, "take": take, "stems": stems})) {
+            Ok(_) => app.engine.message("Plenio: the stems are on their tracks; the mix track is muted while they play."),
+            Err(e) => app.engine.message(format!("Plenio: the stems could not be placed: {e}")),
+        }
+    }
+}
+
+impl PlenioUi {
+    pub fn open_player(&self) {
+        self.studio.send(Request::Player { config_dir: self.studio_root(), comfyui: self.settings.comfyui.clone() });
+    }
+
+    /// Bounce the session's mix (with the owner's effects) and send it to the Plenio Player with the
+    /// take's lyrics, score and story: a release record made from the take's.
+    pub fn send_to_player(&mut self, app: &mut SoundApp, song: u64) {
+        let Ok(project) = Project::load(app.engine.session()) else { return };
+        let Some(s) = project.song(song) else { return };
+        let Some(take) = s.active_take() else {
+            app.engine.message("Plenio: make a take first.");
+            return;
+        };
+        let layout = soundcraft_plenio_backend::instance::Layout::new(&self.studio_root());
+        let folder = soundcraft_plenio_backend::player::sent_folder(&layout);
+        let title = format!("{} (SoundCraft mix)", if take.title.is_empty() { s.title.as_str() } else { take.title.as_str() });
+        let stem = safe(&title);
+        let audio = folder.join(format!("{stem}.flac"));
+        if let Err(e) = std::fs::create_dir_all(&folder) {
+            app.engine.message(format!("Plenio: {}: {e}", folder.display()));
+            return;
+        }
+        let session = app.engine.session();
+        let rate = session.sample_rate;
+        let end = session.content_end().max(rate.samples(take.seconds)).max(1);
+        if let Err(e) =
+            app.run("file.bounce_mix", json!({"path": audio.to_string_lossy(), "format": "flac", "bit_depth": 24, "start": 0, "end": end}))
+        {
+            app.engine.message(format!("Plenio: the mix was not bounced: {e}"));
+            return;
+        }
+        let lines: Vec<(f64, f64, String)> = take.lines.iter().map(|l| (l.start, l.end, l.text.clone())).collect();
+        let srt_path = folder.join(format!("{stem} (lines).srt"));
+        let srt = (!lines.is_empty() && std::fs::write(&srt_path, soundcraft_plenio_backend::player::srt(&lines)).is_ok()).then_some(srt_path);
+        let record = take
+            .files
+            .get("record")
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .unwrap_or(Value::Null);
+        let seconds = rate.seconds(end);
+        match soundcraft_plenio_backend::player::write_sent_record(&record, &title, &audio, srt.as_deref(), seconds) {
+            Ok(_) => {
+                app.engine.message(format!("Plenio: {title} is in the Plenio Player."));
+                self.open_player();
+            }
+            Err(e) => app.engine.message(format!("Plenio: the song was not sent: {e}")),
+        }
+    }
+}
+
+/// The largest release record read.
+const MAX_RECORD_BYTES: u64 = 32 * 1024 * 1024;
+
+impl PlenioUi {
+    /// Bring a Plenio song (its `.plenio.json` and the files beside it: a release, a party song) into
+    /// the session as a song of its own that can be made again: Plenio's `/from-record` gives the
+    /// request that made it (template, fields, seeds), the files give the take.
+    pub fn import_record(&mut self, app: &mut SoundApp, path: PathBuf) {
+        let text = match std::fs::metadata(&path) {
+            Ok(m) if m.len() <= MAX_RECORD_BYTES => std::fs::read_to_string(&path).map_err(|e| e.to_string()),
+            Ok(_) => Err("the record is too large".into()),
+            Err(e) => Err(e.to_string()),
+        };
+        let record = match text.and_then(|t| serde_json::from_str::<Value>(&t).map_err(|e| e.to_string())) {
+            Ok(v) if v.get("schema").and_then(Value::as_str).is_some_and(|s| s.starts_with("plenio.record/")) => v,
+            Ok(_) => {
+                app.engine.message("Plenio: that file is not a Plenio release record.");
+                return;
+            }
+            Err(e) => {
+                app.engine.message(format!("Plenio: {}: {e}", path.display()));
+                return;
+            }
+        };
+        let tag = self.tag();
+        self.imports.insert(tag, (path, record.clone()));
+        if self.ready() {
+            self.studio.send(Request::Post { tag: format!("from-record:{tag}"), path: "/plenio/api/v1/from-record".into(), body: record });
+        } else {
+            // Without the studio: the documents and the take, the brief's fields come later.
+            self.imported(app, tag, Err("the studio is not running".into()));
+        }
+    }
+
+    /// Plenio's answer to `/from-record` (or none): make the song and put the record's take on it.
+    pub fn imported(&mut self, app: &mut SoundApp, tag: u64, request: Result<Value, String>) {
+        let Some((path, record_json)) = self.imports.remove(&tag) else { return };
+        let request = request.unwrap_or_else(|e| {
+            log::info!("Plenio: importing without /from-record: {e}");
+            Value::Null
+        });
+        let record = soundcraft_plenio_backend::song::Record::parse(&record_json);
+        let template = request.get("template").and_then(Value::as_str).unwrap_or("yue2-song").to_string();
+        if template != "yue2-song" && template != "yue2-cover" {
+            app.engine.message(format!("Plenio: this song was made with {template}, which the add-in does not make (no MiniMax)."));
+            return;
+        }
+        let folder = path.parent().map(PathBuf::from).unwrap_or_default();
+        let stem = path.file_name().map(|n| n.to_string_lossy().trim_end_matches(".plenio.json").to_string()).unwrap_or_default();
+        let audio = ["flac", "wav", "mp3"].iter().map(|ext| folder.join(format!("{stem}.{ext}"))).find(|p| p.is_file());
+        let Some(audio) = audio else {
+            app.engine.message(format!("Plenio: no audio beside {}", path.display()));
+            return;
+        };
+        let original = Some(folder.join(format!("{stem} (original).flac"))).filter(|p| p.is_file());
+        let lines = std::fs::read_to_string(folder.join(format!("{stem} (lines).srt")))
+            .map(|t| soundcraft_plenio_backend::song::parse_srt(&t))
+            .unwrap_or_default();
+        let fields = request.get("fields").cloned().unwrap_or_else(|| json!({}));
+        let kind = if template == "yue2-cover" { "cover" } else { "song" };
+        let made = app.run("plenio.song.new", json!({"kind": kind, "template": template, "title": record.title, "fields": fields}));
+        let song = match made {
+            Ok(v) => v.get("song").and_then(Value::as_u64),
+            Err(e) => {
+                app.engine.message(format!("Plenio: {e}"));
+                return;
+            }
+        };
+        let Some(song) = song else { return };
+        // A cover's recording: the name it had in the studio, when that studio still has it.
+        if let Some(source) = request.get("fields").and_then(|f| f.get("source.audio")).and_then(Value::as_str) {
+            let _ = app.run("plenio.song.set", json!({"song": song, "source": source}));
+        }
+        let seeds: std::collections::BTreeMap<String, u64> = request
+            .get("seeds")
+            .and_then(Value::as_object)
+            .map(|m| m.iter().filter_map(|(k, v)| Some((k.clone(), v.as_u64()?))).collect())
+            .unwrap_or_default();
+        let job = soundcraft_plenio_backend::song::Job {
+            id: format!("imported: {}", path.display()),
+            status: soundcraft_plenio_backend::song::JobStatus::Succeeded,
+            queue_position: None,
+            stage: String::new(),
+            progress: None,
+            seeds,
+            title: record.title.clone(),
+            seconds: record.seconds,
+            folder: String::new(),
+            files: Vec::new(),
+            error: String::new(),
+            warnings: Vec::new(),
+        };
+        let fields_map = fields.as_object().map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect()).unwrap_or_default();
+        let tag = self.tag();
+        self.jobs.insert(tag, Pending { song, what: soundcraft_plenio_project::What::NewTake, fields: fields_map, job: None });
+        let delivery = Delivery { job, song: Some(audio), original, record: Some(record), record_file: Some(path), lines };
+        self.song = Some(song);
+        self.show_inspector = true;
+        self.deliver(app, tag, delivery);
     }
 }
 

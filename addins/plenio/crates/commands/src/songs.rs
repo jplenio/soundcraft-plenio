@@ -46,6 +46,15 @@ pub fn specs() -> Vec<CommandSpec> {
         ),
         soundcraft_engine::cmd!("plenio.take.select", "Select Plenio Take", [], None, "{song, take: number}", always, take_select),
         soundcraft_engine::cmd!(
+            "plenio.stems.add",
+            "Add Plenio Stems",
+            [],
+            None,
+            "{song, take: number, stems: [[name (vocals|drums|bass|other|rest), path], ...]}",
+            always,
+            stems_add
+        ),
+        soundcraft_engine::cmd!(
             "plenio.song.forget",
             "Forget Plenio Song",
             [],
@@ -343,6 +352,15 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
         }
     }
     let number = take.number;
+    // The song's folder takes the song's title from its first take (it was named before there was one).
+    if let Some(folder) = song.track(Role::Song)
+        && song.takes.is_empty()
+        && !take.title.trim().is_empty()
+        && let Some(t) = e.session_mut().track_mut(folder)
+        && t.name == song.title
+    {
+        t.name = take.title.chars().take(soundcraft_model::MAX_NAME_CHARS).collect();
+    }
     let song = project.song_mut(id).ok_or_else(|| bad(ID, format!("no Plenio song {id}")))?;
     song.tracks.extend(made);
     song.takes.push(take);
@@ -360,16 +378,124 @@ fn take_select(e: &mut Engine, p: &Value) -> Result<Value> {
     let index = song.takes.iter().position(|t| u64::from(t.number) == number).ok_or_else(|| bad(ID, format!("the song has no take {number}")))?;
     let refs = song.takes.get(index).map(|t| t.playlists.clone()).unwrap_or_default();
     song.adopt(index);
+    let song = song.clone();
     let s = e.session_mut();
-    for r in refs {
+    for r in &refs {
         if let Some(t) = s.track_mut(r.track)
             && r.index < t.playlists.len()
         {
             t.active_playlist = r.index;
         }
     }
+    show_stems(s, &song, &refs);
     store(e, &project)?;
     Ok(json!({"song": id, "take": number}))
+}
+
+/// The stem roles, with the track names they get.
+pub const STEMS: [(Role, &str, &str); 5] = [
+    (Role::Vocals, "vocals", "Vocals"),
+    (Role::Drums, "drums", "Drums"),
+    (Role::Bass, "bass", "Bass"),
+    (Role::Other, "other", "Other"),
+    (Role::Rest, "rest", "Rest"),
+];
+
+/// After a take was chosen: a take with stems plays them (the mix track is muted), a take without
+/// them plays the mix (the stem tracks show an empty playlist, so nothing plays twice).
+fn show_stems(s: &mut Session, song: &Song, refs: &[PlaylistRef]) {
+    let stem_tracks: Vec<TrackId> = STEMS.iter().filter_map(|(role, _, _)| song.track(*role)).collect();
+    let has_stems = refs.iter().any(|r| stem_tracks.contains(&r.track));
+    if let Some(mix) = song.track(Role::Mix).and_then(|m| s.track_mut(m)) {
+        mix.mixer.mute = has_stems;
+    }
+    for t in stem_tracks.iter().filter(|t| !refs.iter().any(|r| r.track == **t)) {
+        if let Some(track) = s.track_mut(*t) {
+            let empty = track.playlists.iter().position(|p| p.clips.is_empty() && p.name == NO_STEMS);
+            let i = match empty {
+                Some(i) => i,
+                None => {
+                    track.playlists.push(Playlist::new(NO_STEMS));
+                    track.playlists.len() - 1
+                }
+            };
+            track.active_playlist = i;
+        }
+    }
+}
+
+/// The playlist a stem track shows for a take without stems.
+const NO_STEMS: &str = "(no stems for this take)";
+
+fn stems_add(e: &mut Engine, p: &Value) -> Result<Value> {
+    const ID: &str = "plenio.stems.add";
+    let id = song_param(ID, p)?;
+    let number = p.get("take").and_then(Value::as_u64).ok_or_else(|| bad(ID, "`take` (its number) required"))?;
+    let stems: Vec<(String, String)> = p
+        .get("stems")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(|s| Some((s.get(0)?.as_str()?.to_string(), s.get(1)?.as_str()?.to_string()))).collect())
+        .unwrap_or_default();
+    if stems.is_empty() || stems.len() > STEMS.len() {
+        return Err(bad(ID, "`stems` must name 1 to 5 stems"));
+    }
+    let mut project = load(e)?;
+    let song = project.song(id).ok_or_else(|| bad(ID, format!("no Plenio song {id}")))?.clone();
+    let index = song.takes.iter().position(|t| u64::from(t.number) == number).ok_or_else(|| bad(ID, format!("the song has no take {number}")))?;
+    let label = song.takes.get(index).map(Take::label).unwrap_or_default();
+    let folder = song.track(Role::Song);
+    let mut made = Vec::new();
+    let mut refs = Vec::new();
+    for (name, path) in &stems {
+        let Some((role, _, track_name)) = STEMS.iter().find(|(_, key, _)| key == name) else {
+            return Err(bad(ID, format!("unknown stem `{name}`")));
+        };
+        let track = match song.track(*role).filter(|t| e.session().track(*t).is_some()) {
+            Some(t) => t,
+            None => {
+                let v = inner(e, "track.new", &json!({"kind": "audio", "format": "stereo", "name": track_name}))?;
+                let t = ids_of(&v).first().copied().ok_or_else(|| bad(ID, "the stem track was not made"))?;
+                if let Some(f) = folder {
+                    inner(e, "track.move_to_folder", &json!({"tracks": [t.0], "folder": f.0}))?;
+                }
+                made.push(RoleTrack { role: *role, track: t });
+                t
+            }
+        };
+        // A take split again replaces its stems on the playlist it has.
+        let existing = song.takes.get(index).and_then(|t| t.playlists.iter().find(|r| r.track == track)).map(|r| r.index);
+        let s = e.session_mut();
+        let playlist = match existing.filter(|i| s.track(track).is_some_and(|t| *i < t.playlists.len())) {
+            Some(i) => {
+                if let Some(t) = s.track_mut(track) {
+                    t.active_playlist = i;
+                    if let Some(pl) = t.playlists.get_mut(i) {
+                        pl.clips.clear();
+                    }
+                }
+                i
+            }
+            None => take_playlist(s, track, &label).ok_or_else(|| bad(ID, "the stem track is gone"))?,
+        };
+        inner(e, "file.import_audio", &json!({"path": path, "track": track.0, "at": 0}))?;
+        refs.push(PlaylistRef { track, index: playlist });
+    }
+    let song_mut = project.song_mut(id).ok_or_else(|| bad(ID, format!("no Plenio song {id}")))?;
+    song_mut.tracks.extend(made);
+    if let Some(take) = song_mut.takes.get_mut(index) {
+        for r in &refs {
+            if !take.playlists.contains(r) {
+                take.playlists.push(*r);
+            }
+        }
+    }
+    let shown = song_mut.clone();
+    let all = shown.takes.get(index).map(|t| t.playlists.clone()).unwrap_or_default();
+    if shown.active == Some(index) {
+        show_stems(e.session_mut(), &shown, &all);
+    }
+    store(e, &project)?;
+    Ok(json!({"song": id, "take": number, "stems": stems.len()}))
 }
 
 fn song_forget(e: &mut Engine, p: &Value) -> Result<Value> {

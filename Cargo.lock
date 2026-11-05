@@ -4512,8 +4512,10 @@ name = "soundcraft-plenio-backend"
 version = "0.17.0"
 dependencies = [
  "log",
+ "proptest",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.21",
  "ureq",
 ]
@@ -4523,6 +4525,7 @@ name = "soundcraft-plenio-commands"
 version = "0.17.0"
 dependencies = [
  "log",
+ "proptest",
  "serde_json",
  "soundcraft-engine",
  "soundcraft-midi",

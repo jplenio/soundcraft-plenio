@@ -98,6 +98,33 @@ fn main() {
     }
     steps(&mut harness, 6);
     shoot(&mut harness, "e2e-3-take.png");
+    // The score's notes are on their tracks; then stems, then the mix to the player.
+    let roles = |h: &egui_kittest::Harness<SoundApp>| {
+        Project::load(h.state().engine.session())
+            .ok()
+            .and_then(|p| p.songs.first().map(|s| s.tracks.iter().map(|t| t.role).collect::<Vec<_>>()))
+            .unwrap_or_default()
+    };
+    println!("roles after the take: {:?}", roles(&harness));
+    harness.get_by_label("Split this take into stems").click();
+    steps(&mut harness, 2);
+    let split = Instant::now();
+    while !roles(&harness).contains(&soundcraft_plenio_project::Role::Vocals) && split.elapsed() < Duration::from_secs(300) {
+        steps(&mut harness, 1);
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    println!("stems after {} s: {:?}", split.elapsed().as_secs(), roles(&harness));
+    steps(&mut harness, 4);
+    shoot(&mut harness, "e2e-4-stems.png");
+    harness.get_by_label("Send the mix to the Plenio Player").click();
+    let sent = Instant::now();
+    while !harness.state().engine.messages.iter().any(|m| m.starts_with("Plenio Player")) && sent.elapsed() < Duration::from_secs(120) {
+        steps(&mut harness, 1);
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    for m in harness.state().engine.messages.iter().rev().take(4) {
+        println!("message: {m}");
+    }
     let session = harness.state().engine.session();
     if let Ok(p) = Project::load(session) {
         for s in &p.songs {

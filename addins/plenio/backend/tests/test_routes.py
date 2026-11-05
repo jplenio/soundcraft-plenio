@@ -10,6 +10,9 @@ import sys
 import unittest
 from pathlib import Path
 
+# The copy of Plenio stays as it was copied: no bytecode caches in it.
+sys.dont_write_bytecode = True
+
 ADDIN = Path(__file__).resolve().parents[2]
 VENDOR = ADDIN / "vendor" / "plenio"
 sys.path.insert(0, str(VENDOR))

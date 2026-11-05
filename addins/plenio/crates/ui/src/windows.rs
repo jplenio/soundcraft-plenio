@@ -74,8 +74,23 @@ pub fn menu(ui_state: &mut PlenioUi, app: &mut SoundApp, ui: &mut egui::Ui) {
             ui_state.new_song = Some(NewSong::cover(t));
             ui.close();
         }
+        if ui.button("Import Plenio Song…").on_hover_text("A song Plenio made (its .plenio.json), to edit and make again here").clicked() {
+            let picked = app.services.pick_open.as_ref().and_then(|pick| pick("Import Plenio Song", &["json"]));
+            if let Some(path) = picked {
+                ui_state.import_record(app, path);
+            }
+            ui.close();
+        }
         if ui.button("Song Inspector").clicked() {
             ui_state.show_inspector = true;
+            ui.close();
+        }
+        if ui
+            .button("Open Plenio Player")
+            .on_hover_text("Every song the studio made, with the lyrics as they are sung, the sheet music and the visuals")
+            .clicked()
+        {
+            ui_state.open_player();
             ui.close();
         }
         ui.separator();
@@ -351,6 +366,11 @@ fn new_song(ui_state: &mut PlenioUi, app: &mut SoundApp, ctx: &egui::Context) {
         fields.insert("language".into(), json!(d.language));
         let mut params = json!({"kind": if d.kind == SongKind::Cover { "cover" } else { "song" }, "fields": fields});
         if let Some(t) = d.source {
+            if let Some((start, duration)) = excerpt(app, t) {
+                params["fields"]["excerpt.enabled"] = json!(true);
+                params["fields"]["excerpt.start_index"] = json!(start);
+                params["fields"]["excerpt.duration"] = json!(duration);
+            }
             params["source_track"] = json!(t.0);
             let name = app.engine.session().track(t).map(|t| format!("{} (Cover)", t.name)).unwrap_or_default();
             params["title"] = json!(name);
@@ -373,6 +393,23 @@ fn new_song(ui_state: &mut PlenioUi, app: &mut SoundApp, ctx: &egui::Context) {
     if open {
         ui_state.new_song = Some(d);
     }
+}
+
+/// The part of a cover's recording the edit selection covers, in seconds into its file, when there
+/// is a selection on the recording's track.
+pub fn excerpt(app: &SoundApp, track: TrackId) -> Option<(f64, f64)> {
+    let s = app.engine.session();
+    let sel = s.edit.selection;
+    if sel.is_empty() || !s.edit.selected_tracks.contains(&track) {
+        return None;
+    }
+    let clip = s.track(track)?.clips().first()?.clone();
+    let soundcraft_model::ClipContent::Audio { offset, .. } = clip.content else { return None };
+    let into_file = sel.start.saturating_sub(clip.start).saturating_add(offset).max(0);
+    let rate = f64::from(s.sample_rate.hz());
+    let start = into_file as f64 / rate;
+    let duration = (sel.end.saturating_sub(sel.start)) as f64 / rate;
+    (duration >= 1.0 && start.is_finite()).then_some(((start * 100.0).round() / 100.0, (duration * 100.0).round() / 100.0))
 }
 
 pub fn choices(field: Option<&Value>) -> Vec<String> {
@@ -464,6 +501,7 @@ fn inspector_body(ui_state: &mut PlenioUi, app: &mut SoundApp, ui: &mut egui::Ui
             });
         });
     }
+    take_actions(ui_state, app, ui, song);
     ui.separator();
     egui::CollapsingHeader::new("Lyrics").default_open(true).show(ui, |ui| lyrics(ui_state, app, ui, song));
     egui::CollapsingHeader::new("Brief").default_open(false).show(ui, |ui| brief(ui_state, app, ui, song));
@@ -615,6 +653,24 @@ fn field_editor(ui: &mut egui::Ui, song: u64, id: &str, field: &Value, current: 
             ui.add(egui::TextEdit::singleline(&mut t).desired_width(220.0)).lost_focus().then_some(Value::String(t))
         }
     }
+}
+
+/// What can be done with the take on the tracks: stems, and the mix to the player.
+fn take_actions(ui_state: &mut PlenioUi, app: &mut SoundApp, ui: &mut egui::Ui, song: &Song) {
+    let Some(t) = song.active_take() else { return };
+    let number = t.number;
+    ui.horizontal_wrapped(|ui| {
+        let busy = ui_state.splitting.contains(&song.id);
+        let label = if busy { "Splitting into stems…" } else { "Split this take into stems" };
+        let button = ui.add_enabled(!busy && ui_state.ready(), egui::Button::new(label));
+        if button.on_hover_text("Vocals, drums, bass, other and the rest, which together are the take (Plenio's BS-RoFormer)").clicked() {
+            ui_state.split_stems(app, song.id, number);
+        }
+        let send = ui.button("Send the mix to the Plenio Player");
+        if send.on_hover_text("Bounces the session's mix, with your effects, and plays it with the take's lyrics and notes").clicked() {
+            ui_state.send_to_player(app, song.id);
+        }
+    });
 }
 
 fn seeds(ui_state: &mut PlenioUi, app: &mut SoundApp, ui: &mut egui::Ui, song: &Song) {

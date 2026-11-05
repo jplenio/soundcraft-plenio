@@ -59,6 +59,8 @@ pub struct Job {
     pub seeds: BTreeMap<String, u64>,
     pub title: String,
     pub seconds: f64,
+    /// The folder of the release in the studio's output (on this computer).
+    pub folder: String,
     pub files: Vec<JobFile>,
     pub error: String,
     pub warnings: Vec<String>,
@@ -115,6 +117,7 @@ impl Job {
             progress,
             seeds,
             title: result.map(|r| text(r, "title")).unwrap_or_default(),
+            folder: result.map(|r| text(r, "folder")).unwrap_or_default(),
             seconds: result.and_then(|r| r.get("seconds")).and_then(Value::as_f64).filter(|s| s.is_finite() && *s >= 0.0).unwrap_or(0.0),
             files,
             error: error.unwrap_or_default(),

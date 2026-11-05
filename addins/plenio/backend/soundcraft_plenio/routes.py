@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 BASE = "/scp/v1"
-WRAPPER_VERSION = "0.1.0"
+WRAPPER_VERSION = "0.2.0"
 PACKAGE_ROOT = Path(__file__).resolve().parent
 VENDOR_ROOT = PACKAGE_ROOT / "plenio_vendor"
 MINIMAX = re.compile("minimax", re.IGNORECASE)
@@ -111,7 +111,7 @@ async def info(request: Any) -> Any:
             "vendor_commit": vendor.get("commit", ""),
             "comfyui": comfyui_version,
             "templates": list(TEMPLATES),
-            "paths": {"song_api": "/plenio/api/v1", "models": f"{BASE}/models"},
+            "paths": {"song_api": "/plenio/api/v1", "models": f"{BASE}/models", "stems": f"{BASE}/stems"},
         }
     )
 
@@ -146,6 +146,99 @@ async def models(request: Any) -> Any:
     return web.json_response(answer)
 
 
+
+
+SEPARATION_MODEL = "bs-roformer-4stem"
+"""The catalogue's separation model (BS-RoFormer, four stems)."""
+_separators: dict[str, Any] = {}
+"""Loaded separators by file: loaded once, kept while the studio runs."""
+
+
+def inside(path: Path, root: Path) -> bool:
+    """Whether ``path`` lies inside ``root`` (both resolved): the stems route reads and writes nowhere else."""
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def read_audio(path: Path) -> tuple[Any, int]:
+    """An audio file as float32 ``[channels, frames]`` at its own rate (PyAV, which ComfyUI brings)."""
+    import av
+    import numpy as np
+
+    with av.open(str(path)) as container:
+        stream = container.streams.audio[0]
+        rate = int(stream.rate)
+        layout = stream.layout.name if stream.layout is not None else "stereo"
+        resampler = av.AudioResampler(format="fltp", layout=layout, rate=rate)
+        chunks = []
+        for frame in container.decode(stream):
+            chunks.extend(f.to_ndarray() for f in resampler.resample(frame))
+        chunks.extend(f.to_ndarray() for f in resampler.resample(None))
+    if not chunks:
+        raise ValueError(f"{path.name} holds no audio")
+    return np.concatenate(chunks, axis=1).astype(np.float32), rate
+
+
+def separate_file(source: Path, target: Path, separator: Any) -> dict[str, Any]:
+    """Split ``source`` into Plenio's stems plus the rest (their sum is the source again) and write each
+    as FLAC into ``target``."""
+    from .plenio_vendor.plenio.core.audio.stems import REST, make_stems
+    from .plenio_vendor.plenio.core.release import write_audio
+
+    samples, rate = read_audio(source)
+    stems = make_stems(samples, rate, separator.separate(samples, rate), source=getattr(separator, "name", ""))
+    target.mkdir(parents=True, exist_ok=True)
+    files = {}
+    for name, signal in [*zip(stems.names, stems.stems, strict=True), (REST, stems.residual)]:
+        path = target / f"{name}.flac"
+        write_audio(path, signal, rate, "flac")
+        files[name] = str(path)
+    return {"rate": rate, "stems": files, "order": [*stems.names, REST]}
+
+
+async def stems(request: Any) -> Any:
+    import asyncio
+
+    from aiohttp import web
+
+    import folder_paths  # type: ignore[import-not-found]
+
+    from .plenio_vendor.plenio.comfy import audio_models
+    from .plenio_vendor.plenio.core import models as catalogue_module
+
+    try:
+        data = await request.json()
+    except ValueError:
+        return _error("bad_request", "the body is not JSON", 400)
+    output = Path(folder_paths.get_output_directory())
+    source = Path(str(data.get("file") or ""))
+    if not source.is_file() or not inside(source, output):
+        return _error("not_found", "the take must be a file of this studio's output folder", 404)
+    catalogue = catalogue_module.load_catalogue(VENDOR_ROOT / "resources" / "models.toml")
+    model = catalogue.get(SEPARATION_MODEL)
+    found = folder_paths.get_full_path(model.folder, model.file) if model else None
+    if not found:
+        return _error("missing_model", "the separation model (BS-RoFormer) is not installed", 409)
+
+    def work() -> dict[str, Any]:
+        separator = _separators.get(found)
+        if separator is None:
+            separator = audio_models.load("separation", model.file, Path(found)).engine
+            _separators[found] = separator
+        return separate_file(source, source.parent / f"{source.stem}-stems", separator)
+
+    try:
+        answer = await asyncio.to_thread(work)
+    except Exception as error:
+        log.exception("SoundCraft Plenio: stems")
+        return _error("internal", f"the stems were not made: {error}", 500)
+    return web.json_response(answer)
+
+
 def register(routes: Any) -> None:
     routes.get(BASE)(info)
     routes.get(f"{BASE}/models")(models)
+    routes.post(f"{BASE}/stems")(stems)

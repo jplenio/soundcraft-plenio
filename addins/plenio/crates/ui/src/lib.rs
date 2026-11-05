@@ -56,6 +56,12 @@ pub(crate) struct PlenioUi {
     pub waiting: Vec<(u64, Mode)>,
     /// Covers whose recording is uploading: upload tag → song.
     pub uploads: BTreeMap<u64, u64>,
+    /// Plenio songs being brought in: tag → (their record file, the record).
+    pub imports: BTreeMap<u64, (PathBuf, Value)>,
+    /// The player's address to open in the browser on the next frame.
+    pub open_url: Option<String>,
+    /// Songs being split into stems.
+    pub splitting: std::collections::BTreeSet<u64>,
     /// Takes waiting for their score's MIDI file: tag → (`plenio.take.add` parameters, the take's folder).
     pub held: BTreeMap<u64, (Value, PathBuf)>,
     /// The song the inspector shows.
@@ -97,6 +103,9 @@ impl PlenioUi {
             waiting: Vec::new(),
             uploads: BTreeMap::new(),
             held: BTreeMap::new(),
+            splitting: std::collections::BTreeSet::new(),
+            open_url: None,
+            imports: BTreeMap::new(),
             song: None,
             show_activation: false,
             show_about: false,
@@ -190,6 +199,13 @@ impl PlenioUi {
             }
             Event::Delivered { tag, delivery } => self.deliver(app, tag, *delivery),
             Event::Uploaded { tag, result } => self.uploaded(app, tag, result),
+            Event::Player(result) => match result {
+                Ok(url) => {
+                    app.engine.message(format!("Plenio Player: {url}"));
+                    self.open_url = Some(url);
+                }
+                Err(e) => app.engine.message(format!("Plenio Player: {e}")),
+            },
             Event::ModelProgress { file, done, total } => {
                 self.downloads.insert(file, (done, total));
             }
@@ -214,7 +230,13 @@ impl PlenioUi {
     }
 
     fn answer(&mut self, app: &mut SoundApp, tag: &str, result: Result<Value, String>) {
-        if let Some(t) = tag.strip_prefix("midi:").and_then(|t| t.parse().ok()) {
+        if let Some(t) = tag.strip_prefix("from-record:").and_then(|t| t.parse().ok()) {
+            self.imported(app, t, result);
+        } else if let Some((song, take)) = tag.strip_prefix("stems:").and_then(|r| r.split_once(':')) {
+            if let (Ok(song), Ok(take)) = (song.parse(), take.parse()) {
+                self.stems_done(app, song, take, result);
+            }
+        } else if let Some(t) = tag.strip_prefix("midi:").and_then(|t| t.parse().ok()) {
             self.score_midi(app, t, result);
         } else if let Some((song, mode)) = tag.strip_prefix("score-import:").and_then(|r| r.split_once(':')) {
             if let Ok(song) = song.parse() {
@@ -267,6 +289,9 @@ impl UiExtension for PlenioUi {
     }
 
     fn windows(&mut self, app: &mut SoundApp, ctx: &egui::Context) {
+        if let Some(url) = self.open_url.take() {
+            ctx.open_url(egui::OpenUrl::new_tab(url));
+        }
         windows::show(self, app, ctx);
     }
 
