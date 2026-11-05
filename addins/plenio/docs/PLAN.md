@@ -19,12 +19,12 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
 |---|---|---|
 | A | Analyse, Konzept, Entscheidungen | ✅ erledigt |
 | 0 | Fundament: Git, Seams S1–S6, Crate-Skelett, Plenio-Menü, Aktivieren-Schalter | ✅ erledigt |
-| 1 | Backend: Plenio-Kopie, Wrapper mit Stage-API, ComfyUI-Supervisor, Modelle | 🔶 begonnen |
-| 2 | MVP „YuE2 Song“ | ⬜ offen |
-| 3 | Noten und Stems | ⬜ offen |
-| 4 | YuE2 Cover | ⬜ offen |
-| 5 | Player und Release | ⬜ offen |
-| 6 | Härtung, Update-Probelauf, Doku | ⬜ offen |
+| 1 | Backend: Plenio-Kopie, Wrapper, ComfyUI-Supervisor, Modelle (Song-API statt eigener Stage-API) | ✅ erledigt |
+| 2 | MVP „YuE2 Song“ | ✅ erledigt |
+| 3 | Noten und Stems | ✅ erledigt (Browser-Score-Editor offen) |
+| 4 | YuE2 Cover | 🔶 gebaut, ohne echten Lauf |
+| 5 | Player und Release | ✅ erledigt („In SoundCraft öffnen“ offen) |
+| 6 | Härtung, Update-Probelauf, Doku | 🔶 großteils |
 
 ---
 
@@ -74,55 +74,63 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
   💡 Liest nur Git-Blobs des Commits (`ls-tree` + `cat-file`): nicht committete Änderungen in Plenio werden nie kopiert, jeder Sync eines Commits ergibt dieselben Dateien, das Plenio-Repo wird nicht verändert. `vendor/.gitattributes` hält LF-Zeilenenden wie Plenio (dessen Tests vergleichen byte-genau; SoundCraft arbeitet hier mit `core.autocrlf=true`).
 - [x] Erste Kopie nach `addins/plenio/vendor/plenio/`: Plenio 1.5.0 @ `f26972890377`, 1027 Dateien, ca. 18 MB
   💡 Kopiert: `plenio/`, `resources/`, `frontend/`, `tests/`, `tools/` (ohne `tools/tutorials/`), `subgraphs/` und `example_workflows/` ohne MiniMax, `locales/`, Lizenz-/Readme-Dateien, `pyproject.toml`, `requirements.txt`, Player-Starter. Nicht kopiert: `web/` (gebaute ComfyUI-Frontend-Erweiterung), `docs/`, `assets/` (Branding), `tools/tutorials/` (Sprecheraufnahme und Showcase-Bilder ungeklärter Herkunft, für Tests nicht nötig). MiniMax-Modelle stehen noch im kopierten `models.toml`; der Wrapper filtert sie zur Laufzeit.
-- [ ] Python-Wrapper `backend/soundcraft_plenio/`: eigener `comfy_entrypoint`, registriert nur die YuE2-relevanten Nodes und die kopierten Routen
-- [ ] Stage-API `/scp/v1`: `draft`, `plan`, `render`, `jobs/{id}?wait`, `DELETE`
-- [ ] ComfyUI-Supervisor (Rust, nach dem Vorbild von `plenio/player/studio.py`): ComfyUI finden, eigene Instanz mit eigenem Basisordner und freiem Port, Log, Leerlauf-Stopp
-  💡 Prüfen, ob `--base-directory` mit der installierten ComfyUI-Version funktioniert.
-- [ ] Systemcheck (`/scp/v1/system`) und Modellmanager (`/scp/v1/models`, Downloads mit Fortschritt, SHA-256, Lizenzbestätigung)
-- [ ] Golden-Test: Template „1 · YuE2 · Song“ im Original gegen die Stage-Kette, gleiche Seeds und Dokumente → gleiche Dokument-Hashes und gleiches Audio
-- [ ] Kopierte Plenio-Testsuite läuft gegen die Kopie (`tools/test_all.ps1`)
+- [x] Python-Wrapper `backend/soundcraft_plenio/`: eigener `comfy_entrypoint` = Plenios Extension unverändert + `/scp/v1`
+  💡 Plenio hat keine eigenen MiniMax-Nodes (MiniMax ist eine Engine-Wahl in Templates); es reicht, MiniMax-Templates, -Subgraphs und -Modelle wegzulassen. Ein Wächter beendet die Instanz, wenn SoundCraft weg ist (`SCP_PARENT_PID`).
+- [x] ~~Stage-API~~ → **Plenios Song-API direkt** (`/plenio/api/v1/jobs`, `?wait`, `DELETE`, `templates`, `briefs`, `uploads`, `from-record`); `/scp/v1` nur für Info, Modelle (ohne MiniMax) und Stems
+  💡 Anhalten nach Lyrics/Noten („Bei Lyrics/Noten anhalten“) gibt es damit nicht als Zwischenstopp; Lyrics und Noten lassen sich nach jedem Take ändern und neu generieren.
+- [x] ComfyUI-Supervisor: findet ComfyUI über Plenios `comfyui-start.json`, eigene Instanz mit `--base-directory`, `--models-directory` des Owners, freiem Port, Log; Stopp beim Schließen
+  💡 ComfyUI 0.43.0 unter `D:\Daten2\ComfyUI`, Modelle unter `F:\ComfyUI\models`. Live: bereit nach etwa 10 s. Leerlauf-Stopp noch nicht (Stop-Knopf im Studio-Fenster).
+- [x] Modellmanager (`/scp/v1/models` + Downloads in Rust mit Fortschritt, Fortsetzen und Größenprüfung; CC-BY-NC-Modelle erst nach Lizenzbestätigung)
+  💡 Systemcheck über `/plenio/system` (Plenios Route) möglich, im UI noch nicht angezeigt.
+- [x] ~~Golden-Test gegen eine Stage-Kette~~ entfällt: die Songs entstehen mit Plenios eigenem Template über die Song-API, also identisch zur Plenio-Nutzung
+  💡 Echte Läufe: 61-s-Instrumental (133 s), gesungener Song „Heavy in My Pocket“ (93,7 s, durch die SoundCraft-UI, 238 s).
+- [x] Kopierte Plenio-Testsuite gegen die Kopie: `tools/test_all.ps1 -Plenio <Checkout>` (pytest aus Plenios `.devdeps`, nur lesend)
 
 ### Phase 2 – MVP „YuE2 Song“
 
-- [ ] Dialog „Plenio › Neuer Song…“ (250 Genre-Templates mit Suche, Idee oder eigene Lyrics, Länge, Gesang)
-- [ ] Song-Ordner (Routing-Folder) mit Lyrics-, Noten- und Mix-Spur; Rollen in `Session.extensions`
-- [ ] Lyrics-Spur: Text statt Noten in der Lane, Live-Prüfung der YuE2-Regeln, Token-Budget
-- [ ] Lyrics-Editor-Panel (Abschnitts-Tags als Buttons, Silben, Budget, Status auto/bearbeitet/manuell, Diff zum letzten Take)
-- [ ] Inspector mit dynamischem Formular aus `/templates/{id}`
-- [ ] Generieren → Take als Playlist; Take-Wahl im Header schaltet alle Spuren gleichzeitig
-- [ ] Veraltet-Anzeige („● Lyrics geändert → Noten + Take“), Seeds sperren/würfeln
-- [ ] Jobs im Hintergrund mit Fortschritt und Abbrechen; jede Übernahme ist ein Undo-Schritt
-- [ ] Schalter „Bei Lyrics/Noten anhalten“
+- [x] Dialog „Plenio › Neuer Song…“ (250 Genre-Templates mit Suche, Idee oder eigene Lyrics, Länge, Gesang)
+- [x] Song-Ordner (Routing-Folder) mit Lyrics-, Noten- und Mix-Spur; Rollen in `Session.extensions`
+- [x] Lyrics-Spur: ein Clip je gesungener Zeile (aus Plenios `(lines).srt`), sonst je Abschnitt; Prüfung mit Plenios Regeln (`/plenio/lyrics/analyze`)
+  💡 Token-Budget und Silben zeigt Plenios Prüfung als Hinweise; eine eigene Budget-Anzeige gibt es nicht. Take-Wahl im Inspector (nicht im Spurkopf).
+- [x] Lyrics-Editor-Panel (Abschnitts-Tags als Buttons, Silben, Budget, Status auto/bearbeitet/manuell, Diff zum letzten Take)
+- [x] Inspector mit dynamischem Formular aus `/templates/{id}`
+- [x] Generieren → Take als Playlist; Take-Wahl im Header schaltet alle Spuren gleichzeitig
+- [x] Veraltet-Anzeige („● Lyrics geändert → Noten + Take“), Seeds sperren/würfeln
+- [x] Jobs im Hintergrund mit Fortschritt und Abbrechen; jede Übernahme ist ein Undo-Schritt
+- [ ] ~~Schalter „Bei Lyrics/Noten anhalten“~~ (die Song-API v1 hält nicht an; siehe Phase 1)
 
 ### Phase 3 – Noten und Stems
 
-- [ ] Score ↔ MIDI (Melodie, Akkorde, Begleitlinie) über die kopierten Routen `score/midi/*`
-- [ ] DAW-Pfad: bearbeitete Noten → YuE2 singt genau diese Noten
-- [ ] Tempo-Map und Tonart aus dem Score; Abschnitte als Memory Locations
-- [ ] Stems (Vocals, Drums, Bass, Other, Rest) als Spuren mit synchronen Take-Playlists; optional Stems als MIDI
+- [x] Score ↔ MIDI (Melodie, Akkorde, Begleitlinie) über `/plenio/score/midi/export|import`; stumme Instrument-Spuren mit Synth zum Vorhören
+- [x] DAW-Pfad: bearbeitete Noten → zurück an Plenio (Conductor-Track mit Layout und unveränderte Spuren byte-genau) → YuE2 singt genau diese Noten
+- [x] Tempo, Takt und Tonart aus dem Score (erster Take einer sonst leeren Session); Abschnitte als farbige Blöcke in der Song-Lane
+  💡 Memory Locations werden nicht angelegt (mehrere Songs in einer Session würden sich mischen).
+- [x] Stems (Vocals, Drums, Bass, Other, Rest) mit Plenios BS-RoFormer über `/scp/v1/stems`, als Spuren mit Take-Playlists; Mix-Spur stumm, solange ein Take mit Stems spielt
+  💡 Live: 61-s-Take in 21,7 s. Stems als MIDI noch nicht.
 - [ ] Browser-Score-Editor (kopiertes Vue-Frontend mit SoundCraft-Adapter im Overlay), Änderungen fließen in die Session zurück
 
 ### Phase 4 – YuE2 Cover
 
-- [ ] „Plenio-Cover daraus…“ auf Spur oder Auswahl (Auswahl = Ausschnitt)
+- [x] „New Cover from Selected Track…“ und im Kontextmenü; Edit-Auswahl = Ausschnitt (`excerpt.start_index/duration`); Upload über `/plenio/api/v1/uploads`
 - [ ] Analyse: Tempo/Beat-Grid, Original-Noten, gehörte Lyrics (unsichere Wörter markiert), gesungene Tonhöhe
-- [ ] Modi instrumental / original lyrics / new lyrics; Harmonie, song flow closeness, lyrics closeness, original notes; Fit Lyrics
+- [x] Alle Cover-Felder der Song-API im Inspector-Formular (Modi, Harmonie, Closeness, original notes); Fit Lyrics macht Plenio im Template
 - [ ] A/B gegen das Original; Golden-Test Cover
 
 ### Phase 5 – Player und Release
 
-- [ ] Player-Sidecar (kopierter Player mit eigenem Zustandsordner)
-- [ ] „An Player senden“: Bounce → Export Release (Tags, Lyrics-Timing, PDF, `.plenio.json`), Mastering optional
+- [x] Player-Sidecar: kopierter Player, eigener Zustandsordner und Port, Bibliothek = Ausgabe der Instanz; Party-Songs gehen an die Instanz (`studio.json`)
+- [x] „Send the mix to the Plenio Player“: `file.bounce_mix` (FLAC 24 bit) + Record aus dem des Takes (Dokumente, Lyrics-Timing als `(lines).srt`)
+  💡 Ohne Plenio-Mastering und ohne PDF; der Mix ist SoundCraft's.
 - [ ] Rückweg „In SoundCraft öffnen“ (Overlay statt „Open in ComfyUI“, über den Control-Channel)
-- [ ] Plenio-FLAC und Party-Songs als regenerierbaren Plenio-Song übernehmen
+- [x] „Import Plenio Song…“: `.plenio.json` + Audio daneben → Song mit Feldern und Seeds aus `/from-record`, Take mit Lyrics und Noten (auch Party-Songs aus der Player-Bibliothek)
 
 ### Phase 6 – Härtung
 
 - [ ] Paritäts-Checkliste (Song, Cover, DAW, Best Take, Check Vocals, 4 LoRAs, Creativity, Creative Modes, Master, Stems, Cover-Art, Export, Continue)
-- [ ] Fuzzing der Backend-Antworten (feindliche Eingaben)
+- [x] Property-Tests mit feindlichen Eingaben: Job, Record, Score, SRT (`backend/tests/hostile.rs`), MIDI-Splicing (`commands/tests/hostile_midi.rs`); Pfadschutz der Stems-Route live geprüft
 - [ ] Update-Probelauf: SoundCraft-Upstream (`tools/update_soundcraft.ps1`) und Plenio-Sync ohne Handarbeit
 - [ ] Seams als allgemeine Extension-API upstream einreichen (freigegeben, 9.2)
-- [ ] Benutzer- und Entwicklerdoku
+- [x] Benutzer- und Entwicklerdoku: `addins/plenio/README.md`, `docs/architecture.md › Extensions`
 
 ---
 

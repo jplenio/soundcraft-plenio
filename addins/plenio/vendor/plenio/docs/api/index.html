@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plenio Song API</title>
+    <meta name="description" content="Make songs with Plenio from any program: the Song API reference (OpenAPI 3.1)." />
+    <style>
+      body {
+        margin: 0;
+        background: #0f0d18;
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        padding: 12px 18px;
+        background: #0f0d18;
+        color: #e9e6f5;
+        font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      .bar b {
+        font-size: 16px;
+      }
+      .bar a {
+        color: #b9a6ff;
+      }
+      redoc {
+        display: block;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <b>Plenio Song API</b>
+      <span>Make songs from any program, on your own ComfyUI.</span>
+      <a href="https://github.com/jplenio/Plenio-Music-Production-System/blob/main/docs/api/README.md">The guide</a>
+      <a href="https://github.com/jplenio/Plenio-Music-Production-System/blob/main/docs/api/fields.md">Every field</a>
+      <a href="https://github.com/jplenio/Plenio-Music-Production-System/tree/main/docs/api/examples">Examples</a>
+      <a href="openapi.json">openapi.json</a>
+    </div>
+    <redoc spec-url="openapi.json" hide-hostname="false" expand-responses="200,201" path-in-middle-panel="true"></redoc>
+    <script src="https://cdn.jsdelivr.net/npm/redoc@2.5.4/bundles/redoc.standalone.js"></script>
+  </body>
+</html>

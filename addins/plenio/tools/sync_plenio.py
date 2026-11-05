@@ -44,6 +44,9 @@ FOLDERS = (
     "subgraphs/",
     "example_workflows/",
     "locales/",
+    "docs/api/",
+    "docs/design/data/",
+    "web/docs/",
 )
 # Single files at the top of the checkout.
 FILES = (
@@ -59,6 +62,7 @@ FILES = (
     "plenio_player.py",
     "plenio_player.sh",
     "Plenio Player.bat",
+    "docs/user/models.md",
 )
 # Folders left out although their parent is copied: the tutorial videos' production files (their
 # narration and showcase images are not needed and not ours to redistribute here).
@@ -147,9 +151,14 @@ def recorded_hashes() -> dict[str, str]:
 
 
 def present_files() -> dict[str, Path]:
+    """The files of the copy, without Python's bytecode caches (never Plenio's own files)."""
     if not TREE.is_dir():
         return {}
-    return {p.relative_to(TREE).as_posix(): p for p in TREE.rglob("*") if p.is_file()}
+    return {
+        p.relative_to(TREE).as_posix(): p
+        for p in TREE.rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"
+    }
 
 
 def sync(source: Path, ref: str, dry_run: bool) -> int:

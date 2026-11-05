@@ -6,6 +6,34 @@ Johannes Plenio, built into SoundCraft. MiniMax is not part of it.
 
 The plan, the decisions and the progress are in [docs/PLAN.md](docs/PLAN.md).
 
+## Using it
+
+1. **Plenio › Activate Plenio Add-in…** - accept the models' licences (YuE2 and SheetSage2 are
+   CC BY-NC 4.0, non-commercial). The add-in starts its **studio**: a ComfyUI instance of its own with
+   Plenio inside, using the ComfyUI and the models already on this computer (found the way Plenio last
+   started ComfyUI). Your own ComfyUI and Plenio stay as they are. **Plenio › Studio and Models…**
+   shows the studio, every model the YuE2 templates need, and downloads missing ones.
+2. **Plenio › New Song…** - a template (250), an idea or your own lyrics, vocals, length, language.
+   SoundCraft gets a folder track named after the song with its tracks:
+   - the **song lane** (the folder) shows the song's sections; its header the take and what changed,
+   - **Lyrics**: one clip per line, where it is sung,
+   - **Song**: the take's audio - every take on a playlist of its own,
+   - **Melody**, **Instrument Line**, **Chords**: the score as MIDI (muted; unmute to hear the notes).
+3. The **Plenio Song** inspector: choose a take, change the lyrics (YuE2's section tags as buttons;
+   *Check* runs Plenio's own rules), the brief (every field of the Song API's template), lock seeds.
+   **Generate** does what the changes call for: new words get new notes, notes you changed on the score
+   tracks are sung as written, a changed brief writes the song anew, nothing changed is a new take.
+4. **Split this take into stems** - vocals, drums, bass, other and the rest (together exactly the
+   take), on tracks of their own; the song track is muted while a take with stems plays.
+5. **Plenio › New Cover from Selected Track…** - a cover of the recording on an audio track; an edit
+   selection on it becomes the excerpt.
+6. **Send the mix to the Plenio Player** - the session's mix with your effects, with the take's lyrics
+   and notes, in the Plenio Player; **Plenio › Open Plenio Player** shows every song the studio made.
+7. **Plenio › Import Plenio Song…** - a song Plenio made (its `.plenio.json`), to edit and make again.
+
+Every change goes through the add-in's commands (`plenio.*`), one undo step each; the control channel
+reaches them too (`plenio.status`, `plenio.song.new`, `plenio.take.select` …).
+
 ## How it fits into SoundCraft
 
 Everything of the add-in lives in this folder. SoundCraft itself only has three general entry points
@@ -13,27 +41,36 @@ for add-ins (see [docs/architecture.md › Extensions](../../docs/architecture.m
 
 | Entry point | Where | The add-in uses it for |
 |---|---|---|
-| `Session::extensions` | `crates/model` | its songs and their tracks, under the key `plenio` |
+| `Session::extensions` | `crates/model` | its songs, takes and their tracks, under the key `plenio` |
 | `register_extension_commands` | `crates/engine` | its commands `plenio.*` |
 | `UiExtension` | `crates/ui-egui` | the Plenio menu, its windows, its drawing on tracks |
 
 The app turns the add-in on with the Cargo feature `plenio` of `apps/soundcraft` (on by default in
 this branch): `cargo build -p soundcraft --no-default-features` builds SoundCraft without it.
 
-## Crates
+Songs are made by Plenio's **Song API** (`/plenio/api/v1`) in the add-in's own ComfyUI instance;
+the editor's routes (`/plenio/score/midi/*`, `/plenio/lyrics/analyze`) and `/plenio/api/v1/from-record`
+serve the notes, the lyrics check and imports. The add-in's wrapper adds only `/scp/v1` (who it is,
+the models without MiniMax, stems).
 
-| Crate | Layer | What it holds |
-|---|---|---|
-| `crates/project` (`soundcraft-plenio-project`) | 2 | the songs and the roles of their tracks, read from and written to the session |
-| `crates/backend` (`soundcraft-plenio-backend`) | 4 | the add-in's settings; to come: the ComfyUI instance, the stage API client, model downloads |
-| `crates/commands` (`soundcraft-plenio-commands`) | 4 | the engine commands `plenio.*` |
-| `crates/ui` (`soundcraft-plenio-ui`) | 6 | the menu, the windows, the track drawing |
+## Folders
+
+| Folder | What it holds |
+|---|---|
+| `crates/project` (`soundcraft-plenio-project`, L2) | songs, takes, the roles of their tracks, and what the next take is made from |
+| `crates/backend` (`soundcraft-plenio-backend`, L4) | settings, finding ComfyUI, the instance, the Song API client, the player, model downloads |
+| `crates/commands` (`soundcraft-plenio-commands`, L4) | the engine commands `plenio.*`, the score on MIDI tracks and back |
+| `crates/ui` (`soundcraft-plenio-ui`, L6) | the menu, the windows, the track drawing; `examples/plenio_e2e.rs` makes a whole song through the UI |
+| `backend/soundcraft_plenio` | the ComfyUI package: Plenio's extension unchanged, plus `/scp/v1` and a watch on SoundCraft's process |
+| `vendor/plenio` | Plenio, copied unchanged (`tools/sync_plenio.py`; `VENDOR.toml` says from which commit) |
+| `tools` | `sync_plenio.py` (copy Plenio again, `--check`), `update_soundcraft.ps1` (upstream updates), `test_all.ps1` (every check) |
 
 Every crate follows SoundCraft's rules: `[lints] workspace = true`, the crate-level `deny` of
-`unwrap`/`expect`/`panic`, no `unsafe`, everything read from files or the backend treated as hostile.
+`unwrap`/`expect`/`panic`, no `unsafe`, everything read from files or the studio treated as hostile,
+nothing that waits on the UI or audio thread.
 
 ## Licences
 
-The Rust code here is under SoundCraft's licence (MIT OR Apache-2.0). Plenio's code, copied into
-`vendor/` in the next milestone, stays under its own Apache-2.0 licence with its NOTICE. The models
-have licences of their own: YuE2 and SheetSage2 are CC BY-NC 4.0 (non-commercial).
+The Rust and Python code here is under SoundCraft's licence (MIT OR Apache-2.0). Plenio's code in
+`vendor/` stays under its own Apache-2.0 licence with its NOTICE. The models have licences of their
+own: YuE2 and SheetSage2 are CC BY-NC 4.0 (non-commercial).
