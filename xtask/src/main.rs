@@ -47,14 +47,28 @@ fn layers() -> Result<(), String> {
         Command::new("cargo").args(["metadata", "--format-version", "1", "--no-deps"]).current_dir(root()).output().map_err(|e| e.to_string())?;
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).map_err(|e| e.to_string())?;
     let mut problems = Vec::new();
-    for p in v["packages"].as_array().cloned().unwrap_or_default() {
+    let packages = v["packages"].as_array().cloned().unwrap_or_default();
+    // A crate outside the table, such as an add-in's, declares its layer (0 to 6) in its manifest:
+    // `[package.metadata.soundcraft] layer = 4`.
+    let declared: Vec<(String, u8)> = packages
+        .iter()
+        .filter_map(|p| {
+            let short = p["name"].as_str()?.trim_start_matches("soundcraft-").to_string();
+            let layer = u8::try_from(p["metadata"]["soundcraft"]["layer"].as_u64()?).ok().filter(|l| *l <= 6)?;
+            Some((short, layer))
+        })
+        .collect();
+    let layer_of = |short: &str| {
+        LAYERS.iter().find(|(n, _)| *n == short).map(|&(_, l)| l).or_else(|| declared.iter().find(|(n, _)| n == short).map(|&(_, l)| l))
+    };
+    for p in packages {
         let name = p["name"].as_str().unwrap_or("").to_string();
         if EXEMPT.contains(&name.as_str()) {
             continue;
         }
         let short = name.trim_start_matches("soundcraft-");
-        let Some(&(_, layer)) = LAYERS.iter().find(|(n, _)| *n == short) else {
-            problems.push(format!("{name}: not registered in xtask LAYERS"));
+        let Some(layer) = layer_of(short) else {
+            problems.push(format!("{name}: not registered in xtask LAYERS (or in its manifest: [package.metadata.soundcraft] layer)"));
             continue;
         };
         for d in p["dependencies"].as_array().cloned().unwrap_or_default() {
@@ -67,7 +81,7 @@ fn layers() -> Result<(), String> {
                 if STANDALONE.contains(&short) && kind != "dev" {
                     problems.push(format!("{name} is standalone but depends on {dn}"));
                 }
-                if let Some(&(_, dl)) = LAYERS.iter().find(|(n, _)| *n == ds)
+                if let Some(dl) = layer_of(ds)
                     && dl > layer
                     && kind != "dev"
                 {

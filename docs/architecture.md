@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-13 · **Change:** trivial (delay compensation includes the master faders' inserts (#351); previously minor: bounces stream to disk) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-05 · **Change:** minor (extensions: add-ins built into the app; previously trivial: delay compensation includes the master faders' inserts (#351)) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 SoundCraft is a Cargo workspace of small crates with enforced layering (`cargo xtask layers`).
 Nothing below the UI knows about egui, so the interface can be replaced.
@@ -74,10 +74,31 @@ The desktop app's control channel (JSON lines over TCP) exposes engine commands,
 synthetic input and screenshots; `soundcraft-cli mcp` wraps either a headless engine or a running
 app as an MCP server. See `control-protocol.md` and `mcp.md`.
 
+## Extensions
+
+An add-in built into an app extends SoundCraft through three small, general entry points, without
+changes to the code around them:
+
+- **Document data:** `Session::extensions` maps an extension's key (`"plenio"`) to text it owns,
+  usually JSON. It is saved, undone, autosaved and bundled with the session; SoundCraft never reads
+  it and bounds it on load (`Session::MAX_EXTENSIONS`, `MAX_EXTENSION_BYTES`).
+- **Commands:** `soundcraft_engine::cmd::register_extension_commands` adds `CommandSpec`s before the
+  registry is first read (the app calls it first thing in `main`). They run through
+  `Engine::execute` like SoundCraft's own, with undo, and the CLI, control channel and MCP reach
+  them. An id SoundCraft already uses is left out and reported (`refused_extension_commands`).
+- **UI:** `soundcraft_ui_egui::extension::UiExtension` hooks into the frame logic, the menu bar, the
+  windows, the Edit window's track headers, lanes and track context menu (`SoundApp::add_extension`).
+  A hook that panics stops that extension; the app goes on.
+
+Add-in crates live in `addins/<name>/crates/*` (workspace members) and declare their layer in their
+manifest (`[package.metadata.soundcraft] layer = N`), which `cargo xtask layers` checks like the
+table of SoundCraft's own crates.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-05 | minor | Extensions: session data, extension commands, the UI hook trait and manifest-declared layers for add-in crates |
 | 2026-10-13 | trivial | delay compensation includes the master faders' inserts (#351) |
 | 2026-10-10 | minor | Added video, vst3-host and au-host to the layer diagram; documented device I/O limits and in-memory media |
 | 2026-10-05 | major | First architecture overview |
