@@ -25,6 +25,12 @@ pub enum SettingsError {
 pub struct Settings {
     /// The add-in is activated: its menus offer songs, and its setup is done.
     pub activated: bool,
+    /// The ComfyUI folder chosen by hand; empty: the one Plenio last started, else a usual place.
+    pub comfyui: Option<PathBuf>,
+    /// The owner accepted the models' licences (YuE2 and SheetSage2: CC BY-NC 4.0, non-commercial).
+    pub licences_accepted: bool,
+    /// Start the studio with SoundCraft when the add-in is activated.
+    pub start_with_soundcraft: bool,
 }
 
 impl Settings {
@@ -78,7 +84,7 @@ mod tests {
     fn settings_default_until_saved_then_round_trip() {
         let dir = folder("round-trip");
         assert_eq!(Settings::load(&dir).unwrap(), Settings::default());
-        let on = Settings { activated: true };
+        let on = Settings { activated: true, comfyui: Some(PathBuf::from("D:/ComfyUI")), ..Settings::default() };
         on.save(&dir).unwrap();
         assert_eq!(Settings::load(&dir).unwrap(), on);
         Settings::default().save(&dir).unwrap();
@@ -97,8 +103,8 @@ mod tests {
         std::fs::write(&path, vec![b' '; usize::try_from(MAX_BYTES).unwrap() + 1]).unwrap();
         assert!(matches!(Settings::load(&dir), Err(SettingsError::Format(..))));
         // Unknown keys from a later add-in are ignored.
-        std::fs::write(&path, r#"{"activated": true, "comfyui": "later"}"#).unwrap();
-        assert_eq!(Settings::load(&dir).unwrap(), Settings { activated: true });
+        std::fs::write(&path, r#"{"activated": true, "a_later_option": "x"}"#).unwrap();
+        assert_eq!(Settings::load(&dir).unwrap(), Settings { activated: true, ..Settings::default() });
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
