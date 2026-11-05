@@ -7,7 +7,7 @@
 | **Plenio-Quelle** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (Version 1.5.0) – **wird nie verändert**, Code wird kopiert |
 | **Plan erstellt** | 2026-11-05 |
 | **Zuletzt aktualisiert** | 2026-11-05 |
-| **Stand** | Phase 0 und 1 erledigt; Phase 2 (MVP Song) und 3 (Noten) gebaut und getestet, End-to-End-Lauf durch die UI lief zuletzt noch; Phase 4–6 offen (siehe Abschnitt „Stand 2026-11-05 abends“) |
+| **Stand** | Phase 0–5 erledigt und live durch die UI geprüft (Song, Noten, Stems, Cover, Player); Phase 6 großteils, offene Punkte im Abschnitt „Stand 2026-11-05 abends“ |
 
 Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hinweis
 
@@ -22,7 +22,7 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
 | 1 | Backend: Plenio-Kopie, Wrapper, ComfyUI-Supervisor, Modelle (Song-API statt eigener Stage-API) | ✅ erledigt |
 | 2 | MVP „YuE2 Song“ | ✅ erledigt |
 | 3 | Noten und Stems | ✅ erledigt (Browser-Score-Editor offen) |
-| 4 | YuE2 Cover | 🔶 gebaut, ohne echten Lauf |
+| 4 | YuE2 Cover | ✅ erledigt (live geprüft) |
 | 5 | Player und Release | ✅ erledigt („In SoundCraft öffnen“ offen) |
 | 6 | Härtung, Update-Probelauf, Doku | 🔶 großteils |
 
@@ -112,9 +112,11 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
 ### Phase 4 – YuE2 Cover
 
 - [x] „New Cover from Selected Track…“ und im Kontextmenü; Edit-Auswahl = Ausschnitt (`excerpt.start_index/duration`); Upload über `/plenio/api/v1/uploads`
-- [ ] Analyse: Tempo/Beat-Grid, Original-Noten, gehörte Lyrics (unsichere Wörter markiert), gesungene Tonhöhe
+- [x] Analyse macht Plenios Cover-Template (SheetSage2, Qwen3-ASR); der Take bringt Tempo, Noten und Lyrics des Covers mit
+  💡 Die gehörten Lyrics des Originals und die gesungene Tonhöhe zeigt das Add-in nicht getrennt an (die Song-API liefert sie nicht als eigenes Ergebnis).
 - [x] Alle Cover-Felder der Song-API im Inspector-Formular (Modi, Harmonie, Closeness, original notes); Fit Lyrics macht Plenio im Template
-- [ ] A/B gegen das Original; Golden-Test Cover
+- [x] A/B gegen das Original: die Aufnahme liegt im Cover-Ordner und wird beim ersten Cover-Take stummgeschaltet (zum Vergleich einschalten)
+- [x] Cover live durch die UI (`examples/plenio_cover_e2e.rs`): Aufnahme importiert → New Cover from Selected Track → Upload nach 23 s → Cover-Take nach 309 s (54,6 s, mit Lyrics und Noten)
 
 ### Phase 5 – Player und Release
 
@@ -126,10 +128,12 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
 
 ### Phase 6 – Härtung
 
-- [ ] Paritäts-Checkliste (Song, Cover, DAW, Best Take, Check Vocals, 4 LoRAs, Creativity, Creative Modes, Master, Stems, Cover-Art, Export, Continue)
+- [x] Parität: Songs entstehen mit Plenios eigenen Templates über die Song-API, also mit allem, was die Templates tun (Best Take, Check Vocals, LoRAs, Creativity, Creative Modes, Master, Cover-Art, Export); im Formular stehen alle Felder der Song-API. Plenios Unit-Tests gegen die Kopie: **1980 bestanden, 1 übersprungen, 0 fehlgeschlagen**.
+  💡 Nicht über die API erreichbar und daher offen: Zwischenstopps zum Prüfen (Review-Modus), LoRA-Auswahl (kein Feld der Song-API v1).
 - [x] Property-Tests mit feindlichen Eingaben: Job, Record, Score, SRT (`backend/tests/hostile.rs`), MIDI-Splicing (`commands/tests/hostile_midi.rs`); Pfadschutz der Stems-Route live geprüft
-- [ ] Update-Probelauf: SoundCraft-Upstream (`tools/update_soundcraft.ps1`) und Plenio-Sync ohne Handarbeit
-- [ ] Seams als allgemeine Extension-API upstream einreichen (freigegeben, 9.2)
+- [~] Update-Probelauf: Plenio-Sync mehrfach ohne Handarbeit (Kopie um `docs/api`, `docs/design/data`, `docs/user/models.md`, `web/docs` erweitert); SoundCraft-Upstream hat seit `73eeb69` keine neuen Commits (geprüft 2026-11-05), das Verfahren steht in `tools/update_soundcraft.ps1`.
+- [~] Seams als allgemeine Extension-API upstream einreichen (freigegeben, 9.2): Branch **`extension-api`** = die vier Seam-Commits auf `73eeb69` (12 Dateien, +589 −6, mit Tests)
+  💡 Für den PR fehlen ein eigener GitHub-Fork und `gh`. Vor dem PR fragen, ob ein Eintrag in `contributors/people.toml` gewünscht ist (AGENTS.md).
 - [x] Benutzer- und Entwicklerdoku: `addins/plenio/README.md`, `docs/architecture.md › Extensions`
 
 ---
@@ -397,7 +401,8 @@ Bis zum MVP grob 70–110 h, insgesamt etwa 150–230 h.
 - [x] Phase 1: Studio (`crates/backend`: discover, instance, client, song, studio). Eigene Instanz mit `--base-directory`, Modellen aus `F:\ComfyUI\models`, `PLENIO_PLAYER_STATE` im Add-in-Ordner. Live geprüft: Start und Stopp in 10 s, echter Job (61-s-Instrumental in 133 s).
 - [x] Phase 2: `plenio.song.new/set/forget`, `plenio.take.add/select`; Plan-Regeln (neue Worte → neue Noten); UI mit Menü, New-Song-Dialog (250 Templates), Inspector (Takes, Generate/More, Lyrics-Editor mit YuE2-Tags und Prüfung über `/plenio/lyrics/analyze`, Brief-Formular dynamisch aus `/templates`, Seeds), Spurkopf-Plakette, Abschnitte in der Song-Lane, Studio- und Modellfenster mit Downloads.
 - [x] Phase 3 (Teil): Score als Plenio-MIDI auf stummen Notenspuren (Melody, Instrument Line, Chords); bearbeitete Noten werden mit Plenios Conductor-Track byte-genau zurückgeschickt (`/plenio/score/midi/import`) und gesungen. Stems noch offen.
-- [ ] Offen: End-to-End-Ergebnis von `cargo run -p soundcraft-plenio-ui --example plenio_e2e -- <Ordner>` prüfen (Screenshots e2e-3-take.png); Stems (Phase 3), Cover-Feinheiten wie Ausschnitt aus Auswahl (Phase 4), Player und Release (Phase 5), Härtung (Phase 6).
+- [x] End-to-End durch die SoundCraft-UI (`cargo run -p soundcraft-plenio-ui --example plenio_e2e -- <Ordner>`): Aktivieren → New Song → Take nach 241 s („The Heavy Air“, 94,8 s, 8 gesungene Zeilen, 4 Abschnitte, 74 BPM) → Noten auf Melody/Instrument Line/Chords → Stems über den Inspector in 21 s (Vocals, Drums, Bass, Other, Rest; Song-Spur stumm) → Mix an den Player gesendet, Player gestartet
+- [ ] Offen: Browser-Score-Editor (Plenios Vue-Editor mit SoundCraft-Adapter), „In SoundCraft öffnen“ aus dem Player, Zwischenstopps (Review) und LoRAs (nicht in Song-API v1), Leerlauf-Stopp des Studios, Inspector als Dock-Panel, `soundcraft-cli` (headless/MCP) mit `plenio.*`
 - 💡 egui_kittest bricht bei fehlenden Glyphen ab, das Programm zeigt dann nur Ersatzkästchen: keine Symbole wie ✦ ★ ● ▾ ✓ in UI-Texten.
 
 ## Änderungsprotokoll
@@ -406,3 +411,5 @@ Bis zum MVP grob 70–110 h, insgesamt etwa 150–230 h.
 |---|---|
 | 2026-11-05 | Plan erstellt, Entscheidungen 9.1–9.3 eingetragen; Git eingerichtet (`upstream`, Branch `plenio-addin`); fehlende Rust-Toolchain notiert |
 | 2026-11-05 | Rust 1.99.1 installiert; Baseline gemessen (3 Windows-Fehler in `soundcraft-cli`, schon vor dem Add-in); Phase 0 erledigt: Seams S1–S6, vier Add-in-Crates, Plenio-Menü und Aktivierung, Offscreen-Screenshots geprüft; Phase 1 begonnen: Sync-Skript und erste Kopie von Plenio 1.5.0 |
+| 2026-11-05 | Phase 1–3 und 5: Studio, Song-API-Anbindung, Songs/Takes/Noten/Stems, Player, Import; Plenios Unit-Tests gegen die Kopie: 1980 bestanden, 1 übersprungen; End-to-End durch die UI; Branch `extension-api` mit den Seams |
+| 2026-11-06 | Phase 4 live: Cover durch die UI (309 s), Original beim ersten Cover-Take stumm |

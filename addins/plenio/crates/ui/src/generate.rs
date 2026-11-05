@@ -67,7 +67,12 @@ impl PlenioUi {
         let body = job_body(&s.template, &Value::Object(fields), &Value::Object(documents), &Value::Object(seeds));
         let tag = self.tag();
         let into = self.takes_dir(app, song, tag);
-        app.engine.message(format!("Plenio: {} - {}.", s.title, plan.what.label()));
+        let what = if s.kind == SongKind::Cover && plan.what == soundcraft_plenio_project::What::NewSong {
+            "read the recording, then write and render the cover"
+        } else {
+            plan.what.label()
+        };
+        app.engine.message(format!("Plenio: {} - {what}.", s.title));
         self.jobs.insert(tag, Pending { song, what: plan.what, fields: plan.fields, job: None });
         self.studio.send(Request::Submit { tag, body, into });
     }

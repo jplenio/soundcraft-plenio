@@ -305,6 +305,12 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
     // The take's audio on a playlist of its own.
     let index = take_playlist(e.session_mut(), mix, &label).ok_or_else(|| bad(ID, "the song's audio track is gone"))?;
     inner(e, "file.import_audio", &json!({"path": audio, "track": mix.0, "at": 0}))?;
+    // A cover's first take: the original is muted, so the two do not play at once (unmute it for A/B).
+    if song.takes.is_empty()
+        && let Some(source) = song.track(Role::Source).and_then(|t| e.session_mut().track_mut(t))
+    {
+        source.mixer.mute = true;
+    }
     take.playlists.push(PlaylistRef { track: mix, index });
     // Its lyrics on the lyrics track.
     if let Some(lyrics) = song.track(Role::Lyrics) {

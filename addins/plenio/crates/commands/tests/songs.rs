@@ -157,3 +157,26 @@ fn stems_play_instead_of_the_mix_and_only_for_their_take() {
     assert!(e.execute("plenio.stems.add", &json!({"song": song, "take": 2, "stems": [["kazoo", path]]})).is_err());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_covers_first_take_mutes_the_original() {
+    soundcraft_plenio_commands::register();
+    soundcraft_plenio_commands::set_activated(true);
+    let dir = std::env::temp_dir().join(format!("scp-cover-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let audio = dir.join("take.wav");
+    wav(&audio);
+    let mut e = Engine::default();
+    let imported = e.execute("file.import_audio", &json!({"path": audio.to_string_lossy()})).unwrap();
+    let source = TrackId(imported["imported"][0]["track"].as_u64().unwrap());
+    let made = e.execute("plenio.song.new", &json!({"kind": "cover", "source_track": source.0})).unwrap();
+    let song = made["song"].as_u64().unwrap();
+    let folder = TrackId(made["tracks"]["song"].as_u64().unwrap());
+    assert_eq!(e.session().track(source).unwrap().folder, Some(folder), "the recording moves into the cover's folder");
+    assert!(!e.session().track(source).unwrap().mixer.mute);
+    e.execute("plenio.take.add", &json!({"song": song, "audio": audio.to_string_lossy(), "take": take("c", json!([]))})).unwrap();
+    assert!(e.session().track(source).unwrap().mixer.mute);
+    let p = Project::load(e.session()).unwrap();
+    assert_eq!(p.song(song).unwrap().track(Role::Source), Some(source));
+    let _ = std::fs::remove_dir_all(&dir);
+}
