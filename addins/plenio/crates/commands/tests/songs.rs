@@ -64,7 +64,7 @@ fn a_song_gets_its_tracks_and_every_take_its_playlists() {
     let s = e.session();
     let mix_track = s.track(mix).unwrap();
     assert_eq!(mix_track.playlists.len(), 1);
-    assert_eq!(mix_track.playlists[0].name, "Take 1 ★4.5");
+    assert_eq!(mix_track.playlists[0].name, "Take 1 · 4.5 stars");
     assert_eq!(mix_track.playlists[0].clips.len(), 1);
     let lyric = &s.track(lyrics).unwrap().playlists[0].clips;
     assert_eq!(lyric.len(), 1);

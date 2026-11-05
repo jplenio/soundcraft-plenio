@@ -86,13 +86,17 @@ pub struct Take {
     pub key: String,
     /// Where the take lies on the song's tracks.
     pub playlists: Vec<PlaylistRef>,
+    /// The score's MIDI file: which of its tracks went to which score role (`melody`, …).
+    pub midi_tracks: BTreeMap<String, usize>,
+    /// What the score tracks held when the take was laid out, to tell the owner's edits.
+    pub midi_digests: BTreeMap<String, u64>,
 }
 
 impl Take {
-    /// `Take 3 ★4.5`.
+    /// `Take 3 · 4.5 stars`.
     pub fn label(&self) -> String {
         match self.stars {
-            Some(s) => format!("Take {} ★{}", self.number, trim_number(f64::from(s))),
+            Some(s) => format!("Take {} · {} stars", self.number, trim_number(f64::from(s))),
             None => format!("Take {}", self.number),
         }
     }
@@ -368,8 +372,8 @@ mod tests {
 
     #[test]
     fn take_labels_show_the_stars() {
-        assert_eq!(Take { number: 3, stars: Some(4.5), ..Take::default() }.label(), "Take 3 ★4.5");
-        assert_eq!(Take { number: 2, stars: Some(4.0), ..Take::default() }.label(), "Take 2 ★4");
+        assert_eq!(Take { number: 3, stars: Some(4.5), ..Take::default() }.label(), "Take 3 · 4.5 stars");
+        assert_eq!(Take { number: 2, stars: Some(4.0), ..Take::default() }.label(), "Take 2 · 4 stars");
         assert_eq!(Take { number: 1, ..Take::default() }.label(), "Take 1");
     }
 }

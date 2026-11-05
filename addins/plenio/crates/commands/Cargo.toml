@@ -16,6 +16,7 @@ layer = 4
 soundcraft-engine.workspace = true
 soundcraft-model.workspace = true
 soundcraft-time.workspace = true
+soundcraft-midi.workspace = true
 soundcraft-plenio-project = { path = "../project" }
 serde_json.workspace = true
 log.workspace = true

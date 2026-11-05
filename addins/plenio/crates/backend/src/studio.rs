@@ -43,6 +43,12 @@ pub enum Request {
         tag: String,
         path: String,
     },
+    /// `POST` JSON (Plenio's own routes, such as the lyrics check), answered like [`Request::Get`].
+    Post {
+        tag: String,
+        path: String,
+        body: Value,
+    },
     /// Make a song: `POST /jobs`, follow the job, and when it succeeds download its files into `into`.
     Submit {
         tag: u64,
@@ -96,6 +102,21 @@ pub struct Studio {
     rx: Receiver<Event>,
 }
 
+impl Drop for Studio {
+    /// Stop the instance when SoundCraft closes (it holds GPU memory); the add-in's package also
+    /// ends it by itself when SoundCraft is gone (`SCP_PARENT_PID`).
+    fn drop(&mut self) {
+        let _ = self.tx.send(Request::Stop);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            match self.rx.recv_timeout(Duration::from_millis(200)) {
+                Ok(Event::State(State::Stopped)) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                _ => {}
+            }
+        }
+    }
+}
+
 impl Studio {
     /// Start the studio's worker thread (it starts no ComfyUI until asked).
     pub fn spawn() -> Studio {
@@ -142,9 +163,16 @@ impl Worker {
             match request {
                 Request::Start { config_dir, comfyui } => self.start(&config_dir, comfyui.as_deref()),
                 Request::Attach { port } => self.attach(port),
-                Request::Stop => self.stop(),
+                Request::Stop => {
+                    self.stop();
+                    self.emit(Event::State(State::Stopped));
+                }
                 Request::Get { tag, path } => {
                     let result = self.client().and_then(|c| c.get(&path).map_err(|e| e.to_string()));
+                    self.emit(Event::Answer { tag, result });
+                }
+                Request::Post { tag, path, body } => {
+                    let result = self.client().and_then(|c| c.post(&path, &body, None).map_err(|e| e.to_string()));
                     self.emit(Event::Answer { tag, result });
                 }
                 Request::Submit { tag, body, into } => match self.client() {
@@ -252,7 +280,6 @@ impl Worker {
         self.client = None;
         if let Some(mut instance) = self.instance.take() {
             instance.stop();
-            self.emit(Event::State(State::Stopped));
         }
     }
 }

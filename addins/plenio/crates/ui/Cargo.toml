@@ -16,6 +16,8 @@ layer = 6
 [dependencies]
 soundcraft-engine.workspace = true
 soundcraft-ui-egui.workspace = true
+soundcraft-model.workspace = true
+craft-ui.workspace = true
 soundcraft-plenio-backend = { path = "../backend" }
 soundcraft-plenio-commands = { path = "../commands" }
 soundcraft-plenio-project = { path = "../project" }

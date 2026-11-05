@@ -213,6 +213,7 @@ impl Instance {
             .current_dir(&install.root)
             .env("PLENIO_PLAYER_STATE", layout.player_state())
             .env("PYTHONUNBUFFERED", "1")
+            .env("SCP_PARENT_PID", std::process::id().to_string())
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(err));

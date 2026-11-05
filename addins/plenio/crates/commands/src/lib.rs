@@ -12,8 +12,10 @@ use soundcraft_engine::{Engine, EngineError, Result};
 use soundcraft_plenio_project::Project;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+mod score;
 mod songs;
 
+pub use score::{changed_notes, notes_for_plenio, splice as splice_midi};
 pub use songs::key_name;
 
 /// The add-in's version, as its commands report it.

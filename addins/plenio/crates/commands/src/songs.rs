@@ -40,7 +40,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Add Plenio Take",
             [],
             None,
-            "{song, audio: path of the take's audio, take: {job, title, seeds, fields, documents, stars, seconds, files, sections, lines, bpm, key}}",
+            "{song, audio: path of the take's audio, midi?: path of the score as Plenio's MIDI file, meter?: [n, d], take: {job, title, seeds, fields, documents, stars, seconds, files, sections, lines, bpm, key}}",
             always,
             take_add
         ),
@@ -62,7 +62,7 @@ fn bad(id: &str, why: impl Into<String>) -> EngineError {
 }
 
 /// Run one of SoundCraft's commands inside this one: no undo step of its own.
-fn inner(e: &mut Engine, id: &str, p: &Value) -> Result<Value> {
+pub(crate) fn inner(e: &mut Engine, id: &str, p: &Value) -> Result<Value> {
     let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.into()))?;
     (spec.run)(e, p)
 }
@@ -79,7 +79,7 @@ fn song_param(id: &str, p: &Value) -> Result<u64> {
     p.get("song").and_then(Value::as_u64).ok_or_else(|| bad(id, "`song` (its id) required"))
 }
 
-fn ids_of(v: &Value) -> Vec<TrackId> {
+pub(crate) fn ids_of(v: &Value) -> Vec<TrackId> {
     v.get("tracks").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_u64).map(TrackId).collect()).unwrap_or_default()
 }
 
@@ -214,7 +214,7 @@ fn song_set(e: &mut Engine, p: &Value) -> Result<Value> {
 
 /// Give a track a playlist for a new take: its active one when that is still empty, else a new one.
 /// Returns the playlist's index.
-fn take_playlist(s: &mut Session, track: TrackId, name: &str) -> Option<usize> {
+pub(crate) fn take_playlist(s: &mut Session, track: TrackId, name: &str) -> Option<usize> {
     let t = s.track_mut(track)?;
     let empty = t.playlists.get(t.active_playlist).is_some_and(|pl| pl.clips.is_empty());
     if empty {
@@ -317,6 +317,17 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
             take.playlists.push(PlaylistRef { track: lyrics, index });
         }
     }
+    // The score's notes on the score tracks.
+    let mut made = Vec::new();
+    if let Some(midi) = p.get("midi").and_then(Value::as_str).filter(|m| !m.is_empty()) {
+        let size = std::fs::metadata(midi).map(|m| m.len()).map_err(|err| bad(ID, format!("`midi`: {err}")))?;
+        if size > crate::score::MAX_MIDI_BYTES as u64 {
+            return Err(bad(ID, "`midi`: the file is too large"));
+        }
+        let bytes = std::fs::read(midi).map_err(|err| bad(ID, format!("`midi`: {err}")))?;
+        made = crate::score::place_score(e, &song, &bytes, &label, &mut take)?;
+        take.files.insert("midi".into(), midi.to_string());
+    }
     // The first take of a session that holds nothing else sets its tempo, meter and key.
     if first_of_session && let Some(bpm) = take.bpm {
         let meter = p
@@ -333,6 +344,7 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
     }
     let number = take.number;
     let song = project.song_mut(id).ok_or_else(|| bad(ID, format!("no Plenio song {id}")))?;
+    song.tracks.extend(made);
     song.takes.push(take);
     song.adopt(song.takes.len() - 1);
     store(e, &project)?;

@@ -7,7 +7,7 @@
 | **Plenio-Quelle** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (Version 1.5.0) – **wird nie verändert**, Code wird kopiert |
 | **Plan erstellt** | 2026-11-05 |
 | **Zuletzt aktualisiert** | 2026-11-05 |
-| **Stand** | Phase 0 erledigt (Seams S1–S6, Crate-Gerüst, Plenio-Menü); Phase 1 begonnen (Plenio 1.5.0 nach `vendor/` kopiert, Sync-Skript) |
+| **Stand** | Phase 0 und 1 erledigt; Phase 2 (MVP Song) und 3 (Noten) gebaut und getestet, End-to-End-Lauf durch die UI lief zuletzt noch; Phase 4–6 offen (siehe Abschnitt „Stand 2026-11-05 abends“) |
 
 Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hinweis
 
@@ -382,6 +382,15 @@ Bis zum MVP grob 70–110 h, insgesamt etwa 150–230 h.
 - ComfyUI starten: `plenio/player/studio.py` (Python finden, Argumente, Log, Leerlauf-Stopp, `comfyui-start.json`), Player-Start: `plenio/player/launch.py`.
 - Stems: `plenio/comfy/nodes/stems.py` (Separate Stems, Stem Mixer, Stems als MIDI).
 - Release-Record: `resources/schemas/record-1.schema.json`.
+
+## Stand 2026-11-05 abends (Fortsetzungspunkt)
+
+- [x] **Entscheidung:** Generierung läuft direkt über Plenios **Song-API** (`/plenio/api/v1`: jobs, templates, briefs, uploads), nicht über eine eigene Stage-API. Der Wrapper `addins/plenio/backend/soundcraft_plenio` lädt Plenio unverändert und ergänzt nur `/scp/v1` (Info, Modelle ohne MiniMax) und einen Eltern-Wächter (`SCP_PARENT_PID`).
+- [x] Phase 1: Studio (`crates/backend`: discover, instance, client, song, studio). Eigene Instanz mit `--base-directory`, Modellen aus `F:\ComfyUI\models`, `PLENIO_PLAYER_STATE` im Add-in-Ordner. Live geprüft: Start und Stopp in 10 s, echter Job (61-s-Instrumental in 133 s).
+- [x] Phase 2: `plenio.song.new/set/forget`, `plenio.take.add/select`; Plan-Regeln (neue Worte → neue Noten); UI mit Menü, New-Song-Dialog (250 Templates), Inspector (Takes, Generate/More, Lyrics-Editor mit YuE2-Tags und Prüfung über `/plenio/lyrics/analyze`, Brief-Formular dynamisch aus `/templates`, Seeds), Spurkopf-Plakette, Abschnitte in der Song-Lane, Studio- und Modellfenster mit Downloads.
+- [x] Phase 3 (Teil): Score als Plenio-MIDI auf stummen Notenspuren (Melody, Instrument Line, Chords); bearbeitete Noten werden mit Plenios Conductor-Track byte-genau zurückgeschickt (`/plenio/score/midi/import`) und gesungen. Stems noch offen.
+- [ ] Offen: End-to-End-Ergebnis von `cargo run -p soundcraft-plenio-ui --example plenio_e2e -- <Ordner>` prüfen (Screenshots e2e-3-take.png); Stems (Phase 3), Cover-Feinheiten wie Ausschnitt aus Auswahl (Phase 4), Player und Release (Phase 5), Härtung (Phase 6).
+- 💡 egui_kittest bricht bei fehlenden Glyphen ab, das Programm zeigt dann nur Ersatzkästchen: keine Symbole wie ✦ ★ ● ▾ ✓ in UI-Texten.
 
 ## Änderungsprotokoll
 
