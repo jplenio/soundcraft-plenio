@@ -1,0 +1,22 @@
+[package]
+name = "soundcraft-plenio-project"
+description = "Plenio add-in for SoundCraft: the songs a session holds and the tracks each song uses (plain data)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[package.metadata.soundcraft]
+# Plain data on top of the session document (soundcraft-model, L2).
+layer = 2
+
+[dependencies]
+soundcraft-model.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

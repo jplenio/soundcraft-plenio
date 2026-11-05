@@ -1,7 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "apps/*", "xtask"]
-default-members = ["crates/*", "apps/*", "xtask"]
+# `addins/<name>/crates/*`: add-ins built into the app (see crates/ui-egui/src/extension.rs).
+members = ["crates/*", "apps/*", "xtask", "addins/*/crates/*"]
+default-members = ["crates/*", "apps/*", "xtask", "addins/*/crates/*"]
 
 [workspace.package]
 version = "0.17.0"

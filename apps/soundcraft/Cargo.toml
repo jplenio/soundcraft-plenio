@@ -11,8 +11,11 @@ default-run = "soundcraft"
 workspace = true
 
 [features]
+default = ["plenio"]
 # ASIO audio devices on Windows (see soundcraft-playback's `asio` feature).
 asio = ["soundcraft-playback/asio"]
+# The Plenio add-in: YuE2 songs and covers in the session (addins/plenio).
+plenio = ["dep:soundcraft-plenio-ui"]
 
 [dependencies]
 soundcraft-engine.workspace = true
@@ -20,6 +23,7 @@ soundcraft-audio-io.workspace = true
 soundcraft-ui-egui.workspace = true
 soundcraft-playback.workspace = true
 soundcraft-automation.workspace = true
+soundcraft-plenio-ui = { path = "../../addins/plenio/crates/ui", optional = true }
 clap.workspace = true
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "links", "clipboard"] }
 egui = { workspace = true, features = ["default_fonts", "monochrome_emoji_fonts"] }

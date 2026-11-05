@@ -191,6 +191,9 @@ fn main() -> eframe::Result {
     // First, so every start-up record (and the engine's panic hook, installed with the first
     // Engine) is captured; see `logging`.
     let logger = logging::install(env::rust_log().as_deref());
+    // Add-in commands join the command registry before anything reads it.
+    #[cfg(feature = "plenio")]
+    soundcraft_plenio_ui::register_commands();
     // Help, version and usage errors print and exit here, before a window or a log file exists.
     let launch = launch_args::parse(launch_args::command(), std::env::args_os().skip(1)).unwrap_or_else(|e| e.exit());
     // After the arguments and the logger: reading resolves the settings folder, which creates it,
@@ -259,6 +262,8 @@ fn main() -> eframe::Result {
             app.preset_dir = env.config_dir.as_ref().map(|d| d.join("Presets"));
             app.extra.ui_scale = prefs.ui_scale;
             app.ui = prefs;
+            #[cfg(feature = "plenio")]
+            app.add_extension(soundcraft_plenio_ui::extension(env.prefs_enabled().then(|| env.config_dir.clone()).flatten()));
             if let Some(port) = control_port {
                 let rx = control_server::start(port, cc.egui_ctx.clone());
                 app = app.with_control(rx);

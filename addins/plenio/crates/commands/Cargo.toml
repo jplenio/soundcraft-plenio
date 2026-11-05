@@ -1,0 +1,23 @@
+[package]
+name = "soundcraft-plenio-commands"
+description = "Plenio add-in for SoundCraft: its engine commands (plenio.*), reachable from menus, the CLI, the control channel and MCP"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[package.metadata.soundcraft]
+# Commands run in the engine (soundcraft-engine, L4).
+layer = 4
+
+[dependencies]
+soundcraft-engine.workspace = true
+soundcraft-model.workspace = true
+soundcraft-plenio-project = { path = "../project" }
+serde_json.workspace = true
+log.workspace = true
+
+[lints]
+workspace = true

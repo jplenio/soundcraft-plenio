@@ -1,0 +1,31 @@
+[package]
+name = "soundcraft-plenio-ui"
+description = "Plenio add-in for SoundCraft: its menu, windows and track drawing in the egui UI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+# soundcraft-ui-egui needs Rust 1.95.
+rust-version = "1.95"
+repository.workspace = true
+publish = false
+
+[package.metadata.soundcraft]
+# Part of the UI (soundcraft-ui-egui, L6).
+layer = 6
+
+[dependencies]
+soundcraft-engine.workspace = true
+soundcraft-ui-egui.workspace = true
+soundcraft-plenio-backend = { path = "../backend" }
+soundcraft-plenio-commands = { path = "../commands" }
+soundcraft-plenio-project = { path = "../project" }
+egui = { workspace = true }
+serde_json.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+# examples/plenio_shot.rs renders the UI offscreen.
+egui_kittest = { workspace = true, features = ["wgpu", "snapshot"] }
+
+[lints]
+workspace = true

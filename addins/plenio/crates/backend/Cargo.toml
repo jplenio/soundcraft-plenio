@@ -1,0 +1,22 @@
+[package]
+name = "soundcraft-plenio-backend"
+description = "Plenio add-in for SoundCraft: its settings, and (to come) the ComfyUI instance, the stage API client and the model downloads"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[package.metadata.soundcraft]
+# A service beside the engine; it depends on no SoundCraft crate.
+layer = 4
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+log.workspace = true
+
+[lints]
+workspace = true
