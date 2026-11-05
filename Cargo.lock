@@ -4527,6 +4527,7 @@ dependencies = [
  "soundcraft-engine",
  "soundcraft-model",
  "soundcraft-plenio-project",
+ "soundcraft-time",
 ]
 
 [[package]]

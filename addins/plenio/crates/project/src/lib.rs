@@ -8,8 +8,14 @@
 //! is simply dropped.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+mod generation;
+
+pub use generation::{DOCUMENTS, Doc, DocState, LineSpan, Mode, Plan, PlaylistRef, SectionSpan, Take, What};
+
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use soundcraft_model::{Session, TrackId, truncate_chars};
+use std::collections::BTreeMap;
 
 /// The key of the add-in's entry in `Session::extensions`.
 pub const KEY: &str = "plenio";
@@ -21,6 +27,12 @@ pub const MAX_SONGS: usize = 256;
 pub const MAX_ROLE_TRACKS: usize = 64;
 /// The most characters of a song title.
 pub const MAX_TITLE_CHARS: usize = 256;
+/// The most fields one song keeps.
+pub const MAX_FIELDS: usize = 128;
+/// The most characters of one document (the Song API's limit).
+pub const MAX_DOCUMENT_CHARS: usize = 200_000;
+/// The most takes one song keeps.
+pub const MAX_TAKES: usize = 512;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProjectError {
@@ -85,12 +97,43 @@ pub struct Song {
     pub kind: SongKind,
     pub title: String,
     pub tracks: Vec<RoleTrack>,
+    /// The Song API template: `yue2-song` or `yue2-cover`.
+    pub template: String,
+    /// The brief's and the other nodes' fields, named as the Song API names them (`genre`,
+    /// `vocals`, `finish.cover_art` …). A field left out keeps the template's value.
+    pub fields: BTreeMap<String, Value>,
+    /// The working documents (`title`, `style`, `lyrics`, `score`, `artwork_prompt`): what the next
+    /// take is made from.
+    pub documents: BTreeMap<String, Doc>,
+    /// Seeds kept for the next take (locked); every other seed is drawn anew.
+    pub seeds: BTreeMap<String, u64>,
+    pub takes: Vec<Take>,
+    /// The take the song's tracks show (an index into `takes`).
+    pub active: Option<usize>,
+    /// Put the unmastered take on the tracks instead of the released (mastered) one.
+    pub unmastered: bool,
+    /// A cover's recording as uploaded to the studio (the field `source.audio`).
+    pub source: Option<String>,
 }
 
 impl Song {
     /// The track that plays `role`, if any.
     pub fn track(&self, role: Role) -> Option<TrackId> {
         self.tracks.iter().find(|t| t.role == role).map(|t| t.track)
+    }
+
+    /// The take the tracks show.
+    pub fn active_take(&self) -> Option<&Take> {
+        self.active.and_then(|i| self.takes.get(i))
+    }
+}
+
+impl Project {
+    pub fn song(&self, id: u64) -> Option<&Song> {
+        self.songs.iter().find(|s| s.id == id)
+    }
+    pub fn song_mut(&mut self, id: u64) -> Option<&mut Song> {
+        self.songs.iter_mut().find(|s| s.id == id)
     }
 }
 
@@ -153,6 +196,7 @@ impl Project {
             truncate_chars(&mut song.title, MAX_TITLE_CHARS);
             song.tracks.truncate(MAX_ROLE_TRACKS);
             song.tracks.retain(|t| session.track(t.track).is_some() && used.insert(t.track));
+            generation::sanitize(song, session);
         }
     }
 }
@@ -187,6 +231,7 @@ mod tests {
                 RoleTrack { role: Role::Lyrics, track: t[1] },
                 RoleTrack { role: Role::Source, track: t[2] },
             ],
+            ..Song::default()
         });
         p.store(&mut s).unwrap();
         let back = Session::from_json(&s.to_json().unwrap()).unwrap();

@@ -12,6 +12,10 @@ use soundcraft_engine::{Engine, EngineError, Result};
 use soundcraft_plenio_project::Project;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+mod songs;
+
+pub use songs::key_name;
+
 /// The add-in's version, as its commands report it.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -34,7 +38,9 @@ pub fn when_activated(_: &Engine) -> std::result::Result<(), String> {
 
 /// The add-in's commands.
 pub fn specs() -> Vec<CommandSpec> {
-    vec![soundcraft_engine::cmd!(query "plenio.status", "Plenio Status", [], None, "{}", always, status)]
+    let mut specs = vec![soundcraft_engine::cmd!(query "plenio.status", "Plenio Status", [], None, "{}", always, status)];
+    specs.extend(songs::specs());
+    specs
 }
 
 /// Add the commands to SoundCraft's registry. Call it once as the app starts, before the first
@@ -61,7 +67,7 @@ mod tests {
     fn status_names_the_songs_of_the_session() {
         let mut e = Engine::default();
         let mut p = Project::default();
-        p.songs.push(Song { id: 1, kind: SongKind::Song, title: "Night Drive".into(), tracks: Vec::new() });
+        p.songs.push(Song { id: 1, kind: SongKind::Song, title: "Night Drive".into(), ..Song::default() });
         p.store(e.session_mut()).unwrap();
         // Called directly: the registry of this test binary is SoundCraft's own.
         let v = status(&mut e, &json!({})).unwrap();

@@ -15,6 +15,7 @@ layer = 4
 [dependencies]
 soundcraft-engine.workspace = true
 soundcraft-model.workspace = true
+soundcraft-time.workspace = true
 soundcraft-plenio-project = { path = "../project" }
 serde_json.workspace = true
 log.workspace = true
