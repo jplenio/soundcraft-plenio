@@ -117,6 +117,7 @@ impl SoundApp {
             video: video_track::VideoPool::default(),
             bounce: None,
             imports: import::Imports::default(),
+            extensions: Vec::new(),
             #[cfg(test)]
             _palette_lock: theme::lock_test_palette(),
             #[cfg(test)]
@@ -178,6 +179,7 @@ impl SoundApp {
             bounce::step(self, ctx);
             import::step(self, ctx);
             updates_ui::tick(self, ctx);
+            crate::extension::logic(self, ctx);
         }
         if !self.pointer_down {
             if matches!(self.gesture, Some(Gesture::Fader { .. } | Gesture::SendFader { .. })) {
@@ -341,6 +343,7 @@ impl SoundApp {
         palette::show(self, &ctx);
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
+        crate::extension::windows(self, &ctx);
         // The sampler's drop rects are current now, so route any captured drop in this pass.
         self.route_dropped_files();
         // The pass that actually received the injected events has already dispatched their widget

@@ -20,6 +20,7 @@ pub mod credits;
 pub mod dialogs;
 pub mod docking;
 pub mod edit_window;
+pub mod extension;
 pub mod fonts;
 pub mod icons;
 pub mod import;
@@ -415,6 +416,8 @@ pub struct SoundApp {
     pub bounce: Option<soundcraft_engine::io::Bounce>,
     /// Audio files importing in the background (issue #597).
     pub imports: import::Imports,
+    /// Add-ins built into the app ([`extension::UiExtension`]), in the order installed.
+    extensions: Vec<extension::Installed>,
     /// Test-only: owns the process-wide palette lock while this app exists, so frames painted
     /// and colour assertions in one test can never straddle another test's palette change.
     #[cfg(test)]

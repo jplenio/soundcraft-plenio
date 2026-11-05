@@ -277,6 +277,7 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                         }
                     });
                 }
+                crate::extension::menu_bar(app, ui);
                 let title = format!(
                     "{}{}  —  {}",
                     app.engine.session().name,
