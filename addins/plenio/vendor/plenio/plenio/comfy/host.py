@@ -1,0 +1,918 @@
+"""The only module that touches ComfyUI internals.
+
+Nodes and routes call these wrappers instead of importing ``comfy``,
+``folder_paths``, ``server`` or ``comfy_execution`` themselves, so that a
+ComfyUI API change is fixed in one place.
+"""
+
+from __future__ import annotations
+
+import importlib.metadata
+import logging
+import os
+import platform
+import sys
+import time
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+
+from .. import __version__
+from ..core.assets import Asset, asset_folder, missing_files
+from ..core.config import CONFIG_FILE_NAME, PlenioConfig
+from ..core.dependencies import probe
+from ..core.engines import EngineInfo, minimax, yue2
+from ..core.errors import PlenioError, PlenioModelError, PlenioUserError
+from ..core.models import (
+    AUDIO_MODEL_FOLDERS,
+    ModelFile,
+    misplaced_file,
+    sibling_folders,
+    size_text,
+    take_inventory,
+    yue2_checkpoint_problem,
+)
+from ..core.system import Device, SystemFacts
+
+log = logging.getLogger("plenio")
+
+ASSET_FOLDER = "plenio"
+"""ComfyUI model folder name for Plenio-owned assets (``models/plenio/<kind>/<id>``)."""
+
+
+def comfyui_version() -> str:
+    try:
+        import comfyui_version
+
+        return str(comfyui_version.__version__)
+    except (ImportError, AttributeError):
+        return "unknown"
+
+
+def frontend_version() -> str:
+    try:
+        return importlib.metadata.version("comfyui_frontend_package")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def metadata_disabled() -> bool:
+    """Whether ComfyUI runs with ``--disable-metadata`` (its own nodes then save no prompt or workflow in files)."""
+    try:
+        from comfy.cli_args import args
+    except ImportError:
+        return False
+    return bool(getattr(args, "disable_metadata", False))
+
+
+def user_directory() -> Path:
+    import folder_paths
+
+    return Path(folder_paths.get_user_directory())
+
+
+def output_directory() -> Path:
+    import folder_paths
+
+    return Path(folder_paths.get_output_directory())
+
+
+def input_file(name: str) -> Path:
+    """The file a Load Audio value names, resolved as Load Audio does (``x.flac``, ``sub/x.flac`` or an
+    annotated ``x.flac [output]``); refuses paths that leave ComfyUI's input, output and temp folders."""
+    import folder_paths
+
+    path = Path(folder_paths.get_annotated_filepath(name)).resolve()
+    roots = [
+        Path(folder).resolve()
+        for folder in (
+            folder_paths.get_input_directory(),
+            folder_paths.get_output_directory(),
+            folder_paths.get_temp_directory(),
+        )
+    ]
+    if not any(root in path.parents for root in roots) or not path.is_file():
+        raise PlenioUserError(f"The input file {name!r} was not found in the ComfyUI input folder.")
+    return path
+
+
+def linked_file(prompt: Any, node_id: Any, name: str) -> str | None:
+    """The file of the native Load Audio node linked to input ``name`` of node ``node_id`` in the executed
+    ``prompt`` (``None``: nothing linked there, or not a Load Audio node)."""
+    if not isinstance(prompt, dict):
+        return None
+    node = prompt.get(str(node_id))
+    link = node.get("inputs", {}).get(name) if isinstance(node, dict) else None
+    if not isinstance(link, list) or len(link) != 2:
+        return None
+    upstream = prompt.get(str(link[0]))
+    if not isinstance(upstream, dict) or upstream.get("class_type") != "LoadAudio":
+        return None
+    audio = upstream.get("inputs", {}).get("audio")
+    return audio if isinstance(audio, str) and audio.strip() else None
+
+
+def models_directory() -> Path:
+    import folder_paths
+
+    return Path(folder_paths.models_dir)
+
+
+LLM_FOLDER = "LLM"
+"""ComfyUI's folder for GGUF language models (``models/LLM``); some node packs register it as ``llm``."""
+
+
+def llm_folders() -> list[Path]:
+    """The folders of ComfyUI's ``LLM`` model folder (and of ``llm``, if another node pack registered it)."""
+    import folder_paths
+
+    folders: list[Path] = []
+    seen: set[str] = set()
+    for name in (LLM_FOLDER, LLM_FOLDER.lower()):
+        try:
+            paths = folder_paths.get_folder_paths(name)
+        except KeyError:
+            continue
+        for path in paths:
+            key = os.path.normcase(os.path.abspath(path))
+            if key not in seen:
+                seen.add(key)
+                folders.append(Path(path))
+    return folders
+
+
+def text_encoder_folders() -> list[Path]:
+    """The existing folders of ComfyUI's ``text_encoders`` (the old ``clip`` and ``extra_model_paths.yaml``
+    lines included), each once."""
+    import folder_paths
+
+    try:
+        paths = folder_paths.get_folder_paths("text_encoders")
+    except KeyError:
+        return []
+    folders: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = os.path.normcase(os.path.abspath(path))
+        if key not in seen and os.path.isdir(path):
+            seen.add(key)
+            folders.append(Path(path))
+    return folders
+
+
+def register_model_folders() -> None:
+    """Register ``models/plenio`` (assets), the audio model folders and ``models/LLM`` next to the other models."""
+    import folder_paths
+
+    # also when extra_model_paths.yaml created the key first: models/LLM itself stays in the list
+    folder_paths.add_model_folder_path(LLM_FOLDER, str(models_directory() / LLM_FOLDER))
+
+    for folder in (ASSET_FOLDER, *AUDIO_MODEL_FOLDERS.values()):
+        if folder not in folder_paths.folder_names_and_paths:
+            folder_paths.add_model_folder_path(folder, str(models_directory() / folder))
+        if folder in AUDIO_MODEL_FOLDERS.values():
+            # ComfyUI registers a new folder with *no* extensions, so it would list nothing; the
+            # audio model folders take the same files as the built-in ones (.safetensors, .bin, ...).
+            paths, extensions = folder_paths.folder_names_and_paths[folder]
+            folder_paths.folder_names_and_paths[folder] = (
+                paths,
+                set(extensions) | set(folder_paths.supported_pt_extensions),
+            )
+    add_sibling_folders()
+
+
+SIBLING_FOLDERS = (*AUDIO_MODEL_FOLDERS.values(), LLM_FOLDER)
+"""Plenio's own model folders, searched beside every model folder ComfyUI knows (not the asset folder:
+its downloads go to the first path only, ``asset_root``)."""
+
+
+def _registered() -> dict[str, list[str]]:
+    import folder_paths
+
+    return {name: list(entry[0]) for name, entry in folder_paths.folder_names_and_paths.items()}
+
+
+def add_sibling_folders() -> None:
+    """Search Plenio's own model folders also beside the model folders of ``extra_model_paths.yaml``.
+
+    ComfyUI reads a folder of such a location only when the file names it, and no user's file names
+    ``audio_separation``, ``audio_sr`` or ``LLM`` (a user's report 2026-10-10: the stem model in a new
+    ``audio_separation`` folder beside the other models was found only after copying it into ComfyUI's own
+    ``models`` folder). Existing folders only, after the default one (downloads still go there); run again
+    when the lists are read, so a folder made while ComfyUI runs counts after a refresh (R).
+    """
+    import folder_paths
+
+    registered = _registered()
+    for folder in SIBLING_FOLDERS:
+        for path in sibling_folders(folder, registered):
+            folder_paths.add_model_folder_path(folder, str(path))  # the folder keeps its file extensions
+            logging.info("Plenio: model folder %s also searched in %s", folder, path)
+
+
+def misplaced_model(folder: str, file: str) -> Path | None:
+    """A copy of a model file that ComfyUI does not find: in a folder named ``folder`` beside the known model
+    folders, for ComfyUI's own folders such as ``audio_encoders`` (Plenio leaves those to ComfyUI's rules)."""
+    return misplaced_file(folder, file, _registered())
+
+
+def model_files(folder: str) -> list[str]:
+    """The files ComfyUI lists in a model folder (empty when the folder is unknown)."""
+    import folder_paths
+
+    if folder in SIBLING_FOLDERS:
+        add_sibling_folders()
+    try:
+        return list(folder_paths.get_filename_list(folder))
+    except KeyError:
+        return []
+
+
+def model_file(folder: str, name: str) -> Path | None:
+    """The full path of a file of a ComfyUI model folder (``None``: not there)."""
+    import folder_paths
+
+    found = folder_paths.get_full_path(folder, name)
+    return Path(found) if found else None
+
+
+def read_weights(path: Path) -> dict[str, Any]:
+    """A weights file (safetensors, or a pickle-free torch file) as ComfyUI reads it."""
+    import comfy.utils
+
+    return dict(comfy.utils.load_torch_file(str(path), safe_load=True))
+
+
+def lora_key_map(model: Any, clip: Any) -> dict[str, Any]:
+    """ComfyUI's names of a LoRA's weights in a model and a CLIP, to the weights they patch."""
+    import comfy.lora
+
+    keys: dict[str, Any] = {}
+    if model is not None:
+        keys.update(comfy.lora.model_lora_keys_unet(model.model, {}))
+    if clip is not None:
+        keys.update(comfy.lora.model_lora_keys_clip(clip.cond_stage_model, {}))
+    return keys
+
+
+def lora_patches(state: dict[str, Any], key_map: dict[str, Any]) -> dict[Any, Any]:
+    """A LoRA's patches, by the weight each one patches (the weights no key names are left out silently)."""
+    import comfy.lora
+
+    try:
+        return dict(comfy.lora.load_lora(state, key_map, log_missing=False))
+    except TypeError:  # a ComfyUI without log_missing
+        return dict(comfy.lora.load_lora(state, key_map))
+
+
+def asset_root(config: PlenioConfig) -> Path:
+    if config.asset_dir is not None:
+        return config.asset_dir
+    import folder_paths
+
+    paths = folder_paths.get_folder_paths(ASSET_FOLDER)
+    return Path(paths[0]) if paths else models_directory() / ASSET_FOLDER
+
+
+def load_config() -> PlenioConfig:
+    return PlenioConfig.load(env=os.environ, config_file=user_directory() / "plenio" / CONFIG_FILE_NAME)
+
+
+def prompt_server_routes() -> Any:
+    from server import PromptServer
+
+    return PromptServer.instance.routes
+
+
+def prompt_server() -> Any:
+    from server import PromptServer
+
+    return PromptServer.instance
+
+
+def node_info(node_type: str) -> dict[str, Any] | None:
+    """A node type's definition as ``/object_info`` gives it - its inputs in their order, its outputs, its name -
+    read now (a list of files is the one on disk now); ``None`` for a type this ComfyUI does not have."""
+    import nodes
+
+    node_class = nodes.NODE_CLASS_MAPPINGS.get(node_type)
+    if node_class is None:
+        return None
+    v3 = getattr(node_class, "GET_NODE_INFO_V1", None)
+    if callable(v3):
+        return dict(v3())
+    inputs = node_class.INPUT_TYPES()
+    returns = tuple(getattr(node_class, "RETURN_TYPES", ()))
+    return {
+        "input": inputs,
+        "input_order": {section: list(entries) for section, entries in inputs.items()},
+        "output": list(returns),
+        "output_name": list(getattr(node_class, "RETURN_NAMES", returns)),
+        "name": node_type,
+        "display_name": nodes.NODE_DISPLAY_NAME_MAPPINGS.get(node_type, node_type),
+        "output_node": bool(getattr(node_class, "OUTPUT_NODE", False)),
+    }
+
+
+def input_directory() -> Path:
+    import folder_paths
+
+    return Path(folder_paths.get_input_directory())
+
+
+def interrupt() -> None:
+    import comfy.model_management
+
+    comfy.model_management.interrupt_current_processing()
+
+
+def tls_enabled() -> bool:
+    """ComfyUI serves HTTPS (``--tls-keyfile``)."""
+    try:
+        from comfy.cli_args import args
+    except ImportError:
+        return False
+    return bool(getattr(args, "tls_keyfile", None))
+
+
+def progress_state() -> Any:
+    """ComfyUI's progress of the nodes of the run that runs (``None``: a ComfyUI without it)."""
+    try:
+        from comfy_execution.progress import get_progress_state
+
+        return get_progress_state()
+    except Exception:  # noqa: BLE001 - an older ComfyUI: no progress of nodes
+        return None
+
+
+def execution_blocker(message: str | None = None) -> Any:
+    """A per-output blocker: ``None`` blocks silently, a message blocks with an error."""
+    from comfy_execution.graph_utils import ExecutionBlocker
+
+    return ExecutionBlocker(message)
+
+
+def is_interrupted() -> bool:
+    import comfy.model_management
+
+    return bool(comfy.model_management.processing_interrupted())
+
+
+def raise_if_interrupted() -> None:
+    import comfy.model_management
+
+    comfy.model_management.throw_exception_if_processing_interrupted()
+
+
+def free_memory(required_bytes: int, device: str | None = None) -> None:
+    """Ask ComfyUI to make room on ``device`` before an out-of-process worker starts (R9)."""
+    import comfy.model_management
+    import torch
+
+    target = torch.device(device) if device else comfy.model_management.get_torch_device()
+    comfy.model_management.free_memory(required_bytes, target)
+
+
+def torch_device() -> str:
+    """The device ComfyUI wants models on ("cpu" outside a ComfyUI host)."""
+    try:
+        import comfy.model_management
+    except ImportError:
+        return "cpu"
+    return str(comfy.model_management.get_torch_device())
+
+
+def active_vram_gib() -> float | None:
+    """The VRAM of the GPU ComfyUI runs its models on, in GiB (``None``: no CUDA GPU, or outside ComfyUI) - what
+    the default writer's Gemma 4 12B file is chosen by."""
+    try:
+        import comfy.model_management
+        import torch
+
+        device = comfy.model_management.get_torch_device()
+        if getattr(device, "type", "") != "cuda":
+            return None
+        return float(torch.cuda.get_device_properties(device).total_memory) / 2**30
+    except Exception:  # noqa: BLE001 - no GPU facts: the smaller file is chosen
+        return None
+
+
+def soft_empty_cache() -> None:
+    """Let ComfyUI decide what to free after a model ran (R9); silent outside a ComfyUI host."""
+    try:
+        import comfy.model_management
+    except ImportError:
+        return
+    comfy.model_management.soft_empty_cache()
+
+
+def send_event(event: str, data: dict[str, Any]) -> None:
+    """Send a custom message to the browser that queued the prompt (``api.addEventListener`` in the frontend)."""
+    from server import PromptServer
+
+    server = PromptServer.instance
+    server.send_sync(event, data, server.client_id)
+
+
+class _YuE2Tokenizer:
+    """Exact YuE2 token counts through the loaded text encoder's own tokenizer (AS-14)."""
+
+    def __init__(self, tokenizer: Any):
+        self._tokenizer = tokenizer
+
+    def prefix_tokens(self, style: str, lyrics: str, mode: str) -> int:
+        tokens = self._tokenizer.tokenize_with_weights(style, lyrics=lyrics, cot=mode)
+        return len(tokens["prefix"])
+
+    def abc_tokens(self, abc: str) -> int:
+        tokens = self._tokenizer.tokenize_with_weights("", lyrics="", cot="full", abc=abc)
+        return len(tokens["abc_ids"])
+
+
+class _MiniMaxTokenizer:
+    """Exact MiniMax Music 3 prompt counts: the native prompt built and tokenized as the encoder does."""
+
+    def __init__(self, tokenizer: Any):
+        self._tokenizer = tokenizer
+
+    def prompt_tokens(self, caption: str, lyrics: str) -> int:
+        tokens = self._tokenizer.tokenize_with_weights(caption, lyrics=lyrics)
+        return len(tokens["minimax_music3"][0])
+
+
+def detect_engine(clip: Any) -> EngineInfo:
+    """Identify the music model behind a CLIP object and return its engine descriptor."""
+    import hashlib
+
+    tokenizer = getattr(clip, "tokenizer", None)
+    kind = type(tokenizer)
+    if kind.__name__ == "YuE2Tokenizer" and kind.__module__.endswith("text_encoders.yue2"):
+        raw = getattr(tokenizer, "tokenizer_json", b"")
+        model = {
+            "text_encoder": type(getattr(clip, "cond_stage_model", None)).__name__,
+            "tokenizer": f"{kind.__module__}.{kind.__name__}",
+            "tokenizer_sha256": hashlib.sha256(bytes(raw)).hexdigest() if raw else None,
+        }
+        return EngineInfo(
+            yue2.ENGINE_ID, yue2.RULES_VERSION, yue2.capabilities(), model, _YuE2Tokenizer(tokenizer)
+        )
+    if kind.__name__ == "MiniMaxMusic3Tokenizer" and kind.__module__.endswith("text_encoders.minimax_music"):
+        raw = getattr(tokenizer, "tokenizer_json", b"")
+        model = {
+            "text_encoder": type(getattr(clip, "cond_stage_model", None)).__name__,
+            "tokenizer": f"{kind.__module__}.{kind.__name__}",
+            "tokenizer_sha256": hashlib.sha256(bytes(raw)).hexdigest() if raw else None,
+        }
+        return EngineInfo(
+            minimax.ENGINE_ID,
+            minimax.RULES_VERSION,
+            minimax.capabilities(),
+            model,
+            _MiniMaxTokenizer(tokenizer),
+        )
+    detected = f"{kind.__module__}.{kind.__name__}" if tokenizer is not None else "no tokenizer"
+    raise PlenioModelError(
+        f"The connected model is not a supported music model (text encoder tokenizer: {detected}).",
+        hint="Connect the CLIP output of a Plenio Model block: YuE2 (checkpoint yue2_3b_int8_convrot.safetensors, or "
+        "a YuE2 finetune in ComfyUI's format - one file with the music model, its text side and the audio decoder) "
+        "or MiniMax Music 3 (text encoder minimax_music3_text_encoder_pruned_int8_convrot.safetensors, type minimax). "
+        "GGUF files and m-a-p's Transformers layout do not load as a ComfyUI checkpoint.",
+    )
+
+
+# --- audio ----------------------------------------------------------------------------------
+
+
+def audio_sha256(audio: Any) -> str:
+    """Hash of a ComfyUI AUDIO value (first batch item: samples and sample rate)."""
+    import hashlib
+
+    waveform = audio["waveform"][0].detach().to("cpu").float().contiguous()
+    digest = hashlib.sha256()
+    digest.update(str(int(audio["sample_rate"])).encode())
+    digest.update(str(tuple(waveform.shape)).encode())
+    digest.update(waveform.numpy().tobytes())
+    return digest.hexdigest()
+
+
+def audio_facts(audio: Any) -> tuple[Any, int, float]:
+    """``(samples as numpy [channels, n], sample rate, seconds)`` of the first batch item."""
+    waveform = audio["waveform"][0].detach().to("cpu").float()
+    rate = int(audio["sample_rate"])
+    return waveform.numpy(), rate, waveform.shape[-1] / rate
+
+
+def audio_batch(audio: Any) -> int:
+    return int(audio["waveform"].shape[0])
+
+
+def image_array(image: Any) -> Any:
+    """The first image of a ComfyUI ``IMAGE`` batch as numpy ``[height, width, channels]`` in 0..1."""
+    return image[0].detach().to("cpu").float().numpy()
+
+
+def audio_items(audio: Any) -> tuple[list[Any], int]:
+    """Every batch item as float64 numpy ``[channels, frames]`` and the sample rate (for the DSP)."""
+    waveform = audio["waveform"].detach().to("cpu").double()
+    return [item.numpy() for item in waveform], int(audio["sample_rate"])
+
+
+def make_audio(items: list[Any], rate: int) -> dict[str, Any]:
+    """ComfyUI ``AUDIO`` from equally long numpy items (float32 on the CPU, like the native audio nodes)."""
+    import numpy as np
+    import torch
+
+    stacked = np.stack([np.asarray(item, dtype=np.float32) for item in items])
+    return {"waveform": torch.from_numpy(np.ascontiguousarray(stacked)), "sample_rate": int(rate)}
+
+
+def mono_16k(audio: Any) -> Any:
+    """The first batch item as 16 kHz mono float32 numpy (the input format of Whisper)."""
+    import torchaudio
+
+    waveform = audio["waveform"][0:1].float().mean(dim=1)
+    resampled = torchaudio.functional.resample(waveform, int(audio["sample_rate"]), 16000)
+    return resampled[0].detach().to("cpu").numpy()
+
+
+def temp_directory() -> Path:
+    import folder_paths
+
+    return Path(folder_paths.get_temp_directory())
+
+
+def save_reference_audio(audio: Any) -> dict[str, str]:
+    """A temporary Opus copy of the first batch item for the editor's A/B player (``/view`` URL parts)."""
+    from comfy_api.latest import io, ui
+
+    first = {"waveform": audio["waveform"][:1], "sample_rate": audio["sample_rate"]}
+    saved = ui.AudioSaveHelper.save_audio(
+        first, filename_prefix="plenio_reference", folder_type=io.FolderType.temp, cls=None, format="opus"
+    )
+    item = saved[0]
+    return {"filename": item["filename"], "subfolder": item["subfolder"], "type": item["type"]}
+
+
+# --- SheetSage2 (native encoder, beat grid) ----------------------------------------------------
+
+SHEETSAGE_WINDOW_S = 300.0
+"""The native encoder pads every window to 300 s; longer audio needs a second native window."""
+
+
+class _TranscriptionInternalsError(RuntimeError):
+    pass
+
+
+def _sheetsage_modules() -> tuple[Any, Any]:
+    try:
+        import comfy.model_management as mm
+        from comfy.audio_encoders import sheetsage2_abc as ss
+    except ImportError as error:  # pragma: no cover - depends on the ComfyUI version
+        raise _TranscriptionInternalsError(str(error)) from error
+    for name in ("events_to_abc", "infer_measures", "BeatEvent"):
+        if not hasattr(ss, name):
+            raise _TranscriptionInternalsError(f"comfy.audio_encoders.sheetsage2_abc.{name}")
+    return mm, ss
+
+
+def is_sheetsage_encoder(encoder: Any) -> bool:
+    return hasattr(encoder, "generate_abc") and getattr(encoder, "model_sample_rate", None) == 24000
+
+
+def sheetsage_events(encoder: Any, audio: Any) -> tuple[list[dict[str, Any]], float]:
+    """Decoded SheetSage2 events of the first batch item (the path of ``generate_abc``)."""
+    import torchaudio
+
+    mm, _ss = _sheetsage_modules()
+    model = getattr(encoder, "model", None)
+    if model is None or not hasattr(model, "transcribe"):
+        raise _TranscriptionInternalsError("SheetSage2AudioEncoder.model.transcribe")
+    mono = torchaudio.functional.resample(
+        audio["waveform"][0:1].float().mean(dim=1), int(audio["sample_rate"]), encoder.model_sample_rate
+    )
+    if getattr(encoder, "patcher", None) is not None:
+        mm.load_model_gpu(encoder.patcher)
+    waveform = mono[0]
+    events = model.transcribe(waveform[None].to(encoder.load_device))
+    return events, waveform.shape[-1] / encoder.model_sample_rate
+
+
+def _beats(events: list[dict[str, Any]], duration: float, ss: Any) -> list[Any]:
+    """The beat list exactly as ``events_to_abc`` builds and extends it."""
+    from fractions import Fraction
+    from statistics import median
+
+    beats: list[Any] = []
+    meter = None
+    for event in events:
+        rhythm = event["values"].get("rhythm", {})
+        meter = rhythm.get("meter", meter)
+        eighth = rhythm.get("eighth_position")
+        if eighth is not None and meter is not None:
+            position = Fraction(eighth * meter[1], 8)
+            beats.append(ss.BeatEvent(event["time"], int(position) + 1, meter[0], meter[1]))
+    if len(beats) < 2:
+        return beats
+    period = float(median([b.time - a.time for a, b in zip(beats[-9:], beats[-8:], strict=False)]))
+    if not period > 0:  # repeated beat times: the extension below would never end (AUD-13)
+        return beats
+    while beats[-1].time < duration - 1e-6:
+        previous = beats[-1]
+        beats.append(
+            ss.BeatEvent(
+                previous.time + period,
+                previous.beat_id % previous.declared_numerator + 1,
+                previous.declared_numerator,
+                previous.denominator,
+            )
+        )
+    return beats
+
+
+def sheetsage_transcribe(encoder: Any, audio: Any) -> dict[str, Any]:
+    """Native SheetSage2 transcription (full mode) plus the beat grid the native node discards.
+
+    Returns ``abc`` (identical to ``SheetSage2AudioToABC(mode="full")``), ``bar_starts``/``bar_ends``
+    in source seconds, ``vocal_notes`` [(onset, end)], ``first_beat_s``, ``pickup_padded`` and
+    ``engine_path`` (``events`` or ``public`` when the internals are missing - then without a grid).
+    """
+    try:
+        mm, ss = _sheetsage_modules()
+        events, duration = sheetsage_events(encoder, audio)
+    except _TranscriptionInternalsError as missing:
+        log.warning(
+            "Plenio: SheetSage2 internals not available (%s); transcribing without a time grid", missing
+        )
+        abc = encoder.generate_abc(audio["waveform"][0:1], audio["sample_rate"], melody_only=False)[0]
+        return {"abc": abc, "engine_path": "public", "missing": str(missing)}
+    del mm
+    abc = ss.events_to_abc(events, duration, melody_only=False)
+    beats = _beats(events, duration, ss)
+    measures, _diagnostics = ss.infer_measures(beats)
+    starts = [beats[m.start_beat].time for m in measures]
+    ends = [beats[m.end_beat].time if m.end_beat < len(beats) else duration for m in measures]
+    first = measures[0]
+    if first.pad_before and len(measures) > 1:
+        count = first.end_beat - first.start_beat
+        full = measures[1].end_beat - measures[1].start_beat
+        local = (beats[first.end_beat].time - beats[first.start_beat].time) / max(count, 1)
+        starts[0] = beats[first.start_beat].time - (full - count) * local
+    vocal = []
+    for event in events:
+        for note in event["values"].get("melody", ()):
+            end = min(duration, note["end_time"])
+            if note["track"] == 0 and end > event["time"]:
+                vocal.append((float(event["time"]), float(end)))
+    return {
+        "abc": abc,
+        "engine_path": "events",
+        "duration_s": duration,
+        "bar_starts": starts,
+        "bar_ends": ends,
+        "first_beat_s": float(beats[0].time) if beats else 0.0,
+        "pickup_padded": bool(first.pad_before),
+        "vocal_notes": sorted(vocal),
+    }
+
+
+def is_out_of_memory(error: BaseException) -> bool:
+    try:
+        import torch
+
+        return isinstance(error, torch.OutOfMemoryError)
+    except (ImportError, AttributeError):
+        return "out of memory" in str(error).lower()
+
+
+def is_interruption(error: BaseException) -> bool:
+    """ComfyUI's cancel exception (it must pass through unchanged)."""
+    try:
+        import comfy.model_management as mm
+
+        return isinstance(error, mm.InterruptProcessingException)
+    except (ImportError, AttributeError):
+        return type(error).__name__ == "InterruptProcessingException"
+
+
+# --- progress ----------------------------------------------------------------------------------
+
+
+class Progress:
+    """ComfyUI's node progress bar (0..100) for long Plenio steps."""
+
+    def __init__(self, total: int = 100):
+        import comfy.utils
+
+        self._bar = comfy.utils.ProgressBar(total)
+        self._total = total
+
+    def update(self, fraction: float | None) -> None:
+        if fraction is not None:
+            self._bar.update_absolute(int(max(0.0, min(1.0, fraction)) * self._total), self._total)
+
+
+# --- the run: when it began, on what ---------------------------------------------------------------
+
+_RUNS: dict[str, float] = {}
+"""When ComfyUI's worker took each of the last runs from its queue (prompt id -> wall clock)."""
+
+
+def watch_runs() -> None:
+    """Note when ComfyUI's worker takes a run from its queue (``run_started``): Export Release writes how long the
+    song took. Its queue's ``get`` is wrapped once; a ComfyUI without one only leaves the time out."""
+    queue = getattr(prompt_server(), "prompt_queue", None)
+    original = getattr(queue, "get", None)
+    if queue is None or original is None or getattr(original, "plenio_runs", False):
+        return
+
+    def get(*args: Any, **kwargs: Any) -> Any:
+        taken = original(*args, **kwargs)
+        try:
+            if taken:
+                _RUNS[str(taken[0][1])] = time.time()
+                for old in list(_RUNS)[:-20]:
+                    _RUNS.pop(old, None)
+        except (TypeError, IndexError, KeyError):
+            pass
+        return taken
+
+    get.plenio_runs = True  # type: ignore[attr-defined]
+    queue.get = get
+
+
+def run_started() -> float | None:
+    """When the run that executes now was taken from the queue (``None``: not known)."""
+    prompt_id = getattr(prompt_server(), "last_prompt_id", None)
+    return _RUNS.get(str(prompt_id)) if prompt_id else None
+
+
+def _cpu_name() -> str:
+    """The processor's name as people know it (Windows' registry, Linux's cpuinfo), else Python's word for it."""
+    if sys.platform == "win32":
+        try:
+            import winreg
+
+            with winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0"
+            ) as key:
+                return str(winreg.QueryValueEx(key, "ProcessorNameString")[0]).strip()
+        except OSError:
+            pass
+    else:
+        try:
+            for line in Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.lower().startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+        except OSError:
+            pass
+    return platform.processor() or platform.machine() or "CPU"
+
+
+def machine() -> dict[str, Any]:
+    """What this run is made on: the graphics card ComfyUI uses (name, memory) or the processor alone, the
+    processor's name and cores, the computer's RAM."""
+    out: dict[str, Any] = {"cpu": _cpu_name(), "cores": os.cpu_count()}
+    try:
+        import psutil
+
+        out["ram_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
+    except (ImportError, OSError):
+        pass
+    try:
+        import comfy.model_management as management
+        import torch
+
+        device = management.get_torch_device()
+        if getattr(device, "type", "") == "cuda":
+            properties = torch.cuda.get_device_properties(device)
+            out["device"] = "gpu"
+            out["gpu"] = str(properties.name)
+            out["vram_gb"] = round(properties.total_memory / 2**30, 1)
+        else:
+            out["device"] = str(getattr(device, "type", "cpu") or "cpu")
+    except Exception:  # noqa: BLE001 - the facts of the record never stop an export
+        out.setdefault("device", "unknown")
+    return out
+
+
+def package_root() -> Path:
+    """The folder that contains the ``plenio`` package (for worker processes)."""
+    return Path(__file__).resolve().parents[2]
+
+
+def _devices() -> tuple[Device, ...]:
+    try:
+        import torch
+    except ImportError:
+        return ()
+    devices: list[Device] = []
+    if torch.cuda.is_available():
+        for index in range(torch.cuda.device_count()):
+            properties = torch.cuda.get_device_properties(index)
+            free: int | None
+            try:
+                free, _total = torch.cuda.mem_get_info(index)
+            except RuntimeError:
+                free = None
+            devices.append(Device(index, properties.name, "cuda", int(properties.total_memory), free))
+    if not devices:
+        devices.append(Device(0, platform.processor() or "CPU", "cpu"))
+    return tuple(devices)
+
+
+def locate_model(folder: str, file: str) -> Path | None:
+    """The installed path of a model file in one of ComfyUI's model folders (extra paths included)."""
+    import folder_paths
+
+    if folder in SIBLING_FOLDERS:
+        add_sibling_folders()
+    try:
+        found = folder_paths.get_full_path(folder, file)
+    except KeyError:  # a folder name this ComfyUI does not know
+        return None
+    return Path(found) if found else None
+
+
+def _asset_states(assets: Mapping[str, Asset], config: PlenioConfig) -> dict[str, str]:
+    states = {}
+    for asset_id, asset in assets.items():
+        configured = config.asset_paths.get(asset_id)
+        if asset.kind == "llm" and configured is None:
+            # the writer's GGUF: in ComfyUI's models/LLM (another Gemma 4 12B file may serve the writer instead)
+            here = any(not missing_files(asset, folder) for folder in llm_folders())
+            states[asset_id] = (
+                "installed (models/LLM)"
+                if here
+                else f"not downloaded (Write Song fetches it when the writer needs it, {size_text(asset.total_size)})"
+            )
+            continue
+        if configured is not None:
+            complete = not missing_files(asset, configured)
+            states[asset_id] = f"configured folder ({'complete' if complete else 'files missing'})"
+        elif missing_files(asset, asset_folder(asset_root(config), asset)):
+            states[asset_id] = f"not downloaded (fetched on first use, {size_text(asset.total_size)})"
+        else:
+            states[asset_id] = "installed"
+    return states
+
+
+def _yue2_checkpoints() -> dict[str, str]:
+    """The YuE2 ``.safetensors`` files of ``models/checkpoints`` (a finetune too, by its name): file -> what keeps it
+    from loading, ``""`` when nothing does."""
+    found: dict[str, str] = {}
+    for name in model_files("checkpoints"):
+        if "yue" not in name.lower() or not name.lower().endswith(".safetensors"):
+            continue
+        path = model_file("checkpoints", name)
+        if path is not None:
+            found[name] = yue2_checkpoint_problem(path) or ""
+    return found
+
+
+def system_facts(
+    models: Mapping[str, ModelFile] | None = None, assets: Mapping[str, Asset] | None = None
+) -> SystemFacts:
+    import comfy.model_management
+
+    found = dict(take_inventory(models, locate_model).found) if models else {}
+    try:
+        import psutil
+
+        ram: int | None = int(psutil.virtual_memory().total)
+    except ImportError:
+        ram = None
+    try:
+        import torch
+
+        torch_version = str(torch.__version__)
+    except ImportError:
+        torch_version = "not installed"
+    try:
+        config = load_config()
+        config_error = ""
+    except PlenioError as error:  # the System Check is where a broken configuration must show up
+        config, config_error = PlenioConfig(), str(error)
+    return SystemFacts(
+        plenio_version=__version__,
+        comfyui_version=comfyui_version(),
+        frontend_version=frontend_version(),
+        python_version=sys.version.split()[0],
+        platform=f"{platform.system()} {platform.release()}",
+        torch_version=torch_version,
+        active_device=str(comfy.model_management.get_torch_device()),
+        devices=_devices(),
+        ram_total_bytes=ram,
+        packages=probe(),
+        config={**config.summary(), **({"error": config_error} if config_error else {})},
+        models=found,
+        misplaced={
+            model.file: str(path)
+            for model in (models or {}).values()
+            if model.file not in found and (path := misplaced_model(model.folder, model.file)) is not None
+        },
+        assets=_asset_states(assets, config) if assets else {},
+        checkpoints=_yue2_checkpoints(),
+        models_root=str(models_directory()),
+        asset_root=str(asset_root(config)),
+        asset_folders={asset_id: str(path) for asset_id, path in config.asset_paths.items()},
+    )

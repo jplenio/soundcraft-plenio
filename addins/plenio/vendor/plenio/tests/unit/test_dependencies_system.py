@@ -1,0 +1,194 @@
+from pathlib import Path
+
+import pytest
+
+from plenio.core.dependencies import OptionalPackage, probe, require
+from plenio.core.errors import PlenioDependencyError
+from plenio.core.reports import Status
+from plenio.core.system import GIB, Device, SystemFacts, check_system, parse_version, to_markdown
+
+MISSING = OptionalPackage(
+    "plenio_surely_missing_pkg", "plenio-missing", "Demo feature", "python -m pip install x"
+)
+
+
+def test_probe_reports_missing_and_present_packages() -> None:
+    result = probe((MISSING, OptionalPackage("json", "json", "stdlib", "")))
+    assert result["plenio_surely_missing_pkg"] is None
+    assert result["json"] is not None
+
+
+def test_require_missing_package_is_actionable() -> None:
+    with pytest.raises(PlenioDependencyError) as error:
+        require("plenio_surely_missing_pkg", (MISSING,))
+    assert "Demo feature" in str(error.value)
+    assert "python -m pip install x" in str(error.value)
+    assert require("json").dumps({}) == "{}"
+
+
+def facts(**overrides: object) -> SystemFacts:
+    values: dict[str, object] = dict(
+        plenio_version="0.1.0",
+        comfyui_version="0.37.0",
+        frontend_version="1.53.6",
+        python_version="3.12.9",
+        platform="Windows 11",
+        torch_version="2.9.1",
+        active_device="cuda:0",
+        devices=(
+            Device(0, "RTX 5060 Ti", "cuda", 16 * GIB, 15 * GIB),
+            Device(1, "RTX 5060 Ti", "cuda", 16 * GIB, 16 * GIB),
+        ),
+        ram_total_bytes=64 * GIB,
+        packages={"av": "18.1.0"},
+        config={"offline": False, "auto_download": True},
+    )
+    values.update(overrides)
+    return SystemFacts(**values)  # type: ignore[arg-type]
+
+
+def test_healthy_system() -> None:
+    report = check_system(facts())
+    assert report.status is Status.OK
+    recommendations = report.data["recommendations"]
+    assert "row '16-24 GB'" in recommendations[0]  # a 16 GB card reports just under 16 GiB
+    assert any("Several GPUs" in rule for rule in recommendations)
+    marked = [row["vram"] for row in report.data["rules"] if row["this_machine"]]
+    assert marked == ["16-24 GB"]
+    markdown = to_markdown(report)
+    assert "RTX 5060 Ti" in markdown and "### Recommendations" in markdown
+    assert "| **this machine** - 16-24 GB |" in markdown and "### Templates" not in markdown
+
+
+@pytest.mark.parametrize(
+    ("gib", "row"),
+    [(6.0, "below 8 GB"), (7.9, "8-12 GB"), (11.9, "12-16 GB"), (15.9, "16-24 GB"), (23.6, "24 GB and more")],
+)
+def test_rule_rows_follow_the_reported_vram(gib: float, row: str) -> None:
+    report = check_system(facts(devices=(Device(0, "GPU", "cuda", int(gib * GIB), None),)))
+    assert [r["vram"] for r in report.data["rules"] if r["this_machine"]] == [row]
+    assert len(report.data["rules"]) == 5 and all(r["basis"] for r in report.data["rules"])
+
+
+def test_template_inventory_and_optional_packages() -> None:
+    from pathlib import Path
+
+    from plenio.core.models import load_catalogue
+
+    catalogue = load_catalogue(Path(__file__).resolve().parents[2] / "resources" / "models.toml")
+    installed = {
+        "yue2_3b_int8_convrot.safetensors": 3960938800,
+        "gemma4_e4b_it_fp8_scaled.safetensors": 1,
+        "minimax_music3_dav.safetensors": 1000,  # interrupted download
+        "pytorch_model.bin": 229072395,  # UniverSR for HQ 2 in every template's Master (HQ mastering)
+        # the cover art, on in the song templates since 2026-10-23
+        "flux-2-klein-4b.safetensors": 7751105712,
+        "qwen_3_4b.safetensors": 8044982048,
+        "flux2-vae.safetensors": 336211292,
+    }
+    report = check_system(
+        facts(
+            models=installed,
+            packages={"av": "18.1.0", "faster_whisper": None},
+            assets={"faster-whisper-large-v3": "not downloaded (fetched on first use, 3.1 GB)"},
+        ),
+        catalogue,
+    )
+    assert report.status is Status.OK  # an optional package or a missing model is no warning
+    rows = {row["template"]: row for row in report.data["templates"]}
+    assert len(rows) == len(report.data["templates"])  # each template once (4 was listed twice)
+    assert list(rows) == sorted(rows) and set(rows) == {
+        "0 · System Check",
+        "1 · YuE2 · Song",
+        "2 · YuE2 · Cover",
+        "3 · MiniMax · Song",
+        "4 · Enhance & Master",
+        "5 · YuE2 · DAW",
+    }
+    assert rows["1 · YuE2 · Song"]["ready"] and rows["4 · Enhance & Master"]["ready"]
+    assert rows["5 · YuE2 · DAW"]["ready"]  # the same model and writer as the song template
+    assert not rows["3 · MiniMax · Song"]["ready"]
+    # 14.1 GB of MiniMax files (the UniverSR weights of HQ 2 are installed here)
+    assert rows["3 · MiniMax · Song"]["missing_size"] == "14.1 GB"  # the DiT and the text encoder
+    assert "flux-2-klein-4b.safetensors" not in rows["1 · YuE2 · Song"]["optional_missing"]  # required now
+    status = {row["file"]: row["status"] for row in report.data["models"]}
+    assert status["yue2_3b_int8_convrot.safetensors"] == "installed"
+    assert status["sheetsage2_bf16.safetensors"] == "missing"
+    assert "yue2_3b_bf16.safetensors" not in status  # alternatives appear in the rule table only
+    markdown = to_markdown(report)
+    assert "| 1 · YuE2 · Song | all installed; optional blocks: 2 not installed |" in markdown
+    assert (
+        "1 with an unexpected size (an interrupted download?): `minimax_music3_dav.safetensors`" in markdown
+    )
+    assert "Optional package 'faster_whisper' is not installed." in markdown
+    assert "faster-whisper-large-v3': not downloaded" in markdown
+    row = next(
+        line for line in markdown.splitlines() if line.startswith("| [`sheetsage2_bf16.safetensors`](")
+    )
+    assert "| `models/audio_encoders` | 1.4 GB | CC BY-NC 4.0 | 2 · YuE2 · Cover | missing |" in row
+
+
+def test_warnings_for_old_comfyui_cpu_only_and_missing_packages() -> None:
+    report = check_system(
+        facts(comfyui_version="0.34.1", devices=(Device(0, "CPU", "cpu"),), packages={"av": None})
+    )
+    assert report.status is Status.WARNING
+    text = " ".join(report.messages)
+    assert "older than the supported 0.37.0" in text
+    assert "'av' is not installed" in text
+    assert "No GPU detected" in report.data["recommendations"][0]
+
+
+def test_a_model_in_a_folder_comfyui_does_not_search_is_named() -> None:
+    # a user's report 2026-10-10: models beside the folders of extra_model_paths.yaml were not found
+    path = str(Path("D:/AI/models/audio_encoders/sheetsage2_bf16.safetensors"))
+    report = check_system(facts(misplaced={"sheetsage2_bf16.safetensors": path}))
+    assert report.status is Status.WARNING
+    line = next(m for m in report.messages if "sheetsage2_bf16.safetensors" in m)
+    assert str(Path("D:/AI/models/audio_encoders")) in line
+    assert "extra_model_paths.yaml as 'audio_encoders: ...'" in line and "models/audio_encoders" in line
+    assert report.data["facts"]["misplaced"] == {"sheetsage2_bf16.safetensors": path}
+
+
+def test_parse_version() -> None:
+    assert parse_version("0.37.0") == (0, 37, 0)
+    assert parse_version("v1.53") == (1, 53, 0)
+    assert parse_version("unknown") is None
+
+
+def test_a_configuration_error_is_reported_not_fatal() -> None:
+    """Audit AUD-06: an invalid config.toml made the System Check itself fail."""
+    report = check_system(
+        facts(
+            config={"offline": False, "auto_download": True, "error": "config.toml: unknown settings ['x']"}
+        )
+    )
+    assert report.status is Status.WARNING
+    assert any("Plenio configuration error" in m and "unknown settings" in m for m in report.messages)
+
+
+def test_the_check_says_where_every_model_file_and_asset_goes() -> None:
+    """Owner's request (2026-10-22): System Check lists the new models and the folder each one goes to."""
+    from plenio.core.assets import load_catalogue
+    from plenio.core.models import load_catalogue as load_models
+
+    root = Path(__file__).resolve().parents[2] / "resources"
+    report = check_system(
+        facts(
+            models_root="F:/ComfyUI/models",
+            asset_root="F:/ComfyUI/models/plenio",
+            assets={"qwen3-asr-1.7b-hf": "installed", "faster-whisper-large-v3": "not downloaded"},
+        ),
+        load_models(root / "models.toml"),
+        load_catalogue(root / "assets.toml"),
+    )
+    rows = {row["asset"]: row for row in report.data["assets"]}
+    assert rows["qwen3-asr-1.7b-hf"]["folder"] == "F:/ComfyUI/models/plenio/asr/qwen3-asr-1.7b-hf"
+    assert rows["qwen3-forcedaligner-0.6b-hf"]["status"] == "unknown"  # no state gathered for it here
+    markdown = to_markdown(report)
+    assert "### Plenio assets" in markdown and "`F:/ComfyUI/models/plenio/asr/qwen3-asr-1.7b-hf`" in markdown
+    assert "ComfyUI's models folder (`F:/ComfyUI/models`)" in markdown
+    universr = next(line for line in markdown.splitlines() if line.startswith("| [`pytorch_model.bin`]("))
+    assert (
+        "`models/audio_sr`" in universr and "1 · YuE2 · Song" in universr
+    )  # every template, with HQ mastering

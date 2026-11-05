@@ -1,0 +1,1232 @@
+{
+ "revision": 0,
+ "last_node_id": 1,
+ "last_link_id": 0,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "630d16a8-090b-5961-9853-4f71db8d2d06",
+   "pos": [
+    0,
+    0
+   ],
+   "size": [
+    340,
+    200
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "type": "CLIP",
+     "link": null
+    },
+    {
+     "localized_name": "style",
+     "name": "style",
+     "type": "STRING",
+     "widget": {
+      "name": "style"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "lyrics",
+     "name": "lyrics",
+     "type": "STRING",
+     "widget": {
+      "name": "lyrics"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "label": "plan seed",
+     "type": "INT",
+     "widget": {
+      "name": "seed"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "song_seed",
+     "name": "song_seed",
+     "label": "song seed",
+     "type": "INT",
+     "link": null
+    },
+    {
+     "localized_name": "switch",
+     "name": "switch",
+     "label": "planning",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "switch"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "mode",
+     "name": "mode",
+     "label": "plan type",
+     "type": "COMBO",
+     "widget": {
+      "name": "mode"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "creativity",
+     "name": "creativity",
+     "type": "INT",
+     "widget": {
+      "name": "creativity"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "score",
+     "name": "score",
+     "type": "STRING",
+     "links": null
+    },
+    {
+     "localized_name": "form_report",
+     "name": "form_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    }
+   ],
+   "title": "Plenio · YuE2 Plan",
+   "properties": {},
+   "widgets_values": [
+    null,
+    null,
+    0,
+    true,
+    "full",
+    100
+   ]
+  }
+ ],
+ "links": [],
+ "version": 0.4,
+ "definitions": {
+  "subgraphs": [
+   {
+    "id": "630d16a8-090b-5961-9853-4f71db8d2d06",
+    "version": 1,
+    "state": {
+     "lastGroupId": 0,
+     "lastNodeId": 709,
+     "lastLinkId": 29,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Plenio · YuE2 Plan",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -260,
+      0,
+      160,
+      200
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      1160,
+      0,
+      160,
+      80
+     ]
+    },
+    "inputs": [
+     {
+      "id": "4dad2419-2e25-5f68-b7cb-7d03a13b5594",
+      "name": "clip",
+      "type": "CLIP",
+      "linkIds": [
+       15,
+       16
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "534fc1cb-6229-5e1f-a05f-c639a524b0cd",
+      "name": "style",
+      "type": "STRING",
+      "linkIds": [
+       17,
+       18
+      ],
+      "pos": [
+       0,
+       20
+      ]
+     },
+     {
+      "id": "d8e2af5c-1bb3-5f2d-8e69-38290330ea55",
+      "name": "lyrics",
+      "type": "STRING",
+      "linkIds": [
+       19,
+       20,
+       21
+      ],
+      "pos": [
+       0,
+       40
+      ]
+     },
+     {
+      "id": "5f8b88b1-d5c4-51be-b377-18a2eb9858c0",
+      "name": "seed",
+      "type": "INT",
+      "linkIds": [
+       22
+      ],
+      "pos": [
+       0,
+       60
+      ],
+      "label": "plan seed"
+     },
+     {
+      "id": "3f238fff-eeb6-5c9f-8b9f-5f9f177ad5a0",
+      "name": "song_seed",
+      "type": "INT",
+      "linkIds": [
+       23
+      ],
+      "pos": [
+       0,
+       80
+      ],
+      "label": "song seed"
+     },
+     {
+      "id": "4fd01d79-c347-5143-85ac-75440f6cb017",
+      "name": "switch",
+      "type": "BOOLEAN",
+      "linkIds": [
+       24
+      ],
+      "pos": [
+       0,
+       100
+      ],
+      "label": "planning"
+     },
+     {
+      "id": "2e8cab25-0bc8-5811-af87-75b17f492fdd",
+      "name": "mode",
+      "type": "COMBO",
+      "linkIds": [
+       25,
+       26
+      ],
+      "pos": [
+       0,
+       120
+      ],
+      "label": "plan type"
+     },
+     {
+      "id": "e1e83d34-8b05-5a9a-bb0d-5b79b850e36e",
+      "name": "creativity",
+      "type": "INT",
+      "linkIds": [
+       27
+      ],
+      "pos": [
+       0,
+       140
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "id": "25fa03e4-ddc0-5861-b55f-81cd313d787e",
+      "name": "score",
+      "type": "STRING",
+      "linkIds": [
+       28
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "dee65157-8aab-5362-8dcd-771c306d5447",
+      "name": "form_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       29
+      ],
+      "pos": [
+       0,
+       20
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 701,
+      "type": "YuE2GenerateABC",
+      "pos": [
+       0,
+       0
+      ],
+      "size": [
+       340,
+       330
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "clip",
+        "name": "clip",
+        "type": "CLIP",
+        "link": 15
+       },
+       {
+        "localized_name": "style",
+        "name": "style",
+        "type": "STRING",
+        "widget": {
+         "name": "style"
+        },
+        "link": 17
+       },
+       {
+        "localized_name": "lyrics",
+        "name": "lyrics",
+        "type": "STRING",
+        "widget": {
+         "name": "lyrics"
+        },
+        "link": 19
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 10
+       },
+       {
+        "localized_name": "mode",
+        "name": "mode",
+        "type": "COMBO",
+        "widget": {
+         "name": "mode"
+        },
+        "link": 25
+       },
+       {
+        "localized_name": "max_abc_tokens",
+        "name": "max_abc_tokens",
+        "type": "INT",
+        "widget": {
+         "name": "max_abc_tokens"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "temperature",
+        "name": "temperature",
+        "type": "FLOAT",
+        "widget": {
+         "name": "temperature"
+        },
+        "link": 1
+       },
+       {
+        "localized_name": "top_p",
+        "name": "top_p",
+        "type": "FLOAT",
+        "widget": {
+         "name": "top_p"
+        },
+        "link": 2
+       },
+       {
+        "localized_name": "top_k",
+        "name": "top_k",
+        "type": "INT",
+        "widget": {
+         "name": "top_k"
+        },
+        "link": 3
+       },
+       {
+        "localized_name": "repetition_penalty",
+        "name": "repetition_penalty",
+        "type": "FLOAT",
+        "widget": {
+         "name": "repetition_penalty"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "penalty_window",
+        "name": "penalty_window",
+        "type": "INT",
+        "widget": {
+         "name": "penalty_window"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "abc",
+        "name": "abc",
+        "type": "STRING",
+        "links": [
+         8
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "YuE2GenerateABC"
+      },
+      "widgets_values": [
+       null,
+       null,
+       0,
+       "fixed",
+       "full",
+       8192,
+       0.7,
+       0.9,
+       30,
+       1.005,
+       100
+      ]
+     },
+     {
+      "id": 702,
+      "type": "PrimitiveString",
+      "pos": [
+       0.0,
+       400
+      ],
+      "size": [
+       300,
+       60
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "value",
+        "name": "value",
+        "type": "STRING",
+        "widget": {
+         "name": "value"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "STRING",
+        "name": "STRING",
+        "type": "STRING",
+        "links": [
+         7
+        ]
+       }
+      ],
+      "title": "No score",
+      "properties": {
+       "Node name for S&R": "PrimitiveString"
+      },
+      "widgets_values": [
+       ""
+      ]
+     },
+     {
+      "id": 703,
+      "type": "ComfySwitchNode",
+      "pos": [
+       400,
+       0
+      ],
+      "size": [
+       260,
+       90
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": 7
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": 8
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 24
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "COMFY_MATCHTYPE_V3",
+        "links": [
+         13
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode"
+      },
+      "widgets_values": [
+       true
+      ]
+     },
+     {
+      "id": 704,
+      "type": "PrimitiveInt",
+      "pos": [
+       0.0,
+       530
+      ],
+      "size": [
+       300,
+       80
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "value",
+        "name": "value",
+        "type": "INT",
+        "widget": {
+         "name": "value"
+        },
+        "link": 22
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "INT",
+        "name": "INT",
+        "type": "INT",
+        "links": [
+         9
+        ]
+       }
+      ],
+      "title": "Plan seed",
+      "properties": {
+       "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+       0,
+       "fixed"
+      ]
+     },
+     {
+      "id": 705,
+      "type": "ComfyMathExpression",
+      "pos": [
+       0.0,
+       680
+      ],
+      "size": [
+       300,
+       150
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "values.a",
+        "name": "values.a",
+        "label": "a",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": 9
+       },
+       {
+        "localized_name": "values.b",
+        "name": "values.b",
+        "label": "b",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": 23
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "FLOAT",
+        "name": "FLOAT",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "INT",
+        "name": "INT",
+        "type": "INT",
+        "links": [
+         10,
+         11
+        ]
+       },
+       {
+        "localized_name": "BOOL",
+        "name": "BOOL",
+        "type": "BOOLEAN",
+        "links": null
+       }
+      ],
+      "title": "plan seed + song seed",
+      "properties": {
+       "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+       "sum(values)"
+      ]
+     },
+     {
+      "id": 706,
+      "type": "YuE2GenerateABC",
+      "pos": [
+       0.0,
+       900
+      ],
+      "size": [
+       340,
+       330
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "clip",
+        "name": "clip",
+        "type": "CLIP",
+        "link": 16
+       },
+       {
+        "localized_name": "style",
+        "name": "style",
+        "type": "STRING",
+        "widget": {
+         "name": "style"
+        },
+        "link": 18
+       },
+       {
+        "localized_name": "lyrics",
+        "name": "lyrics",
+        "type": "STRING",
+        "widget": {
+         "name": "lyrics"
+        },
+        "link": 20
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 12
+       },
+       {
+        "localized_name": "mode",
+        "name": "mode",
+        "type": "COMBO",
+        "widget": {
+         "name": "mode"
+        },
+        "link": 26
+       },
+       {
+        "localized_name": "max_abc_tokens",
+        "name": "max_abc_tokens",
+        "type": "INT",
+        "widget": {
+         "name": "max_abc_tokens"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "temperature",
+        "name": "temperature",
+        "type": "FLOAT",
+        "widget": {
+         "name": "temperature"
+        },
+        "link": 4
+       },
+       {
+        "localized_name": "top_p",
+        "name": "top_p",
+        "type": "FLOAT",
+        "widget": {
+         "name": "top_p"
+        },
+        "link": 5
+       },
+       {
+        "localized_name": "top_k",
+        "name": "top_k",
+        "type": "INT",
+        "widget": {
+         "name": "top_k"
+        },
+        "link": 6
+       },
+       {
+        "localized_name": "repetition_penalty",
+        "name": "repetition_penalty",
+        "type": "FLOAT",
+        "widget": {
+         "name": "repetition_penalty"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "penalty_window",
+        "name": "penalty_window",
+        "type": "INT",
+        "widget": {
+         "name": "penalty_window"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "abc",
+        "name": "abc",
+        "type": "STRING",
+        "links": [
+         14
+        ]
+       }
+      ],
+      "title": "Second plan (only when the form differs)",
+      "properties": {
+       "Node name for S&R": "YuE2GenerateABC"
+      },
+      "widgets_values": [
+       null,
+       null,
+       0,
+       "fixed",
+       "full",
+       8192,
+       0.7,
+       0.9,
+       30,
+       1.005,
+       100
+      ]
+     },
+     {
+      "id": 707,
+      "type": "ComfyMathExpression",
+      "pos": [
+       400,
+       820
+      ],
+      "size": [
+       300,
+       150
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "values.a",
+        "name": "values.a",
+        "label": "a",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": 11
+       },
+       {
+        "localized_name": "values.b",
+        "name": "values.b",
+        "label": "b",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": null
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "FLOAT",
+        "name": "FLOAT",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "INT",
+        "name": "INT",
+        "type": "INT",
+        "links": [
+         12
+        ]
+       },
+       {
+        "localized_name": "BOOL",
+        "name": "BOOL",
+        "type": "BOOLEAN",
+        "links": null
+       }
+      ],
+      "title": "seed + 1",
+      "properties": {
+       "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+       "sum(values) + 1"
+      ]
+     },
+     {
+      "id": 708,
+      "type": "PlenioMatchSongForm",
+      "pos": [
+       720,
+       0
+      ],
+      "size": [
+       340,
+       260
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "score",
+        "name": "score",
+        "type": "STRING",
+        "link": 13
+       },
+       {
+        "localized_name": "lyrics",
+        "name": "lyrics",
+        "type": "STRING",
+        "link": 21
+       },
+       {
+        "localized_name": "alternative",
+        "name": "alternative",
+        "shape": 7,
+        "type": "STRING",
+        "link": 14
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "score",
+        "name": "score",
+        "type": "STRING",
+        "links": [
+         28
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         29
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "PlenioMatchSongForm"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 709,
+      "type": "PlenioCreativity",
+      "pos": [
+       720.0,
+       354
+      ],
+      "size": [
+       320,
+       230
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "brief",
+        "name": "brief",
+        "shape": 7,
+        "type": "PLENIO_BRIEF",
+        "link": null
+       },
+       {
+        "localized_name": "stage",
+        "name": "stage",
+        "type": "COMBO",
+        "widget": {
+         "name": "stage"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "creativity",
+        "name": "creativity",
+        "type": "INT",
+        "widget": {
+         "name": "creativity"
+        },
+        "link": 27
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "temperature",
+        "name": "temperature",
+        "type": "FLOAT",
+        "links": [
+         1,
+         4
+        ]
+       },
+       {
+        "localized_name": "top_p",
+        "name": "top_p",
+        "type": "FLOAT",
+        "links": [
+         2,
+         5
+        ]
+       },
+       {
+        "localized_name": "top_k",
+        "name": "top_k",
+        "type": "INT",
+        "links": [
+         3,
+         6
+        ]
+       }
+      ],
+      "title": "Plan creativity",
+      "properties": {
+       "Node name for S&R": "PlenioCreativity"
+      },
+      "widgets_values": [
+       "plan",
+       100
+      ]
+     }
+    ],
+    "groups": [],
+    "links": [
+     {
+      "id": 1,
+      "origin_id": 709,
+      "origin_slot": 0,
+      "target_id": 701,
+      "target_slot": 6,
+      "type": "FLOAT"
+     },
+     {
+      "id": 2,
+      "origin_id": 709,
+      "origin_slot": 1,
+      "target_id": 701,
+      "target_slot": 7,
+      "type": "FLOAT"
+     },
+     {
+      "id": 3,
+      "origin_id": 709,
+      "origin_slot": 2,
+      "target_id": 701,
+      "target_slot": 8,
+      "type": "INT"
+     },
+     {
+      "id": 4,
+      "origin_id": 709,
+      "origin_slot": 0,
+      "target_id": 706,
+      "target_slot": 6,
+      "type": "FLOAT"
+     },
+     {
+      "id": 5,
+      "origin_id": 709,
+      "origin_slot": 1,
+      "target_id": 706,
+      "target_slot": 7,
+      "type": "FLOAT"
+     },
+     {
+      "id": 6,
+      "origin_id": 709,
+      "origin_slot": 2,
+      "target_id": 706,
+      "target_slot": 8,
+      "type": "INT"
+     },
+     {
+      "id": 7,
+      "origin_id": 702,
+      "origin_slot": 0,
+      "target_id": 703,
+      "target_slot": 0,
+      "type": "STRING"
+     },
+     {
+      "id": 8,
+      "origin_id": 701,
+      "origin_slot": 0,
+      "target_id": 703,
+      "target_slot": 1,
+      "type": "STRING"
+     },
+     {
+      "id": 9,
+      "origin_id": 704,
+      "origin_slot": 0,
+      "target_id": 705,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 10,
+      "origin_id": 705,
+      "origin_slot": 1,
+      "target_id": 701,
+      "target_slot": 3,
+      "type": "INT"
+     },
+     {
+      "id": 11,
+      "origin_id": 705,
+      "origin_slot": 1,
+      "target_id": 707,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 12,
+      "origin_id": 707,
+      "origin_slot": 1,
+      "target_id": 706,
+      "target_slot": 3,
+      "type": "INT"
+     },
+     {
+      "id": 13,
+      "origin_id": 703,
+      "origin_slot": 0,
+      "target_id": 708,
+      "target_slot": 0,
+      "type": "COMFY_MATCHTYPE_V3"
+     },
+     {
+      "id": 14,
+      "origin_id": 706,
+      "origin_slot": 0,
+      "target_id": 708,
+      "target_slot": 2,
+      "type": "STRING"
+     },
+     {
+      "id": 15,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 701,
+      "target_slot": 0,
+      "type": "CLIP"
+     },
+     {
+      "id": 16,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 706,
+      "target_slot": 0,
+      "type": "CLIP"
+     },
+     {
+      "id": 17,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 701,
+      "target_slot": 1,
+      "type": "STRING"
+     },
+     {
+      "id": 18,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 706,
+      "target_slot": 1,
+      "type": "STRING"
+     },
+     {
+      "id": 19,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 701,
+      "target_slot": 2,
+      "type": "STRING"
+     },
+     {
+      "id": 20,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 706,
+      "target_slot": 2,
+      "type": "STRING"
+     },
+     {
+      "id": 21,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 708,
+      "target_slot": 1,
+      "type": "STRING"
+     },
+     {
+      "id": 22,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 704,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 23,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 705,
+      "target_slot": 1,
+      "type": "INT"
+     },
+     {
+      "id": 24,
+      "origin_id": -10,
+      "origin_slot": 5,
+      "target_id": 703,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 25,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 701,
+      "target_slot": 4,
+      "type": "COMBO"
+     },
+     {
+      "id": 26,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 706,
+      "target_slot": 4,
+      "type": "COMBO"
+     },
+     {
+      "id": 27,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 709,
+      "target_slot": 2,
+      "type": "INT"
+     },
+     {
+      "id": 28,
+      "origin_id": 708,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "STRING"
+     },
+     {
+      "id": 29,
+      "origin_id": 708,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 1,
+      "type": "PLENIO_REPORT"
+     }
+    ],
+    "extra": {},
+    "category": "Plenio/YuE2",
+    "description": "Plans the song's score (ABC) from style and lyrics with YuE2. With planning off, no score is made and YuE2 renders without a plan. The brief's song seed is added to the plan seed: every song of a 'new song every run' series gets its own plan. Match Song Form makes the plan fit the lyrics' song form (sections in the lyrics' order or named after them); when the plan cannot be made to fit, YuE2 plans once more with the next seed and the better plan wins."
+   }
+  ]
+ },
+ "extra": {}
+}

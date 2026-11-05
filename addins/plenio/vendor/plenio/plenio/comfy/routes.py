@@ -1,0 +1,576 @@
+"""``/plenio/*`` HTTP endpoints (target-architecture section 6).
+
+Handlers only parse JSON, call ``plenio.core`` and serialise the result - the
+same functions the nodes use, so the editor never decides musical validity.
+Errors become ``{"error": {"type", "message", "hint"}}`` with status 400 (user
+errors), 403 (only for a browser on this computer) or 500 (bugs - said without
+their text, which the log keeps: ``core.errors.public_error``).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import logging
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from aiohttp import web
+
+from ..core import blocks, continuation, song_form, syllables
+from ..core import lyrics as lyrics_rules
+from ..core import score as score_rules
+from ..core.access import from_this_computer
+from ..core.engines import rules_for
+from ..core.errors import PlenioAccessError, PlenioError, PlenioUserError, public_error
+from ..core.sheet import DOCUMENT_KINDS, REVIEW_MODES, evaluate_sheet, parse_sheet_state
+from ..player.launch import ensure_player
+from ..player.paths import state_dir
+from . import host
+from .shared import (
+    preset_library,
+    shipped_blocks,
+    system_report,
+    template_briefs,
+    template_library,
+    template_workflows,
+)
+from .sheet_music import JOBS, MAX_BYTES
+
+log = logging.getLogger("plenio")
+
+Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
+
+
+def error_response(error: Exception) -> web.Response:
+    status, body = public_error(error)
+    return web.json_response({"error": body}, status=status)
+
+
+def only_here(request: web.Request, what: str, hint: str) -> None:
+    """Refuse a request that does not come from a browser on this computer (``core.access``): ComfyUI has no login,
+    and with ``--listen`` - or the Plenio Player's *In your network* - everyone in the network reaches its routes."""
+    sockname = request.transport.get_extra_info("sockname") if request.transport is not None else None
+    own = [str(sockname[0])] if isinstance(sockname, tuple) and sockname else []
+    if not from_this_computer(request.remote, request.headers, own):
+        raise PlenioAccessError(f"{what} - only for a browser on the computer ComfyUI runs on.", hint=hint)
+
+
+def guarded(handler: Handler) -> Handler:
+    async def wrapper(request: web.Request) -> web.StreamResponse:
+        try:
+            return await handler(request)
+        except PlenioError as error:
+            return error_response(error)
+        except Exception as error:
+            log.exception("Plenio route %s failed", request.path)
+            return error_response(error)
+
+    return wrapper
+
+
+async def read_json(request: web.Request) -> dict[str, Any]:
+    try:
+        data = await request.json()
+    except ValueError as error:
+        raise PlenioUserError("The request body is not valid JSON.") from error
+    if not isinstance(data, dict):
+        raise PlenioUserError("The request body must be a JSON object.")
+    return data
+
+
+def _number(data: dict[str, Any], key: str, low: float, high: float) -> float | None:
+    """An optional finite number within ``low..high`` (``None`` when absent or empty)."""
+    value = data.get(key)
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float) or not low <= float(value) <= high:
+        raise PlenioUserError(f"The field {key!r} must be a number between {low:g} and {high:g}.")
+    return float(value)
+
+
+def _engine_rules(engine: Any) -> Any:
+    """The rules module of ``engine`` (``None`` when no engine is given); unknown engines are the caller's error."""
+    if not engine:
+        return None
+    try:
+        return rules_for(str(engine))
+    except PlenioError as error:
+        raise PlenioUserError(error.message, hint=error.hint) from error
+
+
+def _text(data: dict[str, Any], key: str, required: bool = True) -> str:
+    value = data.get(key, "")
+    if value is None or (required and key not in data):
+        raise PlenioUserError(f"The request needs the field {key!r}.")
+    if not isinstance(value, str):
+        raise PlenioUserError(f"The field {key!r} must be a string.")
+    return value
+
+
+async def system(request: web.Request) -> web.StreamResponse:
+    """The System Check's report - this computer's folders, versions and graphics cards: for a browser on it."""
+    only_here(
+        request,
+        "The System Check's report names this computer's folders and versions",
+        "From another computer, run the System Check node: its report shows in the workflow.",
+    )
+    report, markdown = system_report()
+    return web.json_response({"report": report.to_dict(), "markdown": markdown})
+
+
+def _lyrics(data: dict[str, Any]) -> str | None:
+    """The song's lyrics sent with a score (optional): the view then says where they are sung."""
+    value = data.get("lyrics")
+    return value if isinstance(value, str) else None
+
+
+_MAX_SPANS = 4096
+_MAX_SPAN_ONSETS = 512
+
+
+def _spans(data: dict[str, Any]) -> list[tuple[int, ...]] | None:
+    """The lyrics lines placed by hand (``lyric_spans``: ``[[start, end, block, line], ...]`` in units of L -
+    with the onsets of the line's syllables or words after them, as the MusicXML import places them -, or
+    ``[start, end]`` as Plenio 0.4.4 and 0.4.5 kept them; see ``lyric_layout``), optional."""
+    value = data.get("lyric_spans")
+    if value is None:
+        return None
+    if not isinstance(value, list) or len(value) > _MAX_SPANS:
+        raise PlenioUserError(f"'lyric_spans' must be a list of at most {_MAX_SPANS} lyrics spans.")
+    spans = []
+    for item in value:
+        if (
+            not isinstance(item, list)
+            or not (len(item) == 2 or 4 <= len(item) <= 4 + _MAX_SPAN_ONSETS)
+            or not all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in item)
+        ):
+            raise PlenioUserError(
+                "Every lyrics span must be [start, end, block, line] (and the onsets of its syllables) in "
+                "whole numbers (not negative)."
+            )
+        spans.append(tuple(item))
+    return spans
+
+
+async def score_analyze(request: web.Request) -> web.StreamResponse:
+    data = await read_json(request)
+    return web.json_response(score_rules.editor_view(_text(data, "abc"), _lyrics(data), _spans(data)))
+
+
+async def score_transform(request: web.Request) -> web.StreamResponse:
+    data = await read_json(request)
+    operation = data.get("operation")
+    if not isinstance(operation, dict):
+        raise PlenioUserError(
+            "The request needs an 'operation' object.", hint=f"Use one of {sorted(score_rules.OPERATIONS)}."
+        )
+    result = score_rules.apply(_text(data, "abc"), operation)
+    return web.json_response(
+        {
+            "abc": result.abc,
+            "changes": list(result.changes),
+            "warnings": list(result.warnings),
+            "select": list(result.select),
+            "time_map": [list(piece) for piece in result.time_map] if result.time_map is not None else None,
+            "analysis": score_rules.editor_view(result.abc, _lyrics(data), _spans(data)),
+        }
+    )
+
+
+async def score_midi_export(request: web.Request) -> web.StreamResponse:
+    """The score (and the editor's Guide notes) as a standard MIDI file, base64 in JSON."""
+    from ..core.score import canonical, midi
+
+    data = await read_json(request)
+    score = canonical.from_abc(_text(data, "abc"))
+    title = _text(data, "title", required=False)
+    payload = midi.export_midi(score, guide=midi.guide_from_json(data.get("guide")), title=title)
+    return web.json_response(
+        {"filename": midi.filename_for(title), "data": base64.b64encode(payload).decode("ascii")}
+    )
+
+
+async def score_musicxml_export(request: web.Request) -> web.StreamResponse:
+    """The score as MusicXML 4.0 (the sheet music for notation programs), with the lyrics under the notes."""
+    from ..core.score import canonical, musicxml
+
+    data = await read_json(request)
+    score = canonical.from_abc(_text(data, "abc"))
+    title = _text(data, "title", required=False)
+    text = musicxml.export_musicxml(score, title=title, lyrics=_lyrics(data), lyric_spans=_spans(data))
+    return web.json_response(
+        {"filename": musicxml.filename_for(title), "data": text, "type": musicxml.MUSICXML_MIME}
+    )
+
+
+async def score_musicxml_import(request: web.Request) -> web.StreamResponse:
+    """A MusicXML file Plenio's export wrote (``text``) as the score, with the lyrics and their places: the ABC,
+    the lyrics (``null``: the file has none), the lyrics spans and the import report. ``abc`` and ``lyrics``:
+    the sheet's score and lyrics now (kept where the file leaves them as they were)."""
+    from ..core.score import canonical, musicxml_import
+
+    data = await read_json(request)
+    text = _text(data, "text")
+    if len(text) > musicxml_import.MAX_BYTES:
+        raise PlenioUserError(
+            f"The MusicXML file is too large ({musicxml_import.MAX_BYTES // 2**20} MB at most)."
+        )
+    current_text = _text(data, "abc", required=False)
+    try:
+        current = canonical.from_abc(current_text) if current_text.strip() else None
+    except PlenioError:
+        current = None  # a sheet that does not read now: the file alone decides
+    result = musicxml_import.import_musicxml(text, lyrics=_lyrics(data), current=current)
+    abc = canonical.to_abc(result.score)
+    spans = [list(span) for span in result.spans]
+    return web.json_response(
+        {
+            "abc": abc,
+            "lyrics": result.lyrics,
+            "lyric_spans": spans,
+            "report": list(result.report),
+            "analysis": score_rules.editor_view(
+                abc, result.lyrics if result.lyrics is not None else _lyrics(data), spans or None
+            ),
+        }
+    )
+
+
+async def score_midi_import(request: web.Request) -> web.StreamResponse:
+    """A MIDI file (base64) as a score: its ABC, the Guide notes, the tracks and the import report."""
+    from ..core.score import canonical, midi
+
+    data = await read_json(request)
+    encoded = _text(data, "data")
+    if len(encoded) > midi.MAX_FILE_BYTES * 4 // 3 + 4:
+        raise PlenioUserError("The MIDI file is too large (8 MB at most).")
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except (ValueError, TypeError) as error:
+        raise PlenioUserError("The field 'data' is not valid base64.") from error
+    grid = int(_number(data, "grid", 4, 64) or 32)
+    result = midi.import_midi(
+        raw,
+        mapping=midi.mapping_from_json(data.get("mapping")),
+        grid=grid,
+        chords_from_notes=bool(data.get("chords", False)),
+    )
+    abc = canonical.to_abc(result.score)
+    return web.json_response(
+        {
+            "abc": abc,
+            "guide": [[g.onset, g.duration, g.pitch] for g in result.guide],
+            "report": list(result.report),
+            "tracks": [
+                {"index": t.index, "name": t.name, "notes": t.notes, "role": t.role} for t in result.tracks
+            ],
+            "analysis": score_rules.editor_view(abc),
+        }
+    )
+
+
+async def lyrics_analyze(request: web.Request) -> web.StreamResponse:
+    data = await read_json(request)
+    text = _text(data, "lyrics")
+    instrumental = bool(data.get("instrumental", False))
+    rules = _engine_rules(data.get("engine"))
+    findings = (
+        rules.check_lyrics(text, instrumental=instrumental)
+        if rules is not None
+        else lyrics_rules.check_lyrics(text, instrumental=instrumental)
+    )
+    parsed = lyrics_rules.parse_lyrics(text)
+    language = syllables.guess_language(text)
+    sections = [
+        {
+            "tag": s.tag,
+            "lines": len(s.lines),
+            "words": s.words,
+            "syllables": sum(lyrics_rules.estimate_syllables(line, language) for line in s.lines),
+        }
+        for s in parsed.sections
+    ]
+    abc = data.get("abc") or ""
+    if isinstance(abc, str) and abc.strip():
+        analysis = score_rules.analyze(abc)
+        if analysis.ok:
+            findings += lyrics_rules.compare_sections(
+                text, [s.tag for s in analysis.sections], song_form.sung_flags(abc, analysis.sections)
+            )
+            for item, section in zip(sections, analysis.sections, strict=False):
+                item["score_section"] = section.label
+                item["vocal_notes"] = section.vocal_notes
+    return web.json_response(
+        {
+            "sections": sections,
+            "tags": parsed.tags,
+            "words": parsed.words,
+            "findings": [f.to_dict() for f in findings],
+        }
+    )
+
+
+async def sheet_resolve(request: web.Request) -> web.StreamResponse:
+    data = await read_json(request)
+    state = parse_sheet_state(data.get("sheet_state") or "")
+    upstream = data.get("upstream") or {}
+    owned_value = data.get("owned", [])
+    owned = [k for k in owned_value if k in DOCUMENT_KINDS] if isinstance(owned_value, list) else []
+    context_value = data.get("context") or {}
+    if not isinstance(upstream, dict) or not owned or not isinstance(context_value, dict):
+        raise PlenioUserError("The request needs 'owned' documents, an 'upstream' and a 'context' object.")
+    review = str(data.get("review", "continue"))
+    if review not in REVIEW_MODES:
+        raise PlenioUserError(f"Unknown review mode {review!r}; use one of {list(REVIEW_MODES)}.")
+    brief_mode = data.get("brief_mode")  # the brief's work mode, for 'as the brief says'
+    if brief_mode not in (None, "batch", "careful"):
+        raise PlenioUserError(f"Unknown brief mode {brief_mode!r}; use 'batch' or 'careful'.")
+    engine = data.get("engine")
+    context = {k: v for k, v in context_value.items() if isinstance(v, str)}
+    evaluation = evaluate_sheet(
+        state,
+        {k: (v if isinstance(v, str) else None) for k, v in upstream.items()},
+        owned,
+        review=review,
+        brief_mode=brief_mode,
+        rules=_engine_rules(engine),
+        engine_id=str(engine) if engine else None,
+        instrumental=bool(data.get("instrumental", False)),
+        max_seconds=_number(data, "max_seconds", 1, 3600) or None,
+        target_seconds=_number(data, "target_seconds", 1, 3600) or None,
+        sparse=bool(data.get("sparse", False)),
+        context=context,
+    )
+    return web.json_response(evaluation.payload())
+
+
+async def templates_list(request: web.Request) -> web.StreamResponse:
+    library = template_library()
+    if request.query.get("reload") == "1":
+        library.reload()
+    return web.json_response({"templates": library.listing(), "problems": dict(library.problems)})
+
+
+async def template_get(request: web.Request) -> web.StreamResponse:
+    return web.json_response(template_library().get(request.match_info["template_id"]).to_dict())
+
+
+async def brief_fields(request: web.Request) -> web.StreamResponse:
+    """What a brief's template fills, by the one precedence rule (typed > template > empty).
+
+    The editor shows the template's texts as a *Template fills:* line and offers the explicit actions
+    (*copy the text*, *use the choices*, *reset*). The rule itself lives in ``core.brief`` - this route
+    exists so the frontend never computes a second answer to "what would this brief resolve to?".
+    """
+    from ..core.brief import (
+        DEFAULT_LENGTH,
+        OWN_LYRICS,
+        TEXT_FIELDS,
+        cover_choice_hints,
+        cover_text_fields,
+        field_sources,
+        resolve_text_fields,
+        template_choice_hints,
+    )
+
+    data = await read_json(request)
+    values = data.get("fields", {})
+    if not isinstance(values, dict):
+        raise PlenioUserError("The field 'fields' must be an object of widget values.")
+    fields = {name: value for name, value in values.items() if isinstance(value, str)}
+    template_id = str(data.get("template") or "").strip()
+    template = None if template_id in ("", "none") else template_library().get(template_id)
+    # a Cover Brief has its own fields and choices (no length, no tempo/key/meter, vocals in its words)
+    cover = data.get("kind") == "cover"
+    names = cover_text_fields(fields.get("vocals", "")) if cover else TEXT_FIELDS
+    # one's own lyrics are never the template's idea (1.5.0)
+    if not cover and fields.get("lyrics_from") == OWN_LYRICS:
+        names = tuple(name for name in names if name != "lyrics")
+    merged, from_template, notes = resolve_text_fields(fields, template, names)
+    choices = (cover_choice_hints if cover else template_choice_hints)(fields, template)
+    return web.json_response(
+        {
+            "template": template.id if template else "none",
+            "sources": field_sources(fields, template, names),
+            "fields": dict(template.fields) if template else {},
+            "fills": [
+                {"field": name, "value": merged[name], "template": template.fields[name]}
+                for name in from_template
+                if name in names
+            ],
+            "choices": [
+                {"field": name, "suggested": suggested, "current": str(fields.get(name, "") or "")}
+                for name, suggested in choices.items()
+            ],
+            "length_default": DEFAULT_LENGTH,
+            "notes": notes,
+            # what the chosen creative mode does: the panel says it (the tooltip names no modes)
+            "mode": _mode_answer(str(data.get("arrangement") or "")),
+        }
+    )
+
+
+def _mode_answer(name: str) -> dict[str, str] | None:
+    from .shared import mode_description
+
+    described = mode_description(name) if name.strip() else ""
+    return {"name": name, "description": described} if described else None
+
+
+async def template_save(request: web.Request) -> web.StreamResponse:
+    data = await read_json(request)
+    fields = data.get("fields")
+    if not isinstance(fields, dict):
+        raise PlenioUserError("The request needs a 'fields' object.")
+    template = template_library().save_user_template(_text(data, "name"), fields)
+    return web.json_response(template.to_dict())
+
+
+async def asr_note(request: web.Request) -> web.StreamResponse:
+    from .lyrics_asr import asr_notes
+
+    return web.json_response({"note": asr_notes().get(request.match_info["draft_sha256"])})
+
+
+async def presets(request: web.Request) -> web.StreamResponse:
+    from ..core.audio import presets as audio_presets
+
+    return web.json_response(audio_presets.load(preset_library().folder, request.match_info["kind"]))
+
+
+async def eq_response(request: web.Request) -> web.StreamResponse:
+    """The EQ curve of ``settings`` at ``sample_rate`` (the curve widget draws exactly the node's response)."""
+    from ..core.audio import eq
+
+    data = await read_json(request)
+    rate = int(_number(data, "sample_rate", 8000, 384000) or 48000)
+    points = _number(data, "points", 16, 2048)
+    if points is not None and points != int(points):
+        raise PlenioUserError("The field 'points' must be a whole number.")
+    settings = eq.parse_settings(data.get("settings", ""), rate)
+    grid = eq.display_grid(rate, int(points or 256))
+    bands = []
+    for band in settings["bands"]:
+        single = dict(settings, preamp_db=0.0, bands=[band])
+        bands.append([round(float(v), 3) for v in eq.response_db(single, rate, grid)])
+    return web.json_response(
+        {
+            "settings": settings,
+            "frequency_hz": [round(float(f), 2) for f in grid],
+            "response_db": [round(float(v), 3) for v in eq.response_db(settings, rate, grid)],
+            "bands": bands,
+        }
+    )
+
+
+async def export_sheet_music(request: web.Request) -> web.StreamResponse:
+    """The browser's sheet music PDF of an export (Export Release, *sheet music*): written next to the audio
+    under the file name the node reserved for ``token`` (``sheet_music.Jobs``)."""
+    token = request.query.get("token", "")
+    if not token:
+        raise PlenioUserError("The request needs the export's 'token'.")
+    if request.content_length is not None and request.content_length > MAX_BYTES:
+        raise PlenioUserError(f"The sheet music PDF is larger than {MAX_BYTES // 2**20} MB.")
+    data = await request.read()  # the whole body (ComfyUI's upload limit applies)
+    facts = JOBS.save(token, data)
+    return web.json_response({"file": facts["name"], "bytes": facts["bytes"]})
+
+
+async def export_sheet_music_pending(request: web.Request) -> web.StreamResponse:
+    """The sheet music PDFs still waiting for a page to draw them (a page asks when it opens, comes back to the
+    front or reconnects: the run may have ended while it was closed or showed another workflow)."""
+    return web.json_response({"jobs": JOBS.pending()})
+
+
+async def records_list(request: web.Request) -> web.StreamResponse:
+    """The release records in ComfyUI's output folder, newest first (*Continue a song*)."""
+    return web.json_response({"records": continuation.list_records(host.output_directory())})
+
+
+async def records_continue(request: web.Request) -> web.StreamResponse:
+    """What opening a release record restores (``core.continuation``): ``{"path": ...}`` - a record of the
+    output folder, as the list names it - or ``{"record": {...}, "name": ...}`` - a file opened or dropped."""
+    data = await read_json(request)
+    if isinstance(data.get("record"), dict):
+        record, source = data["record"], str(data.get("name") or "the dropped file")
+    else:
+        relative = _text(data, "path")
+        record, source = (
+            continuation.read_record(continuation.record_path(host.output_directory(), relative)),
+            relative,
+        )
+    return web.json_response(continuation.continuation(record, template_workflows(), source=source))
+
+
+async def workflow_blocks(request: web.Request) -> web.StreamResponse:
+    """A workflow's blocks saved before they followed the brief's creativity, brought up to date
+    (``core.blocks``; the frontend asks when such a workflow opens). ``workflow`` is ``null`` when nothing
+    changed."""
+    data = await read_json(request)
+    workflow = data.get("workflow")
+    if not isinstance(workflow, dict):
+        raise PlenioUserError("The request needs the 'workflow' to bring up to date.")
+    found = blocks.upgrade(workflow, shipped_blocks(), template_briefs())
+    return web.json_response(
+        {
+            "workflow": found.workflow if found.updated or found.linked else None,
+            "updated": list(found.updated),
+            "kept": [list(entry) for entry in found.kept],
+            "linked": list(found.linked),
+            "unlinked": [list(entry) for entry in found.unlinked],
+        }
+    )
+
+
+async def player_open(request: web.Request) -> web.StreamResponse:
+    """The *Plenio Player* button (owner's request 2026-10-16): the address of the Plenio Player running on
+    this computer - started now when none runs, as a program of its own that plays ComfyUI's output folder
+    and keeps running when ComfyUI stops (``plenio.player.launch``). ComfyUI never serves the player. It starts a
+    program, so only for a browser on this computer - where the answer's address (``127.0.0.1``) leads, too."""
+    only_here(
+        request,
+        "Starting the Plenio Player",
+        "From another computer, open the player by its address in your network: on the computer itself, the "
+        "player's Settings > In your network shows it.",
+    )
+    comfyui = f"{request.scheme}://{request.host}"
+    try:
+        found = await asyncio.to_thread(ensure_player, host.output_directory(), comfyui, state_dir())
+    except RuntimeError as error:
+        raise PlenioUserError(
+            str(error),
+            hint=f"Start it by hand to see why: python plenio_player.py (its log: {state_dir() / 'player.log'}).",
+        ) from error
+    return web.json_response(found)
+
+
+ROUTES: tuple[tuple[str, str, Handler], ...] = (
+    ("GET", "/plenio/system", system),
+    ("POST", "/plenio/score/analyze", score_analyze),
+    ("POST", "/plenio/score/transform", score_transform),
+    ("POST", "/plenio/score/midi/export", score_midi_export),
+    ("POST", "/plenio/score/midi/import", score_midi_import),
+    ("POST", "/plenio/score/musicxml/import", score_musicxml_import),
+    ("POST", "/plenio/score/musicxml/export", score_musicxml_export),
+    ("POST", "/plenio/lyrics/analyze", lyrics_analyze),
+    ("POST", "/plenio/sheet/resolve", sheet_resolve),
+    ("GET", "/plenio/templates", templates_list),
+    ("GET", "/plenio/templates/{template_id:.+}", template_get),
+    ("POST", "/plenio/templates", template_save),
+    ("POST", "/plenio/brief/fields", brief_fields),
+    ("GET", "/plenio/asr/notes/{draft_sha256}", asr_note),
+    ("GET", "/plenio/presets/{kind}", presets),
+    ("POST", "/plenio/eq/response", eq_response),
+    ("POST", "/plenio/export/sheet-music", export_sheet_music),
+    ("GET", "/plenio/export/sheet-music/pending", export_sheet_music_pending),
+    ("GET", "/plenio/records", records_list),
+    ("POST", "/plenio/records/continue", records_continue),
+    ("POST", "/plenio/workflow/blocks", workflow_blocks),
+    ("POST", "/plenio/player/open", player_open),
+)
+
+
+def register(routes: web.RouteTableDef) -> None:
+    for method, path, handler in ROUTES:
+        routes.route(method, path)(guarded(handler))

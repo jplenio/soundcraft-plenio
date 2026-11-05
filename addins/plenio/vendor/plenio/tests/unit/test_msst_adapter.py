@@ -1,0 +1,354 @@
+"""The BS-RoFormer 4-stem adapter behind Load Audio Model (Phase 11C M6/D11).
+
+The released checkpoint (503 MB, MUSDB18-HQ) stays on the owner's machine (L2); these tests cover
+the adapter's pure parts and its plumbing with a fake model that mimics the upstream output shape.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pytest
+
+from plenio.comfy import msst
+from plenio.core.audio.stems import make_stems
+from plenio.core.errors import PlenioModelError
+
+torch = pytest.importorskip("torch", reason="the adapter needs PyTorch (ComfyUI provides it)")
+
+
+def test_matches_recognises_the_released_checkpoint() -> None:
+    for name in msst.FILE_NAMES:
+        assert msst.matches(name)
+    assert msst.matches("sub/model_bs_roformer_ep_17_sdr_9.6568.ckpt")
+    assert msst.matches("my-bs-roformer-finetune.ckpt")
+    assert not msst.matches("unknown-stems.ckpt")
+    assert not msst.matches("htdemucs.safetensors")
+
+
+def test_the_separator_follows_the_core_contract() -> None:
+    separator = msst.BSRoformerSeparator(model=None)
+    assert separator.name == "BS-RoFormer 4-stem"
+    assert separator.stems == ("vocals", "drums", "bass", "other")
+    assert msst.SAMPLE_RATE == 44100
+
+
+def test_the_stem_order_comes_from_the_config_not_a_constant() -> None:
+    """The owner's listening check (2026-09-28) caught the swap: the released config trains
+    ``drums, bass, other, vocals``, so a constant order mislabels every stem."""
+    released = json.loads((msst.VENDOR / msst.CONFIG_NAME).read_text(encoding="utf-8"))
+    assert released["training"]["instruments"] == ["drums", "bass", "other", "vocals"]
+    names = msst.instruments_of(released, released["model"])
+    assert names == ("drums", "bass", "other", "vocals")
+
+    # a fake model whose output dimension follows that order: index 0 drums, 3 vocals
+    separator = msst.BSRoformerSeparator(
+        model=FakeModel(shares=(0.4, 0.3, 0.2, 0.1)),
+        stems=names,
+        chunk_frames=4096,
+        overlap_frames=1024,
+    )
+    rate = 44100
+    t = np.arange(rate // 2) / rate
+    audio = np.stack([0.4 * np.sin(2 * np.pi * 300 * t), 0.4 * np.sin(2 * np.pi * 700 * t)])
+    stems = separator.separate(audio, rate)
+    assert list(stems) == ["vocals", "drums", "bass", "other"]  # the widget's documented order
+    energy = float((audio**2).mean())
+    for name, share in (("drums", 0.4), ("bass", 0.3), ("other", 0.2), ("vocals", 0.1)):
+        ratio = float((stems[name].astype(np.float64) ** 2).mean()) / energy
+        assert ratio == pytest.approx(share**2, rel=1e-3), name  # name and audio belong together
+
+
+def test_a_config_that_does_not_fit_the_model_is_refused() -> None:
+    with pytest.raises(PlenioModelError) as wrong_count:
+        msst.instruments_of({"training": {"instruments": ["vocals", "drums"]}}, {"num_stems": 4})
+    assert "names 2" in wrong_count.value.message
+    with pytest.raises(PlenioModelError) as residual:
+        msst.instruments_of(
+            {"training": {"instruments": ["vocals", "drums", "bass", "rest"]}}, {"num_stems": 4}
+        )
+    assert "not contain 'rest'" in residual.value.message
+    with pytest.raises(PlenioModelError):
+        msst.instruments_of({"training": {"instruments": ["vocals", "drums", "bass", 7]}}, {})
+    # a config without the list falls back to the documented order
+    assert msst.instruments_of({}, {"num_stems": 4}) == msst.STEMS
+
+
+class FakeModel:
+    """Mimics the upstream model: ``[batch, stems, channels, samples]``, each stem a known share."""
+
+    def __init__(self, shares: tuple[float, ...] = (0.4, 0.3, 0.2, 0.1)) -> None:
+        self.shares = shares
+        self.calls = 0
+        self.last_shape: tuple[int, ...] | None = None
+
+    def __call__(self, tensor: Any) -> Any:
+        self.calls += 1
+        self.last_shape = tuple(tensor.shape)
+        stems = torch.stack([tensor * share for share in self.shares], dim=1)
+        return stems
+
+
+def test_separate_keeps_the_input_rate_length_and_channels() -> None:
+    model = FakeModel()
+    separator = msst.BSRoformerSeparator(model=model, chunk_frames=1024, overlap_frames=256)
+    rate, seconds = 48000, 0.25
+    t = np.arange(int(seconds * rate)) / rate
+    tone = (0.3 * np.sin(2 * np.pi * 440 * t)).astype(np.float64)
+    audio = np.stack([tone, tone * 0.5])
+    stems = separator.separate(audio, rate)
+    assert set(stems) == {"vocals", "drums", "bass", "other"}
+    for name, stem in stems.items():
+        assert stem.shape == audio.shape, name  # the core requires the input's shape
+        assert stem.dtype == np.float32
+    # the shares add up: a neutral mix with the residual is exactly the input
+    mixed = sum(stems.values()).astype(np.float64)
+    assert np.allclose(mixed, audio, atol=2e-3)
+    container = make_stems(audio, rate, stems, source=separator.name)
+    assert container.residual.shape == audio.shape
+    assert model.calls >= 2  # 0.25 s at 44.1 kHz is longer than one 1024-frame chunk
+
+
+def test_separate_handles_mono_and_short_inputs() -> None:
+    separator = msst.BSRoformerSeparator(model=FakeModel(), chunk_frames=4096, overlap_frames=1024)
+    audio = np.zeros((1, 500), dtype=np.float64)
+    stems = separator.separate(audio, 44100)
+    assert all(stem.shape == (1, 500) for stem in stems.values())
+
+
+def test_a_broken_checkpoint_is_refused_with_a_hint(tmp_path: Path) -> None:
+    broken = tmp_path / "bs_roformer_broken.ckpt"
+    broken.write_text("not a checkpoint", encoding="utf-8")
+    with pytest.raises(PlenioModelError) as error:
+        msst.load(broken)
+    assert "could not be read" in error.value.message
+    assert "missing-model dialog" in (error.value.hint or "")
+
+
+class _Payload:
+    """A pickled object whose unpickling would create a marker file (the code-execution probe)."""
+
+    def __init__(self, marker: Path) -> None:
+        self.marker = marker
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (Path.touch, (self.marker,))
+
+
+def test_a_checkpoint_that_pickles_objects_is_refused_and_never_unpickled(tmp_path: Path) -> None:
+    """weights_only=True: an object besides the weights could run code while it is unpickled."""
+    marker = tmp_path / "ran.txt"
+    path = tmp_path / "bs_roformer_evil.ckpt"
+    torch.save({"state_dict": {"a": torch.zeros(1)}, "extra": _Payload(marker)}, path)
+    with pytest.raises(PlenioModelError) as error:
+        msst._read_checkpoint(path, torch)
+    assert not marker.exists()
+    assert "Unsupported global" in error.value.message and "weights_only=False" not in error.value.message
+    assert "unpickling them can run code" in (error.value.hint or "")
+
+
+def test_a_safetensors_file_is_read_without_pickle(tmp_path: Path) -> None:
+    save_file = pytest.importorskip("safetensors.torch").save_file
+    released = json.loads((msst.VENDOR / msst.CONFIG_NAME).read_text(encoding="utf-8"))
+    path = tmp_path / "bs_roformer.safetensors"
+    save_file({"a": torch.ones(2)}, str(path))
+    assert msst.matches(path.name)
+    config, state = msst._read_checkpoint(path, torch)
+    assert config == released and torch.equal(state["a"], torch.ones(2))
+
+
+def test_the_released_config_is_used_when_the_checkpoint_has_none(tmp_path: Path) -> None:
+    released = json.loads((msst.VENDOR / msst.CONFIG_NAME).read_text(encoding="utf-8"))
+    assert released["model"]["num_stems"] == 4 and released["model"]["dim"] == 384
+    path = tmp_path / "plain.ckpt"
+    torch.save({"state_dict": {"a": torch.zeros(1)}}, path)
+    config, state = msst._read_checkpoint(path, torch)
+    assert config == released and list(state) == ["a"]
+
+
+def test_a_checkpoint_can_carry_its_own_config(tmp_path: Path) -> None:
+    released = json.loads((msst.VENDOR / msst.CONFIG_NAME).read_text(encoding="utf-8"))
+    tiny = {**released, "model": {**released["model"], "num_stems": 4, "dim": 8}}
+    path = tmp_path / "tiny.ckpt"
+    torch.save({"state_dict": {"a": torch.zeros(1)}, "hyper_parameters": {"config": tiny}}, path)
+    config, _state = msst._read_checkpoint(path, torch)
+    assert config == tiny
+
+
+def test_lightning_weight_prefixes_are_stripped() -> None:
+    class Model:
+        def state_dict(self) -> dict[str, Any]:
+            return {"band_split.to_features.0.weight": torch.zeros(1)}
+
+    plain = {"band_split.to_features.0.weight": torch.zeros(1)}
+    assert msst._match_state_dict(Model(), plain) == plain  # already plain
+    prefixed = {f"model.{key}": value for key, value in plain.items()}
+    assert set(msst._match_state_dict(Model(), prefixed)) == set(plain)
+    ema = {f"ema_model.{key}": value for key, value in plain.items()}
+    assert set(msst._match_state_dict(Model(), ema)) == set(plain)
+    # anything else is handed on unchanged: load_state_dict reports the mismatch
+    assert set(msst._match_state_dict(Model(), {"other": torch.zeros(1)})) == {"other"}
+
+
+def test_the_stand_ins_are_installed_only_when_the_packages_are_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sys
+
+    from plenio.third_party.msst import _compat
+
+    saved = {
+        name: sys.modules.get(name) for name in ("beartype", "beartype.typing", "rotary_embedding_torch")
+    }
+    try:
+        for name in saved:
+            sys.modules.pop(name, None)
+        monkeypatch.setattr(_compat, "_havable", lambda _name: False)
+        used = _compat.ensure_dependencies()
+        assert set(used) == {"beartype", "rotary_embedding_torch"}
+        from beartype import beartype
+        from beartype.typing import Optional
+
+        @beartype
+        def guarded(value: Optional[int] = None) -> int:
+            return 0 if value is None else value
+
+        assert guarded(3) == 3  # no runtime guarding, but the decorator works
+        from rotary_embedding_torch import RotaryEmbedding
+
+        rope = RotaryEmbedding(dim=8)
+        # a module with the frequencies as weights, as in the package: the released checkpoint has them
+        assert list(rope.state_dict()) == ["freqs"]
+        x = torch.randn(1, 2, 5, 8)
+        rotated = rope.rotate_queries_or_keys(x)
+        assert rotated.shape == x.shape
+        # the rotation preserves the norm of every vector
+        assert torch.allclose(rotated.norm(dim=-1), x.norm(dim=-1), atol=1e-5)
+        # and it is the identity at position zero
+        assert torch.allclose(rotate_zero(rope), torch.zeros(1, 2, 1, 8), atol=1e-6)
+        # it turns the dimensions in pairs (0, 1), (2, 3) ... as the package does - not the two halves
+        unit = torch.zeros(1, 1, 4, 8)
+        unit[..., 0] = 1.0
+        turned = rope.rotate_queries_or_keys(unit)[0, 0]
+        positions = torch.arange(4.0)
+        assert torch.allclose(turned[:, 0], torch.cos(positions), atol=1e-6)
+        assert torch.allclose(turned[:, 1], torch.sin(positions), atol=1e-6)
+        assert torch.allclose(turned[:, 2:], torch.zeros(4, 6), atol=1e-6)
+    finally:
+        for name, module in saved.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+
+
+def test_the_stand_in_rotates_exactly_like_rotary_embedding_torch() -> None:
+    """GitHub issue (ComfyUI Desktop, without the package): the stand-in rotated halves of the dimension
+    and kept no weights. It now reproduces the package; compared where the package is installed."""
+    package = pytest.importorskip("rotary_embedding_torch")
+    from plenio.third_party.msst._compat import rotary_embedding_class
+
+    stand_in = rotary_embedding_class()
+    torch.manual_seed(0)
+    for dim, length in ((16, 1), (16, 33), (64, 517)):
+        real, ours = package.RotaryEmbedding(dim=dim), stand_in(dim=dim)
+        assert list(ours.state_dict()) == list(real.state_dict()) == ["freqs"]
+        assert torch.equal(ours.freqs, real.freqs)
+        x = torch.randn(2, 4, length, dim)
+        assert torch.equal(ours.rotate_queries_or_keys(x), real.rotate_queries_or_keys(x)), (dim, length)
+
+
+def test_the_released_weights_load_into_the_model_built_with_the_stand_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The released checkpoint carries ``...rotary_embed.freqs``; with the stand-in the model refused them
+    ("Unexpected key(s) in state_dict", GitHub issue on ComfyUI Desktop)."""
+    import importlib
+    import sys
+
+    from plenio.third_party import msst as vendor
+    from plenio.third_party.msst import _compat
+
+    saved = sys.modules.get("rotary_embedding_torch")
+    real = _compat._havable
+    try:
+        sys.modules.pop("rotary_embedding_torch", None)
+        monkeypatch.setattr(
+            _compat, "_havable", lambda name: False if name == "rotary_embedding_torch" else real(name)
+        )
+        assert "rotary_embedding_torch" in vendor.ensure_dependencies()
+        from plenio.third_party.msst import bs_roformer
+
+        bs_roformer = importlib.reload(bs_roformer)  # takes the stand-in
+        released = json.loads((msst.VENDOR / msst.CONFIG_NAME).read_text(encoding="utf-8"))
+        model = bs_roformer.BSRoformer(
+            **msst.model_kwargs({"model": {**released["model"], "dim": 8, "depth": 1}})
+        )
+        weights = model.state_dict()
+        assert sum(key.endswith(msst.ROTARY_FREQS) for key in weights) == 2  # time and frequency, per block
+        model.load_state_dict(msst._match_state_dict(model, dict(weights)))  # strict: nothing unexpected
+    finally:
+        monkeypatch.setattr(_compat, "_havable", real)
+        if saved is not None:
+            sys.modules["rotary_embedding_torch"] = saved
+        else:
+            sys.modules.pop("rotary_embedding_torch", None)
+        from plenio.third_party.msst import bs_roformer as again
+
+        importlib.reload(again)
+
+
+def test_rotary_frequencies_go_where_the_model_keeps_them() -> None:
+    """A rotary package that keeps the standard frequencies out of the weights must not refuse the
+    released checkpoint for them; anything else still is reported by load_state_dict."""
+    standard = 1.0 / (10000 ** (torch.arange(0, 8, 2).float() / 8))
+    own = {"layer.weight": torch.zeros(2)}
+    state = {"layer.weight": torch.ones(2), "layers.0.rotary_embed.freqs": standard.clone()}
+    assert set(msst._reconcile_rotary(own, state) or {}) == {"layer.weight"}
+    learned = {**state, "layers.0.rotary_embed.freqs": standard * 2}
+    assert msst._reconcile_rotary(own, learned) is None
+    keeps = {**own, "layers.0.rotary_embed.freqs": standard}
+    filled = msst._reconcile_rotary(keeps, {"layer.weight": torch.ones(2)})
+    assert filled is not None and torch.equal(filled["layers.0.rotary_embed.freqs"], standard)
+    assert msst._reconcile_rotary(own, {"other": torch.zeros(1)}) is None
+
+
+def rotate_zero(rope: Any) -> Any:
+    return rope.rotate_queries_or_keys(torch.zeros(1, 2, 1, 8)) - torch.zeros(1, 2, 1, 8)
+
+
+def test_the_adapter_does_not_import_torch_at_module_level() -> None:
+    import subprocess
+    import sys as system
+
+    code = (
+        "import sys\n"
+        "import plenio.comfy.audio_models as m\n"
+        "assert [a.name for a in m.adapters('separation')] == ['BS-RoFormer 4-stem']\n"
+        "assert 'torch' not in sys.modules\n"
+    )
+    result = subprocess.run(
+        [system.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).resolve().parents[2]),
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_released_config_builds_the_model_also_with_beartype_installed() -> None:
+    """The released config is JSON (lists); the upstream signature says tuples, and a real beartype -
+    installed by other custom nodes - refused the lists, so Stems failed to load (found 2026-10-02)."""
+    pytest.importorskip("beartype")
+    from plenio.third_party import msst as vendor
+
+    vendor.ensure_dependencies()
+    from plenio.third_party.msst.bs_roformer import BSRoformer
+
+    released = json.loads((msst.VENDOR / msst.CONFIG_NAME).read_text(encoding="utf-8"))
+    kwargs = msst.model_kwargs({"model": {**released["model"], "dim": 8, "depth": 1}})
+    assert isinstance(kwargs["freqs_per_bands"], tuple)
+    BSRoformer(**kwargs)  # no type-guard error

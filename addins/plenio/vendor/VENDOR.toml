@@ -1,0 +1,6 @@
+# Written by addins/plenio/tools/sync_plenio.py - do not edit by hand.
+source = "https://github.com/jplenio/Plenio-Music-Production-System"
+commit = "f26972890377d54b44b03db525037855397e70c3"
+version = "1.5.0"
+synced = "2026-11-05"
+files = 1027

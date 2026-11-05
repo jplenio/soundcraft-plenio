@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="referrer" content="no-referrer" />
+<meta name="theme-color" content="#0d0b17" />
+<title>Plenio Live</title>
+<style>
+  /* The guests' page of the Plenio Player's Live Play (plenio/player/guest.py): the song that plays, what
+     comes next, reactions that float over the host's screen, the party's songs to hear again on one's phone, and
+     - when the host allows it - moving, taking out and adding songs. Phone first. */
+  :root {
+    --bg: #0d0b17;
+    --panel: rgba(255, 255, 255, 0.05);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #f3f1fa;
+    --muted: #a39fb8;
+    --accent: #a855f7;
+    --live: #ef4444;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 var(--font); }
+  body { min-height: 100vh; padding: max(14px, env(safe-area-inset-top)) 14px 40px; }
+  main { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; }
+  .brand i { display: inline-flex; gap: 2px; align-items: flex-end; height: 18px; }
+  .brand i b { width: 3px; background: var(--accent); border-radius: 2px; animation: eq 1s ease-in-out infinite; }
+  .brand i b:nth-child(2) { animation-delay: -0.3s; } .brand i b:nth-child(3) { animation-delay: -0.6s; }
+  @keyframes eq { 0%, 100% { height: 30%; } 50% { height: 100%; } }
+  .pill { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 99px; background: var(--live); color: #fff; }
+  .pill.off { background: rgba(255, 255, 255, 0.12); color: var(--muted); }
+  .note { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--panel); color: var(--muted); }
+  .now { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; padding: 14px; border-radius: 18px;
+         background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, transparent), var(--panel)); border: 1px solid var(--line); }
+  .now .art { width: 96px; height: 96px; border-radius: 14px; }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .now h1 { margin: 2px 0 2px; font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
+  .by { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .made { margin-top: 4px; font-weight: 700; font-size: 14px; background: linear-gradient(90deg, #f472b6, #fbbf24); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .bar { height: 5px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin-top: 10px; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.9s linear; }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .art { display: grid; place-items: center; overflow: hidden; background: linear-gradient(135deg, #6d28d9, #db2777); color: rgba(255, 255, 255, 0.85);
+         font-weight: 800; font-size: 13px; flex: none; }
+  .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  h2 { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  li { display: grid; grid-template-columns: 18px 44px 1fr auto; gap: 9px; align-items: center; padding: 8px 9px; border-radius: 12px; background: var(--panel); }
+  li .n { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+  li .art { width: 44px; height: 44px; border-radius: 9px; font-size: 11px; }
+  li .t { min-width: 0; }
+  /* a title on two lines at most: on a phone the buttons take room */
+  li .t b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+  li .t small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .new { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 99px; background: var(--live); color: #fff; font-size: 10px; font-weight: 800; vertical-align: 2px; }
+  .tools { display: flex; gap: 4px; }
+  button { font: inherit; color: var(--text); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--line); border-radius: 10px;
+           min-width: 36px; height: 36px; padding: 0 9px; cursor: pointer; touch-action: manipulation; }
+  button:active { transform: scale(0.96); }
+  button:disabled { opacity: 0.35; }
+  button.go { background: var(--accent); border-color: transparent; font-weight: 700; }
+  .dur { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  input[type="search"] { width: 100%; font: inherit; color: var(--text); background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line);
+                         border-radius: 12px; padding: 11px 13px; }
+  .add li { grid-template-columns: 44px 1fr auto; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .toast { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: #2a2440; color: #fff;
+           padding: 10px 16px; border-radius: 99px; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; }
+  /* Make your own song (owner's request 2026-10-25): when the host lets guests make songs */
+  .make { position: relative; overflow: hidden; display: grid; grid-template-columns: 46px 1fr auto; gap: 12px; align-items: center; padding: 14px 16px;
+          border-radius: 18px; text-decoration: none; color: #120c1c; background: linear-gradient(120deg, #a78bfa, #f472b6 55%, #fbbf24); background-size: 180% 100%;
+          box-shadow: 0 12px 34px rgba(244, 114, 182, 0.35); animation: drift 6s ease-in-out infinite; }
+  .make .spark { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.35); font-size: 24px; }
+  .make b { display: block; font-size: 17px; }
+  .make small { color: rgba(18, 12, 28, 0.75); font-size: 13px; }
+  .make .go { font-weight: 800; font-size: 22px; }
+  .make::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+                 transform: translateX(-120%); animation: shine 3.2s ease-in-out infinite; pointer-events: none; }
+  @keyframes drift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes shine { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+  /* reactions (owner's request 2026-10-26): a tap floats over the host's screen */
+  .react { display: grid; gap: 8px; }
+  .react .row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .react button { height: 56px; font-size: 27px; border-radius: 16px; padding: 0; background: var(--panel); transition: transform 0.12s, background 0.2s; }
+  .react button:active { transform: scale(0.88); background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .react button.mine { outline: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--panel)); }
+  .react .tally { min-height: 18px; text-align: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .fly { position: fixed; z-index: 5; pointer-events: none; font-size: 32px; animation: fly 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) forwards; }
+  @keyframes fly { from { transform: translate(-50%, -50%) scale(0.7); opacity: 1; }
+                   to { transform: translate(calc(-50% + var(--dx)), calc(-50% - 170px)) scale(1.6) rotate(var(--rot)); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .fly { display: none; } }
+  /* the party's songs again, on one's own phone (owner's request 2026-10-29) */
+  .again .hint { margin: -2px 0 8px; color: var(--muted); font-size: 13px; }
+  .again audio { width: 100%; margin-bottom: 8px; }
+  .again li { grid-template-columns: 44px 1fr auto; }
+  .again li.playing { outline: 2px solid var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><i><b></b><b></b><b></b></i> Plenio Live</div>
+    <span id="pill" class="pill off">…</span>
+  </header>
+  <p id="note" class="note">Connecting …</p>
+  <a id="makeBox" class="make" href="make/" hidden>
+    <span class="spark">✨</span>
+    <span><b>Make your own song</b><small>Pick a style, say what it is about - it plays here when it is ready</small></span>
+    <span class="go">›</span>
+  </a>
+  <section id="now" class="now" hidden>
+    <div id="nowArt" class="art"></div>
+    <div>
+      <div class="label">Playing now</div>
+      <h1 id="nowTitle"></h1>
+      <div id="nowBy" class="by"></div>
+      <div id="nowMade" class="made" hidden></div>
+      <div class="bar"><span id="nowBar"></span></div>
+      <div class="times"><span id="nowAt">0:00</span><span id="nowLen">0:00</span></div>
+    </div>
+  </section>
+  <section id="reactBox" class="react" hidden>
+    <div id="reactions" class="row"></div>
+    <div id="tally" class="tally"></div>
+  </section>
+  <section id="nextBox" hidden>
+    <h2><span>Up next</span><span id="left"></span></h2>
+    <ol id="next"></ol>
+  </section>
+  <section id="addBox" class="add" hidden>
+    <h2><span>Add a song</span></h2>
+    <input id="find" type="search" placeholder="Search: title, artist, genre …" autocomplete="off" enterkeyhint="search" />
+    <ol id="found" style="margin-top: 8px"></ol>
+  </section>
+  <section id="againBox" class="again" hidden>
+    <h2><span>Hear them again</span><span id="againCount"></span></h2>
+    <p class="hint">The songs made at this party, once they played - here on your phone.</p>
+    <audio id="againPlayer" controls preload="none" hidden></audio>
+    <ol id="again"></ol>
+  </section>
+  <details id="playedBox" hidden>
+    <summary>Played before</summary>
+    <ol id="played" style="margin-top: 8px"></ol>
+  </details>
+  <footer id="foot"></footer>
+</main>
+<div id="toast" class="toast"></div>
+<script>
+  "use strict";
+  // Everything shown comes from the player as text and is put in as text, never as HTML.
+  const $ = (id) => document.getElementById(id);
+  let view = null;
+  let fetchedAt = 0;
+  let busy = false;
+
+  const time = (s) => {
+    s = Math.max(0, Math.floor(s || 0));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function art(song, cls) {
+    const box = el("div", cls || "art");
+    if (song.cover) {
+      const img = new Image();
+      img.alt = "";
+      img.loading = "lazy";
+      img.src = `cover/${song.id}`;
+      img.onerror = () => { img.remove(); box.textContent = initials(song.title); };
+      box.append(img);
+    } else box.textContent = initials(song.title);
+    return box;
+  }
+  const initials = (title) => (title || "?").replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/).slice(0, 2).map((w) => w[0] || "").join("").toUpperCase() || "♪";
+  let toastTimer = 0;
+  function say(text) {
+    const t = $("toast");
+    t.textContent = text;
+    t.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("on"), 2600);
+  }
+
+  async function load() {
+    try {
+      const answer = await fetch("api/live", { cache: "no-store" });
+      if (answer.status === 404) {
+        view = null;
+        show("This address no longer leads to the live playlist - ask the host for the new one.");
+        return;
+      }
+      view = await answer.json();
+      fetchedAt = performance.now();
+      render();
+    } catch {
+      show("The player cannot be reached - same Wi-Fi? Trying again …");
+    }
+  }
+  function show(text) {
+    $("makeBox").hidden = !(view && view.make);
+    $("note").hidden = false;
+    $("note").textContent = text;
+    for (const id of ["now", "reactBox", "nextBox", "addBox", "playedBox"]) $(id).hidden = true;
+    $("pill").className = "pill off";
+    $("pill").textContent = "OFF";
+    loadAgain(false);
+  }
+
+  function render() {
+    const v = view;
+    const change = v.mode === "change";
+    $("makeBox").hidden = !v.make;
+    if (!v.open) return show("The player's page is closed at the moment - the live playlist shows again when it is open.");
+    $("pill").className = v.live ? "pill" : "pill off";
+    $("pill").textContent = v.live ? "LIVE" : "NOT LIVE";
+    const notes = [];
+    if (!v.live) notes.push("Live Play is not on - the host has not started the live playlist yet.");
+    else if (v.waiting) notes.push("Waiting for the next new song …");
+    $("note").hidden = !notes.length;
+    $("note").textContent = notes.join(" ");
+    // playing now
+    $("now").hidden = !v.now;
+    if (v.now) {
+      const box = $("nowArt");
+      box.replaceWith(Object.assign(art(v.now, "art"), { id: "nowArt" }));
+      $("nowTitle").textContent = v.now.title;
+      $("nowBy").textContent = v.now.by;
+      $("nowMade").hidden = !v.now.made_by;
+      $("nowMade").textContent = v.now.made_by ? `✨ made by ${v.now.made_by} at the party ${partyDay(v.now.made_on)}` : "";
+      $("nowLen").textContent = time(v.now.seconds);
+      tick();
+    }
+    // reactions to the song that plays
+    $("reactBox").hidden = !(v.react && v.now);
+    onePerSong = v.per_song === "one";
+    if (v.now) {
+      tally(v.now.cheers || {});
+      markMine(onePerSong ? v.now.mine || "" : "");
+    }
+    // up next
+    const next = v.next || [];
+    $("nextBox").hidden = !v.live;
+    $("left").textContent = next.length ? `${next.length} · ${time(next.reduce((t, s) => t + s.seconds, 0))}` : "";
+    const list = $("next");
+    list.replaceChildren();
+    if (!next.length) list.append(el("li", "", "Nothing yet."));
+    next.forEach((song, k) => {
+      const row = el("li");
+      row.append(el("span", "n", String(k + 1)), art(song));
+      const text = el("div", "t");
+      const title = el("b", "", song.title);
+      if (song.new) title.append(el("span", "new", "new"));
+      text.append(title, el("small", "", song.made_by ? `made by ${song.made_by}` : song.by));
+      row.append(text);
+      if (change && v.live) {
+        const tools = el("div", "tools");
+        tools.append(
+          button("↑", "Earlier", k === 0, () => wish({ op: "up", id: song.id, at: song.at }, `${song.title} - one up`)),
+          button("↓", "Later", k === next.length - 1, () => wish({ op: "down", id: song.id, at: song.at }, `${song.title} - one down`)),
+          button("✕", "Take it out", false, () => wish({ op: "remove", id: song.id, at: song.at }, `${song.title} - taken out`))
+        );
+        row.append(tools);
+      } else row.append(el("span", "dur", time(song.seconds)));
+      list.append(row);
+    });
+    // add a song
+    $("addBox").hidden = !(change && v.live);
+    // played before
+    const played = v.played || [];
+    $("playedBox").hidden = !played.length;
+    $("played").replaceChildren(...played.map((song) => {
+      const row = el("li");
+      row.style.gridTemplateColumns = "44px 1fr auto";
+      const text = el("div", "t");
+      text.append(el("b", "", song.title), el("small", "", song.by));
+      row.append(art(song), text, el("span", "dur", time(song.seconds)));
+      return row;
+    }));
+    $("foot").textContent = change ? "You may move, take out and add songs - the host's player plays them." : "View only - the host chooses the songs.";
+    loadAgain(false);
+  }
+
+  // the party's songs that played, to hear again on this phone
+  let againAt = -1e9;
+  let againShown = "";
+  let hearing = "";
+  async function loadAgain(force) {
+    if (!view || !view.replay) {
+      $("againBox").hidden = true;
+      return;
+    }
+    if (!force && performance.now() - againAt < 15000) return;
+    againAt = performance.now();
+    try {
+      const answer = await fetch("api/party", { cache: "no-store" });
+      const data = await answer.json();
+      renderAgain(data.on ? data.songs || [] : []);
+    } catch {
+      /* the next look tries again */
+    }
+  }
+  function renderAgain(songs) {
+    $("againBox").hidden = !songs.length;
+    $("againCount").textContent = songs.length ? String(songs.length) : "";
+    const key = songs.map((s) => s.id).join(",") + "|" + hearing;
+    if (key === againShown) return;
+    againShown = key;
+    $("again").replaceChildren(...songs.map((song) => {
+      const row = el("li");
+      if (song.id === hearing) row.className = "playing";
+      const text = el("div", "t");
+      text.append(el("b", "", song.title), el("small", "", song.by ? `made by ${song.by} · ${time(song.seconds)}` : time(song.seconds)));
+      const tools = el("div", "tools");
+      tools.append(Object.assign(button("▶", `Hear ${song.title} again`, false, () => hear(song, songs)), { className: "go" }));
+      row.append(art(song), text, tools);
+      return row;
+    }));
+  }
+  function hear(song, songs) {
+    const player = $("againPlayer");
+    player.hidden = false;
+    player.src = `song/${song.id}`;
+    hearing = song.id;
+    player.play().catch(() => say("Tap ▶ in the player to start"));
+    renderAgain(songs);
+  }
+  function button(text, title, disabled, act) {
+    const b = el("button", "", text);
+    b.title = title;
+    b.setAttribute("aria-label", title);
+    b.disabled = disabled;
+    b.onclick = act;
+    return b;
+  }
+  function tick() {
+    const now = view && view.now;
+    if (!now) return;
+    const at = Math.min(now.seconds, now.position + (view.playing ? (performance.now() - fetchedAt) / 1000 : 0));
+    $("nowAt").textContent = time(at);
+    $("nowBar").style.width = `${now.seconds ? (at / now.seconds) * 100 : 0}%`;
+  }
+
+  async function wish(body, done) {
+    if (busy) return;
+    busy = true;
+    try {
+      const answer = await fetch("api/wish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await answer.json().catch(() => ({}));
+      say(answer.ok ? done : data.error || "That did not work");
+      setTimeout(load, 900);
+    } catch {
+      say("The player cannot be reached");
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** The day of a party (``YYYY-MM-DD``) as its date - always the date, also for tonight's party. */
+  function partyDay(day) {
+    if (!day) return "";
+    const [y, m, d] = day.split("-").map(Number);
+    return "on " + new Date(y, m - 1, d).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  }
+  const REACTIONS = [["fire", "🔥"], ["heart", "❤️"], ["party", "🎉"], ["clap", "👏"], ["dance", "💃"], ["laugh", "😂"]];
+  let reactedAt = -1e9;
+  let onePerSong = false;
+  function tally(cheers) {
+    const parts = REACTIONS.filter(([kind]) => cheers[kind]).map(([kind, emoji]) => `${emoji} ${cheers[kind]}`);
+    const how = onePerSong ? "One per song - tap another to change yours" : "Tap to cheer - it floats over the big screen";
+    $("tally").textContent = parts.length ? `${parts.join("  ")}  - from everyone here${onePerSong ? " · one per song" : ""}` : how;
+  }
+  /** One reaction per song: the guest's own is marked. */
+  function markMine(kind) {
+    for (const b of $("reactions").children) b.classList.toggle("mine", !!kind && b.dataset.kind === kind);
+  }
+  async function react(kind, emoji, from) {
+    const now = performance.now();
+    if (now - reactedAt < 250) return;
+    reactedAt = now;
+    if (navigator.vibrate) navigator.vibrate(8);
+    const box = from.getBoundingClientRect();
+    const fly = el("span", "fly", emoji);
+    fly.style.left = `${box.left + box.width / 2}px`;
+    fly.style.top = `${box.top + box.height / 2}px`;
+    fly.style.setProperty("--dx", `${Math.round(Math.random() * 80 - 40)}px`);
+    fly.style.setProperty("--rot", `${Math.round(Math.random() * 50 - 25)}deg`);
+    document.body.append(fly);
+    setTimeout(() => fly.remove(), 1200);
+    try {
+      const answer = await fetch("api/react", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind }) });
+      const data = await answer.json().catch(() => ({}));
+      if (answer.ok) {
+        tally(data.cheers || {});
+        if (data.mine) markMine(data.mine);
+        if (data.same) say("Already sent - one reaction per song (tap another to change it)");
+      }
+      else if (answer.status === 403) { $("reactBox").hidden = true; say(data.error || "Reactions are off"); }
+      else say(data.error || "That did not work");
+    } catch {
+      say("The player cannot be reached");
+    }
+  }
+  $("reactions").replaceChildren(...REACTIONS.map(([kind, emoji]) => {
+    const b = button(emoji, `Send ${emoji} to the big screen`, false, () => react(kind, emoji, b));
+    b.dataset.kind = kind;
+    return b;
+  }));
+
+  let findTimer = 0;
+  $("find").addEventListener("input", () => {
+    clearTimeout(findTimer);
+    findTimer = setTimeout(find, 250);
+  });
+  async function find() {
+    const q = $("find").value.trim();
+    const list = $("found");
+    if (!q) return list.replaceChildren();
+    try {
+      const answer = await fetch(`api/songs?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const data = await answer.json();
+      const songs = data.songs || [];
+      list.replaceChildren(...(songs.length ? songs.map((song) => {
+        const row = el("li");
+        const text = el("div", "t");
+        text.append(el("b", "", song.title), el("small", "", `${song.by} · ${time(song.seconds)}`));
+        const tools = el("div", "tools");
+        tools.append(
+          Object.assign(button("Next", "Plays next", false, () => wish({ op: "add", id: song.id, where: "next" }, `${song.title} - plays next`)), { className: "go" }),
+          button("End", "At the end", false, () => wish({ op: "add", id: song.id, where: "end" }, `${song.title} - at the end`))
+        );
+        row.append(art(song), text, tools);
+        return row;
+      }) : [el("li", "", "No song found.")]));
+    } catch {
+      list.replaceChildren(el("li", "", "The player cannot be reached."));
+    }
+  }
+
+  load();
+  setInterval(load, 2500);
+  setInterval(tick, 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>

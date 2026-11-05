@@ -1,0 +1,361 @@
+/**
+ * The score view returned by /plenio/score/analyze (and after every /plenio/score/transform):
+ * analysis, note elements with their text positions, playback notes and the display ABC.
+ * Everything here is derived from the canonical ABC text by the backend; the editor keeps
+ * no second score model.
+ */
+
+export interface ScoreDiagnostic {
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  bar: number | null
+  voice: string | null
+  where: string
+  line?: number
+  start?: number
+  end?: number
+}
+
+export interface ScoreBar {
+  index: number
+  start_s: number
+  duration_s: number
+  meter: string
+  key: string
+  chords: string[]
+  vocal_notes: number
+  ins_notes: number
+}
+
+export interface ScoreSection {
+  label: string
+  tag: string
+  start_bar: number
+  bars: number
+  start_s: number
+  end_s: number
+  vocal_notes: number
+}
+
+export type Voice = 'Vocal' | 'Ins'
+
+export interface ScoreElement {
+  id: string
+  voice: Voice
+  bar: number
+  kind: 'note' | 'rest' | 'bar_rest'
+  units: number
+  onset_q: number
+  duration_q: number
+  start_s: number
+  duration_s: number
+  source: [number, number]
+  display: [number, number]
+  midi?: number
+  name?: string
+  tie_in?: boolean
+  tie_out?: boolean
+  chord?: string
+}
+
+export interface ChordEvent {
+  id: string
+  name: string
+  bar: number
+  pitches: number[]
+  start_s: number
+  duration_s: number
+  source: [number, number]
+  display: [number, number]
+}
+
+export interface PlaybackNote {
+  id: string
+  segments: string[]
+  midi: number
+  start_s: number
+  duration_s: number
+}
+
+/** A sounding note of the canonical model (ties do not exist; times in integer units of L). */
+export interface ModelNote {
+  /** ``vocal:<onset>`` or ``ins:<onset>`` - the id the canonical operations take. */
+  id: string
+  onset: number
+  duration: number
+  pitch: number
+  name: string
+  /** Ids of the written segments (``V12.3`` ...) in the element view (staff and ABC views). */
+  segments: string[]
+}
+
+export interface ModelChord {
+  /** ``chord:<onset>`` */
+  id: string
+  onset: number
+  name: string
+  pitches: number[]
+}
+
+export interface ModelMeasure {
+  n: number
+  onset: number
+  length: number
+  meter: string
+  key: string
+}
+
+export interface ModelSection {
+  label: string
+  first_bar: number
+  bars: number
+  /** The untitled first section of a score whose first group has no ``% label`` line. */
+  implicit: boolean
+}
+
+/**
+ * The canonical score model (view contract v2, next-release plan §9.9): what the piano roll,
+ * chord lane and inspector render. Derived by the backend from exactly the current text.
+ */
+export interface ScoreModelView {
+  version: 2
+  unit: string
+  tempo: number
+  total: number
+  grid: { units_per_quarter: number; snap: number }
+  measures: ModelMeasure[]
+  groups: number[]
+  keys: { onset: number; key: string }[]
+  sections: ModelSection[]
+  tracks: { vocal: ModelNote[]; ins: ModelNote[]; chords: ModelChord[] }
+}
+
+/** A syllable on a Vocal note (``onset``: the note's onset in units of L). */
+export interface LyricSyllable {
+  onset: number
+  text: string
+  /** ``false``: the word goes on (a hyphen follows). */
+  end_of_word: boolean
+}
+
+/** A lyrics line on its Vocal notes (backend ``lyric_layout``; ``block`` and ``line`` index the text). */
+export interface LyricLine {
+  block: number
+  line: number
+  text: string
+  start: number
+  end: number
+  syllables: LyricSyllable[]
+  /** Notes over which the line's last syllable is held. */
+  holds: number[]
+  /** The line stands on a span placed by hand (``start``, ``end``). */
+  pinned: boolean
+  /** The notes it asks for: one per syllable of its text. */
+  wanted?: number
+}
+
+/**
+ * A lyrics block where it is sung: every line of the block, and the stretch of the score it covers - from
+ * its first line to the next part (the first part from the start of the score).
+ */
+export interface LyricPart {
+  block: number
+  tag: string
+  start: number
+  end: number
+  /** The Vocal phrases in the part (a phrase over two parts: each its piece). */
+  phrases: [number, number][]
+  lines: LyricLine[]
+}
+
+/** Where the lyrics are sung (sent with the score): lines on the Vocal notes, syllables on notes. */
+export interface LyricLayoutView {
+  parts: LyricPart[]
+  /** Lyrics blocks with words of which no note sings any. */
+  unplaced: number[]
+  /** The lines no note sings, by block (the notation shows them as text after the music). */
+  unsung?: { tag: string; lines: string[] }[]
+}
+
+export interface ScoreView {
+  ok: boolean
+  sha256: string
+  diagnostics: ScoreDiagnostic[]
+  header: { meter?: string; unit?: string; tempo_bpm?: number; key?: string }
+  bars: ScoreBar[]
+  sections: ScoreSection[]
+  voices: Record<string, { notes: number; lowest: number | null; highest: number | null; chords: number }>
+  duration_s: number
+  has_chords: boolean
+  elements?: ScoreElement[]
+  chords?: ChordEvent[]
+  notes?: Record<Voice, PlaybackNote[]>
+  bar_starts_s?: number[]
+  display_abc?: string
+  /** The canonical model; ``null`` for a valid score outside the supported subset (see ``model_error``). */
+  model?: ScoreModelView | null
+  model_error?: { message: string; diagnostics: ScoreDiagnostic[] }
+  /** Present when the view was asked for with lyrics. */
+  lyrics?: LyricLayoutView
+}
+
+/** Every id a view knows: element ids (staff/ABC) and canonical note and chord ids. */
+export function knownIds(view: ScoreView): Set<string> {
+  const ids = new Set((view.elements ?? []).map((e) => e.id))
+  const tracks = view.model?.tracks
+  if (tracks) for (const item of [...tracks.vocal, ...tracks.ins, ...tracks.chords]) ids.add(item.id)
+  return ids
+}
+
+/**
+ * The selection in the staff's language: canonical note ids (``vocal:32``, as canonical operations
+ * return them) become the element ids of their written segments; element and chord ids stay.
+ */
+export function elementSelection(view: ScoreView | null, ids: readonly string[]): string[] {
+  const tracks = view?.model?.tracks
+  const notes = new Map(tracks ? [...tracks.vocal, ...tracks.ins].map((n) => [n.id, n]) : [])
+  const result: string[] = []
+  for (const id of ids) {
+    const note = notes.get(id)
+    for (const item of note && note.segments.length ? note.segments : [id]) if (!result.includes(item)) result.push(item)
+  }
+  return result
+}
+
+/** The canonical note a written segment belongs to (staff/ABC selection -> piano roll). */
+export function modelNoteOfSegment(view: ScoreView | null, elementId: string): ModelNote | null {
+  const tracks = view?.model?.tracks
+  if (!tracks) return null
+  return [...tracks.vocal, ...tracks.ins].find((n) => n.segments.includes(elementId)) ?? null
+}
+
+/** Native note lengths in units of the score's L: field (upstream DURATIONS). */
+export const DURATIONS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48]
+
+export function nextDuration(units: number, direction: 1 | -1): number | null {
+  const index = DURATIONS.indexOf(units)
+  if (index < 0) return null
+  const next = DURATIONS[index + direction]
+  return next ?? null
+}
+
+/** The next native length below (``-1``) or above (``1``) ``units``, which need not be native itself. */
+export function steppedDuration(units: number, direction: 1 | -1): number | null {
+  const next = direction < 0 ? [...DURATIONS].reverse().find((d) => d < units) : DURATIONS.find((d) => d > units)
+  return next ?? null
+}
+
+/**
+ * *shorter* / *longer* (and ``[`` / ``]``) on the selected note (``element``: its first written segment).
+ * A note written as one segment changes that segment's length (``set_duration``, as always). A note tied over
+ * a bar line (or a chord's onset) is one sounding note: it becomes the next native length shorter or longer as
+ * a whole, from its start (``resize_note``) - the bars stay valid, a rest takes the time it gives up and the
+ * ties follow. Before (GitHub issue #28), *shorter* shortened its first segment only and cut the tie: the note
+ * fell apart into two attacks. ``null``: no such length.
+ */
+export function lengthOperation(
+  view: ScoreView | null,
+  element: ScoreElement | null,
+  direction: 1 | -1
+): { op: string; [parameter: string]: unknown } | null {
+  if (!element || element.kind !== 'note') return null
+  const note = modelNoteOfSegment(view, element.id)
+  if (note && note.segments.length > 1) {
+    const duration = steppedDuration(note.duration, direction)
+    return duration ? { op: 'resize_note', id: note.id, duration, mode: 'rests' } : null
+  }
+  const units = nextDuration(element.units, direction)
+  return units ? { op: 'set_duration', id: element.id, units } : null
+}
+
+/** The element a click on the rendered notation hit (abcjs reports character ranges of display_abc). */
+export function elementAtDisplay(view: ScoreView, start: number, end: number): ScoreElement | null {
+  const elements = view.elements ?? []
+  const exact = elements.find((e) => e.display[1] === end)
+  if (exact) return exact
+  let best: ScoreElement | null = null
+  let overlap = 0
+  for (const element of elements) {
+    const shared = Math.min(end, element.display[1]) - Math.max(start, element.display[0])
+    if (shared > overlap) {
+      best = element
+      overlap = shared
+    }
+  }
+  return best
+}
+
+/** The element whose source text contains the cursor at ``offset`` (ABC text view -> notation). */
+export function elementAtSource(view: ScoreView, offset: number): ScoreElement | null {
+  const elements = view.elements ?? []
+  return elements.find((e) => e.source[0] <= offset && offset < e.source[1]) ??
+    elements.find((e) => e.source[1] === offset) ?? null
+}
+
+export function elementById(view: ScoreView | null, id: string | null | undefined): ScoreElement | null {
+  if (!view || !id) return null
+  return (view.elements ?? []).find((e) => e.id === id) ?? null
+}
+
+/** The next (``1``) or previous (``-1``) element of the same voice. */
+export function neighbour(view: ScoreView, id: string, direction: 1 | -1): ScoreElement | null {
+  const current = elementById(view, id)
+  if (!current) return null
+  const voice = (view.elements ?? []).filter((e) => e.voice === current.voice)
+  const index = voice.findIndex((e) => e.id === id)
+  return voice[index + direction] ?? null
+}
+
+/** The element of the other voice sounding at the same time. */
+export function otherVoice(view: ScoreView, id: string): ScoreElement | null {
+  const current = elementById(view, id)
+  if (!current) return null
+  const voice: Voice = current.voice === 'Vocal' ? 'Ins' : 'Vocal'
+  return (
+    (view.elements ?? []).find(
+      (e) => e.voice === voice && e.onset_q <= current.onset_q && current.onset_q < e.onset_q + e.duration_q
+    ) ?? null
+  )
+}
+
+export function firstElementOfBar(view: ScoreView, bar: number, voice: Voice = 'Vocal'): ScoreElement | null {
+  return (view.elements ?? []).find((e) => e.bar === bar && e.voice === voice) ?? null
+}
+
+export function sectionOfBar(view: ScoreView, bar: number): number {
+  const index = view.sections.findIndex((s) => s.start_bar <= bar && bar < s.start_bar + s.bars)
+  return index < 0 ? 0 : index
+}
+
+const NOTE_NAMES: Record<number, string> = {
+  1: 'sixteenth',
+  2: 'eighth',
+  3: 'dotted eighth',
+  4: 'quarter',
+  6: 'dotted quarter',
+  8: 'half',
+  12: 'dotted half',
+  16: 'whole',
+  24: 'dotted whole',
+  32: 'two whole notes',
+  48: 'three whole notes'
+}
+
+/** A readable description of an element for the status line and screen readers. */
+export function describe(element: ScoreElement | null, unit = '1/16'): string {
+  if (!element) return 'nothing selected'
+  const scale = 16 / Number(unit.split('/')[1] ?? 16)
+  const length = NOTE_NAMES[element.units * scale] ?? `${element.units} units`
+  const what = element.kind === 'note' ? `${element.name}${element.tie_out ? ' (tied)' : ''}` : 'rest'
+  const chord = element.chord ? `, chord ${element.chord}` : ''
+  return `${element.voice} bar ${element.bar}: ${what}, ${element.kind === 'bar_rest' ? 'whole bar' : length}${chord}`
+}
+
+/** ``m:ss``. A time before the start shows as 0:00: a transcription's padded pickup bar begins before
+ * the recording, and ``Math.floor`` made -1.2 s read "-1:58". */
+export function clock(seconds: number): string {
+  const time = Math.max(0, seconds)
+  const minutes = Math.floor(time / 60)
+  const rest = Math.floor(time - minutes * 60)
+  return `${minutes}:${String(rest).padStart(2, '0')}`
+}

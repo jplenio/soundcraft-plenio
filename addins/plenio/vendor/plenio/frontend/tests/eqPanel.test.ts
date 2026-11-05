@@ -1,0 +1,157 @@
+/**
+ * The EQ panel's direct manipulation (the owner's report, 2026-09-28): a drag on a handle moves the
+ * band and keeps the handle it grabbed, and Delete removes the band it acts on.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import type { Fetcher } from '../src/api/client'
+import { addEqCurve } from '../src/extension/eqWidget'
+import { type Band, type EqSettings, parseSettings, withRange, xOf, yOf } from '../src/shared/eqCurve'
+import { type Host, host } from './fixtures/host'
+
+const BAND: Band = { id: 'b1', enabled: true, type: 'peak', frequency_hz: 1000, gain_db: 3, q: 1, slope: 1 }
+/** The plot the panel draws: 560 x 260 px, the default +-12 dB range between the two strips. */
+const BOX = withRange({ width: 560, height: 260, maxHz: 20000 }, 12)
+const FREQUENCIES = Array.from({ length: 200 }, (_unused, index) => 20 * 1000 ** (index / 199))
+
+/** The panel's two routes: the exact response (echoing the settings back) and the presets. */
+function fetcher(): Fetcher {
+  return {
+    fetchApi: (route: string, options?: RequestInit) => {
+      const body = JSON.parse(String(options?.body ?? '{}')) as { settings?: EqSettings }
+      const payload =
+        route === '/plenio/presets/eq'
+          ? {
+              manual: [
+                {
+                  name: 'Air - gentle lift',
+                  settings: {
+                    schema: 'plenio.eq/1',
+                    preamp_db: 0,
+                    bands: [{ id: 'p1', enabled: true, type: 'high_shelf', frequency_hz: 8000, gain_db: 2, q: 1, slope: 1 }]
+                  }
+                }
+              ]
+            }
+          : {
+              settings: body.settings,
+              frequency_hz: FREQUENCIES,
+              response_db: FREQUENCIES.map((hz) => Math.sin(hz / 4000)),
+              bands: []
+            }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(payload) } as unknown as Response)
+    }
+  }
+}
+
+function pointer(type: string, x: number, y: number, buttons = 1): PointerEvent {
+  return new PointerEvent(type, { clientX: x, clientY: y, buttons, bubbles: true })
+}
+
+function plotOf(node: Host): SVGSVGElement {
+  const plot = node.root.querySelector('svg.plenio-eq-plot')
+  if (!plot) throw new Error('the plot is not drawn')
+  return plot as unknown as SVGSVGElement
+}
+
+async function mount(): Promise<Host> {
+  const settings: EqSettings = { schema: 'plenio.eq/1', preamp_db: 0, bands: [BAND] }
+  const node = host({ mode: 'manual', 'mode.bands': JSON.stringify(settings) })
+  addEqCurve(node.node, fetcher())
+  await vi.waitFor(() => expect(node.root.querySelector('circle.handle')).toBeTruthy())
+  return node
+}
+
+afterEach(() => {
+  document.body.innerHTML = ''
+})
+
+describe('the EQ panel', () => {
+  it('moves the band with the pointer and keeps the handle it grabbed', async () => {
+    const node = await mount()
+    const plot = plotOf(node)
+    const start = { x: xOf(BOX, 1000), y: yOf(BOX, 3) }
+    ;(plot.querySelector('circle.handle') as SVGCircleElement).dispatchEvent(pointer('pointerdown', start.x, start.y))
+    // the click selects the band and redraws once - from here the drag paints without a rebuild
+    const handle = plot.querySelector('circle.handle') as SVGCircleElement
+    expect(handle.getAttribute('class')).toContain('selected')
+    window.dispatchEvent(pointer('pointermove', start.x + 56, start.y - 26))
+    window.dispatchEvent(pointer('pointermove', start.x + 112, start.y - 52))
+    expect(plot.querySelector('circle.handle')).toBe(handle) // the pointer keeps the handle it grabbed
+    expect(Number(handle.getAttribute('cy'))).toBeLessThan(start.y)
+    window.dispatchEvent(pointer('pointerup', start.x + 112, start.y - 52))
+    const written = parseSettings(node.value('mode.bands'))!
+    expect(written.bands).toHaveLength(1)
+    expect(written.bands[0].gain_db).toBeGreaterThan(3)
+    expect(written.bands[0].frequency_hz).toBeGreaterThan(1000)
+  })
+
+  it('removes the band that Delete reaches', async () => {
+    const node = await mount()
+    const plot = plotOf(node)
+    const start = { x: xOf(BOX, 1000), y: yOf(BOX, 3) }
+    ;(plot.querySelector('circle.handle') as SVGCircleElement).dispatchEvent(pointer('pointerdown', start.x, start.y))
+    window.dispatchEvent(pointer('pointerup', start.x, start.y))
+    const handle = plot.querySelector('circle.handle') as SVGCircleElement
+    handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }))
+    expect(parseSettings(node.value('mode.bands'))!.bands).toEqual([])
+    expect(node.root.querySelector('circle.handle')).toBeNull()
+  })
+
+  it('ends a drag whose pointerup never arrives, and ignores the area outside the curve', async () => {
+    const node = await mount()
+    const plot = plotOf(node)
+    const start = { x: xOf(BOX, 1000), y: yOf(BOX, 3) }
+    ;(plot.querySelector('circle.handle') as SVGCircleElement).dispatchEvent(pointer('pointerdown', start.x, start.y))
+    const handle = plot.querySelector('circle.handle') as SVGCircleElement
+    // a move far outside the curve (the owner's report: the band followed the pointer there too)
+    window.dispatchEvent(pointer('pointermove', start.x + 600, start.y - 400))
+    expect(Number(handle.getAttribute('cy'))).toBeCloseTo(start.y, 3)
+    // a normal move inside it works
+    window.dispatchEvent(pointer('pointermove', start.x + 40, start.y - 30))
+    expect(Number(handle.getAttribute('cy'))).toBeLessThan(start.y)
+    // the button is no longer down: the drag ends here, even though no pointerup ever arrived
+    window.dispatchEvent(pointer('pointermove', start.x + 60, start.y - 40, 0))
+    const at = Number(handle.getAttribute('cy'))
+    window.dispatchEvent(pointer('pointermove', start.x + 120, start.y - 90))
+    expect(Number(handle.getAttribute('cy'))).toBeCloseTo(at, 3)
+  })
+
+  it('commits typed numbers from the band fields and puts back anything else', async () => {
+    const node = await mount()
+    const chip = node.root.querySelector('button[aria-label="Edit band 1"]') as HTMLButtonElement
+    chip.click()
+    const field = (name: string) => node.root.querySelector(`input[aria-label="Band ${name}"]`) as HTMLInputElement
+    await vi.waitFor(() => expect(field('Hz')).toBeTruthy())
+    const hz = field('Hz')
+    hz.value = 'abc'
+    hz.dispatchEvent(new Event('blur'))
+    expect(hz.value).toBe('1000') // not a number: the band's value comes back, nothing is written
+    expect(parseSettings(node.value('mode.bands'))!.bands[0].frequency_hz).toBe(1000)
+    hz.value = '1.5k'
+    hz.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    await vi.waitFor(() => expect(parseSettings(node.value('mode.bands'))!.bands[0].frequency_hz).toBe(1500))
+    expect(node.value('mode.bands')).not.toContain('null')
+    // a notch has a Q (its width) and no gain
+    const type = node.root.querySelector('select[aria-label="Band type"]') as HTMLSelectElement
+    type.value = 'notch'
+    type.dispatchEvent(new Event('change'))
+    await vi.waitFor(() => expect(field('Q').disabled).toBe(false))
+    expect(field('dB').disabled).toBe(true)
+  })
+
+  it('keeps a chosen preset visible until the bands are edited by hand', async () => {
+    const node = await mount()
+    const select = node.root.querySelector('select[aria-label="EQ preset"]') as HTMLSelectElement
+    await vi.waitFor(() => expect(select.options.length).toBeGreaterThan(1))
+    select.value = 'Air - gentle lift'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(parseSettings(node.value('mode.bands'))!.bands).toHaveLength(1))
+    expect(select.value).toBe('Air - gentle lift') // the chosen preset stays in the field
+    expect(plotOf(node).querySelector('circle.handle')).toBeTruthy()
+    // an edit of the bands is no longer that preset
+    const handle = plotOf(node).querySelector('circle.handle') as SVGCircleElement
+    handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
+    await vi.waitFor(() => expect(select.value).toBe(''))
+  })
+})

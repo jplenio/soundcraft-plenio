@@ -1,0 +1,2350 @@
+{
+ "revision": 0,
+ "last_node_id": 1,
+ "last_link_id": 0,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "601f9d71-b118-51b3-a1fb-fa2a8d2c5ede",
+   "pos": [
+    0,
+    0
+   ],
+   "size": [
+    340,
+    200
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "link": null
+    },
+    {
+     "localized_name": "clip",
+     "name": "clip",
+     "type": "CLIP",
+     "link": null
+    },
+    {
+     "localized_name": "vae",
+     "name": "vae",
+     "type": "VAE",
+     "link": null
+    },
+    {
+     "localized_name": "style",
+     "name": "style",
+     "type": "STRING",
+     "widget": {
+      "name": "style"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "lyrics",
+     "name": "lyrics",
+     "type": "STRING",
+     "widget": {
+      "name": "lyrics"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "abc",
+     "name": "abc",
+     "label": "score",
+     "type": "STRING",
+     "widget": {
+      "name": "abc"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "mode",
+     "name": "mode",
+     "label": "planning mode",
+     "type": "COMBO",
+     "widget": {
+      "name": "mode"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "label": "take seed",
+     "type": "INT",
+     "widget": {
+      "name": "seed"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "max_duration",
+     "name": "max_duration",
+     "label": "max seconds",
+     "type": "FLOAT",
+     "widget": {
+      "name": "max_duration"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "creativity",
+     "name": "creativity",
+     "type": "INT",
+     "widget": {
+      "name": "creativity"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "AUDIO",
+     "name": "AUDIO",
+     "type": "AUDIO",
+     "links": null
+    },
+    {
+     "localized_name": "seconds",
+     "name": "seconds",
+     "type": "FLOAT",
+     "links": null
+    },
+    {
+     "localized_name": "second",
+     "name": "second",
+     "type": "AUDIO",
+     "links": null
+    },
+    {
+     "localized_name": "third",
+     "name": "third",
+     "type": "AUDIO",
+     "links": null
+    }
+   ],
+   "title": "Plenio · YuE2 Render",
+   "properties": {},
+   "widgets_values": [
+    null,
+    null,
+    "",
+    "full",
+    0,
+    360.0,
+    100
+   ]
+  }
+ ],
+ "links": [],
+ "version": 0.4,
+ "definitions": {
+  "subgraphs": [
+   {
+    "id": "601f9d71-b118-51b3-a1fb-fa2a8d2c5ede",
+    "version": 1,
+    "state": {
+     "lastGroupId": 0,
+     "lastNodeId": 818,
+     "lastLinkId": 64,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Plenio · YuE2 Render",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -260,
+      0,
+      160,
+      240
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      1780,
+      0,
+      160,
+      120
+     ]
+    },
+    "inputs": [
+     {
+      "id": "4153e757-dbce-5b34-936a-13dccff3bb35",
+      "name": "model",
+      "type": "MODEL",
+      "linkIds": [
+       32,
+       33,
+       34
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "a8bfe639-17b7-5a5e-9801-082e100fdc89",
+      "name": "clip",
+      "type": "CLIP",
+      "linkIds": [
+       35,
+       36,
+       37
+      ],
+      "pos": [
+       0,
+       20
+      ]
+     },
+     {
+      "id": "4a6be208-8b9c-5bd5-a488-1bd97c56f6d4",
+      "name": "vae",
+      "type": "VAE",
+      "linkIds": [
+       38,
+       39,
+       40
+      ],
+      "pos": [
+       0,
+       40
+      ]
+     },
+     {
+      "id": "f22fe6da-d277-5c10-9426-a7966fa67988",
+      "name": "style",
+      "type": "STRING",
+      "linkIds": [
+       41,
+       42,
+       43
+      ],
+      "pos": [
+       0,
+       60
+      ]
+     },
+     {
+      "id": "7d171c19-e17d-57a6-9920-c1ccdf600ccc",
+      "name": "lyrics",
+      "type": "STRING",
+      "linkIds": [
+       44,
+       45,
+       46
+      ],
+      "pos": [
+       0,
+       80
+      ]
+     },
+     {
+      "id": "d74b9b76-95cc-52c8-b5a4-f4c7c058146b",
+      "name": "abc",
+      "type": "STRING",
+      "linkIds": [
+       47,
+       48,
+       49
+      ],
+      "pos": [
+       0,
+       100
+      ],
+      "label": "score"
+     },
+     {
+      "id": "dd5fa6c8-0636-519f-b459-021032c90d81",
+      "name": "mode",
+      "type": "COMBO",
+      "linkIds": [
+       50,
+       51,
+       52
+      ],
+      "pos": [
+       0,
+       120
+      ],
+      "label": "planning mode"
+     },
+     {
+      "id": "b7d81856-74c3-52ca-ba97-0bf101943035",
+      "name": "seed",
+      "type": "INT",
+      "linkIds": [
+       53,
+       54,
+       55,
+       56
+      ],
+      "pos": [
+       0,
+       140
+      ],
+      "label": "take seed"
+     },
+     {
+      "id": "69120727-13e7-5043-ab81-c88d99f7253a",
+      "name": "max_duration",
+      "type": "FLOAT",
+      "linkIds": [
+       57,
+       58,
+       59
+      ],
+      "pos": [
+       0,
+       160
+      ],
+      "label": "max seconds"
+     },
+     {
+      "id": "9f9e2701-73fe-5f92-a0cb-1abcb06d1535",
+      "name": "creativity",
+      "type": "INT",
+      "linkIds": [
+       60
+      ],
+      "pos": [
+       0,
+       180
+      ]
+     }
+    ],
+    "outputs": [
+     {
+      "id": "202e0608-15fc-5833-b612-9973a40cc055",
+      "name": "AUDIO",
+      "type": "AUDIO",
+      "linkIds": [
+       61
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "27ce87cf-35f1-5a3b-9c73-12062461a819",
+      "name": "seconds",
+      "type": "FLOAT",
+      "linkIds": [
+       62
+      ],
+      "pos": [
+       0,
+       20
+      ]
+     },
+     {
+      "id": "489bf65d-2495-5ad8-85db-a7a93068a8c6",
+      "name": "second",
+      "type": "AUDIO",
+      "linkIds": [
+       63
+      ],
+      "pos": [
+       0,
+       40
+      ]
+     },
+     {
+      "id": "2b6490ed-6853-53f3-a515-d5dc08cdeecf",
+      "name": "third",
+      "type": "AUDIO",
+      "linkIds": [
+       64
+      ],
+      "pos": [
+       0,
+       60
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 801,
+      "type": "YuE2GenerateMusic",
+      "pos": [
+       0,
+       0
+      ],
+      "size": [
+       340,
+       380
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "clip",
+        "name": "clip",
+        "type": "CLIP",
+        "link": 35
+       },
+       {
+        "localized_name": "style",
+        "name": "style",
+        "type": "STRING",
+        "widget": {
+         "name": "style"
+        },
+        "link": 41
+       },
+       {
+        "localized_name": "lyrics",
+        "name": "lyrics",
+        "type": "STRING",
+        "widget": {
+         "name": "lyrics"
+        },
+        "link": 44
+       },
+       {
+        "localized_name": "abc",
+        "name": "abc",
+        "type": "STRING",
+        "widget": {
+         "name": "abc"
+        },
+        "link": 47
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 53
+       },
+       {
+        "localized_name": "mode",
+        "name": "mode",
+        "type": "COMBO",
+        "widget": {
+         "name": "mode"
+        },
+        "link": 50
+       },
+       {
+        "localized_name": "max_duration",
+        "name": "max_duration",
+        "type": "FLOAT",
+        "widget": {
+         "name": "max_duration"
+        },
+        "link": 57
+       },
+       {
+        "localized_name": "temperature",
+        "name": "temperature",
+        "type": "FLOAT",
+        "widget": {
+         "name": "temperature"
+        },
+        "link": 7
+       },
+       {
+        "localized_name": "top_p",
+        "name": "top_p",
+        "type": "FLOAT",
+        "widget": {
+         "name": "top_p"
+        },
+        "link": 8
+       },
+       {
+        "localized_name": "top_k",
+        "name": "top_k",
+        "type": "INT",
+        "widget": {
+         "name": "top_k"
+        },
+        "link": 9
+       },
+       {
+        "localized_name": "repetition_penalty",
+        "name": "repetition_penalty",
+        "type": "FLOAT",
+        "widget": {
+         "name": "repetition_penalty"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "cfg_scale",
+        "name": "cfg_scale",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg_scale"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "CONDITIONING",
+        "name": "CONDITIONING",
+        "type": "CONDITIONING",
+        "links": [
+         2,
+         3
+        ]
+       },
+       {
+        "localized_name": "seconds",
+        "name": "seconds",
+        "type": "FLOAT",
+        "links": [
+         1,
+         62
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "YuE2GenerateMusic"
+      },
+      "widgets_values": [
+       null,
+       null,
+       "",
+       0,
+       "fixed",
+       "full",
+       360.0,
+       1.0,
+       0.95,
+       100,
+       1.2,
+       1.0
+      ]
+     },
+     {
+      "id": 802,
+      "type": "EmptyYuE2LatentAudio",
+      "pos": [
+       400,
+       0
+      ],
+      "size": [
+       260,
+       80
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "seconds",
+        "name": "seconds",
+        "type": "FLOAT",
+        "widget": {
+         "name": "seconds"
+        },
+        "link": 1
+       },
+       {
+        "localized_name": "batch_size",
+        "name": "batch_size",
+        "type": "INT",
+        "widget": {
+         "name": "batch_size"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         5
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "EmptyYuE2LatentAudio"
+      },
+      "widgets_values": [
+       120.0,
+       1
+      ]
+     },
+     {
+      "id": 803,
+      "type": "ConditioningZeroOut",
+      "pos": [
+       400.0,
+       150
+      ],
+      "size": [
+       240,
+       50
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "conditioning",
+        "name": "conditioning",
+        "type": "CONDITIONING",
+        "link": 2
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "CONDITIONING",
+        "name": "CONDITIONING",
+        "type": "CONDITIONING",
+        "links": [
+         4
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "ConditioningZeroOut"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 804,
+      "type": "KSampler",
+      "pos": [
+       700,
+       0
+      ],
+      "size": [
+       300,
+       260
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 32
+       },
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "link": 3
+       },
+       {
+        "localized_name": "negative",
+        "name": "negative",
+        "type": "CONDITIONING",
+        "link": 4
+       },
+       {
+        "localized_name": "latent_image",
+        "name": "latent_image",
+        "type": "LATENT",
+        "link": 5
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 54
+       },
+       {
+        "localized_name": "steps",
+        "name": "steps",
+        "type": "INT",
+        "widget": {
+         "name": "steps"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "cfg",
+        "name": "cfg",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "sampler_name",
+        "name": "sampler_name",
+        "type": "COMBO",
+        "widget": {
+         "name": "sampler_name"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "scheduler",
+        "name": "scheduler",
+        "type": "COMBO",
+        "widget": {
+         "name": "scheduler"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "denoise",
+        "name": "denoise",
+        "type": "FLOAT",
+        "widget": {
+         "name": "denoise"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         6
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+       0,
+       "fixed",
+       32,
+       1.0,
+       "dpm_2",
+       "sgm_uniform",
+       1.0
+      ]
+     },
+     {
+      "id": 805,
+      "type": "VAEDecodeAudio",
+      "pos": [
+       1060,
+       0
+      ],
+      "size": [
+       220,
+       60
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "samples",
+        "name": "samples",
+        "type": "LATENT",
+        "link": 6
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "type": "VAE",
+        "link": 38
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "AUDIO",
+        "name": "AUDIO",
+        "type": "AUDIO",
+        "links": [
+         61
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "VAEDecodeAudio"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 806,
+      "type": "PlenioCreativity",
+      "pos": [
+       0.0,
+       474
+      ],
+      "size": [
+       320,
+       230
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "brief",
+        "name": "brief",
+        "shape": 7,
+        "type": "PLENIO_BRIEF",
+        "link": null
+       },
+       {
+        "localized_name": "stage",
+        "name": "stage",
+        "type": "COMBO",
+        "widget": {
+         "name": "stage"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "creativity",
+        "name": "creativity",
+        "type": "INT",
+        "widget": {
+         "name": "creativity"
+        },
+        "link": 60
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "temperature",
+        "name": "temperature",
+        "type": "FLOAT",
+        "links": [
+         7,
+         10,
+         19
+        ]
+       },
+       {
+        "localized_name": "top_p",
+        "name": "top_p",
+        "type": "FLOAT",
+        "links": [
+         8,
+         11,
+         20
+        ]
+       },
+       {
+        "localized_name": "top_k",
+        "name": "top_k",
+        "type": "INT",
+        "links": [
+         9,
+         12,
+         21
+        ]
+       }
+      ],
+      "title": "Take creativity",
+      "properties": {
+       "Node name for S&R": "PlenioCreativity"
+      },
+      "widgets_values": [
+       "take",
+       100
+      ]
+     },
+     {
+      "id": 807,
+      "type": "YuE2GenerateMusic",
+      "pos": [
+       400,
+       660
+      ],
+      "size": [
+       340,
+       380
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "clip",
+        "name": "clip",
+        "type": "CLIP",
+        "link": 36
+       },
+       {
+        "localized_name": "style",
+        "name": "style",
+        "type": "STRING",
+        "widget": {
+         "name": "style"
+        },
+        "link": 42
+       },
+       {
+        "localized_name": "lyrics",
+        "name": "lyrics",
+        "type": "STRING",
+        "widget": {
+         "name": "lyrics"
+        },
+        "link": 45
+       },
+       {
+        "localized_name": "abc",
+        "name": "abc",
+        "type": "STRING",
+        "widget": {
+         "name": "abc"
+        },
+        "link": 48
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 28
+       },
+       {
+        "localized_name": "mode",
+        "name": "mode",
+        "type": "COMBO",
+        "widget": {
+         "name": "mode"
+        },
+        "link": 51
+       },
+       {
+        "localized_name": "max_duration",
+        "name": "max_duration",
+        "type": "FLOAT",
+        "widget": {
+         "name": "max_duration"
+        },
+        "link": 58
+       },
+       {
+        "localized_name": "temperature",
+        "name": "temperature",
+        "type": "FLOAT",
+        "widget": {
+         "name": "temperature"
+        },
+        "link": 10
+       },
+       {
+        "localized_name": "top_p",
+        "name": "top_p",
+        "type": "FLOAT",
+        "widget": {
+         "name": "top_p"
+        },
+        "link": 11
+       },
+       {
+        "localized_name": "top_k",
+        "name": "top_k",
+        "type": "INT",
+        "widget": {
+         "name": "top_k"
+        },
+        "link": 12
+       },
+       {
+        "localized_name": "repetition_penalty",
+        "name": "repetition_penalty",
+        "type": "FLOAT",
+        "widget": {
+         "name": "repetition_penalty"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "cfg_scale",
+        "name": "cfg_scale",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg_scale"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "CONDITIONING",
+        "name": "CONDITIONING",
+        "type": "CONDITIONING",
+        "links": [
+         14,
+         15
+        ]
+       },
+       {
+        "localized_name": "seconds",
+        "name": "seconds",
+        "type": "FLOAT",
+        "links": [
+         13
+        ]
+       }
+      ],
+      "title": "Second take (lyrics fidelity)",
+      "properties": {
+       "Node name for S&R": "YuE2GenerateMusic"
+      },
+      "widgets_values": [
+       null,
+       null,
+       "",
+       0,
+       "fixed",
+       "full",
+       360.0,
+       1.0,
+       0.95,
+       100,
+       1.2,
+       1.0
+      ]
+     },
+     {
+      "id": 808,
+      "type": "EmptyYuE2LatentAudio",
+      "pos": [
+       800,
+       660
+      ],
+      "size": [
+       260,
+       80
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "seconds",
+        "name": "seconds",
+        "type": "FLOAT",
+        "widget": {
+         "name": "seconds"
+        },
+        "link": 13
+       },
+       {
+        "localized_name": "batch_size",
+        "name": "batch_size",
+        "type": "INT",
+        "widget": {
+         "name": "batch_size"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         17
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "EmptyYuE2LatentAudio"
+      },
+      "widgets_values": [
+       120.0,
+       1
+      ]
+     },
+     {
+      "id": 809,
+      "type": "ConditioningZeroOut",
+      "pos": [
+       800.0,
+       810
+      ],
+      "size": [
+       240,
+       50
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "conditioning",
+        "name": "conditioning",
+        "type": "CONDITIONING",
+        "link": 14
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "CONDITIONING",
+        "name": "CONDITIONING",
+        "type": "CONDITIONING",
+        "links": [
+         16
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "ConditioningZeroOut"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 810,
+      "type": "KSampler",
+      "pos": [
+       1100,
+       660
+      ],
+      "size": [
+       300,
+       260
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 33
+       },
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "link": 15
+       },
+       {
+        "localized_name": "negative",
+        "name": "negative",
+        "type": "CONDITIONING",
+        "link": 16
+       },
+       {
+        "localized_name": "latent_image",
+        "name": "latent_image",
+        "type": "LATENT",
+        "link": 17
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 29
+       },
+       {
+        "localized_name": "steps",
+        "name": "steps",
+        "type": "INT",
+        "widget": {
+         "name": "steps"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "cfg",
+        "name": "cfg",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "sampler_name",
+        "name": "sampler_name",
+        "type": "COMBO",
+        "widget": {
+         "name": "sampler_name"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "scheduler",
+        "name": "scheduler",
+        "type": "COMBO",
+        "widget": {
+         "name": "scheduler"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "denoise",
+        "name": "denoise",
+        "type": "FLOAT",
+        "widget": {
+         "name": "denoise"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         18
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+       0,
+       "fixed",
+       32,
+       1.0,
+       "dpm_2",
+       "sgm_uniform",
+       1.0
+      ]
+     },
+     {
+      "id": 811,
+      "type": "VAEDecodeAudio",
+      "pos": [
+       1460,
+       660
+      ],
+      "size": [
+       220,
+       60
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "samples",
+        "name": "samples",
+        "type": "LATENT",
+        "link": 18
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "type": "VAE",
+        "link": 39
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "AUDIO",
+        "name": "AUDIO",
+        "type": "AUDIO",
+        "links": [
+         63
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "VAEDecodeAudio"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 812,
+      "type": "YuE2GenerateMusic",
+      "pos": [
+       400,
+       1320
+      ],
+      "size": [
+       340,
+       380
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "clip",
+        "name": "clip",
+        "type": "CLIP",
+        "link": 37
+       },
+       {
+        "localized_name": "style",
+        "name": "style",
+        "type": "STRING",
+        "widget": {
+         "name": "style"
+        },
+        "link": 43
+       },
+       {
+        "localized_name": "lyrics",
+        "name": "lyrics",
+        "type": "STRING",
+        "widget": {
+         "name": "lyrics"
+        },
+        "link": 46
+       },
+       {
+        "localized_name": "abc",
+        "name": "abc",
+        "type": "STRING",
+        "widget": {
+         "name": "abc"
+        },
+        "link": 49
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 30
+       },
+       {
+        "localized_name": "mode",
+        "name": "mode",
+        "type": "COMBO",
+        "widget": {
+         "name": "mode"
+        },
+        "link": 52
+       },
+       {
+        "localized_name": "max_duration",
+        "name": "max_duration",
+        "type": "FLOAT",
+        "widget": {
+         "name": "max_duration"
+        },
+        "link": 59
+       },
+       {
+        "localized_name": "temperature",
+        "name": "temperature",
+        "type": "FLOAT",
+        "widget": {
+         "name": "temperature"
+        },
+        "link": 19
+       },
+       {
+        "localized_name": "top_p",
+        "name": "top_p",
+        "type": "FLOAT",
+        "widget": {
+         "name": "top_p"
+        },
+        "link": 20
+       },
+       {
+        "localized_name": "top_k",
+        "name": "top_k",
+        "type": "INT",
+        "widget": {
+         "name": "top_k"
+        },
+        "link": 21
+       },
+       {
+        "localized_name": "repetition_penalty",
+        "name": "repetition_penalty",
+        "type": "FLOAT",
+        "widget": {
+         "name": "repetition_penalty"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "cfg_scale",
+        "name": "cfg_scale",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg_scale"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "CONDITIONING",
+        "name": "CONDITIONING",
+        "type": "CONDITIONING",
+        "links": [
+         23,
+         24
+        ]
+       },
+       {
+        "localized_name": "seconds",
+        "name": "seconds",
+        "type": "FLOAT",
+        "links": [
+         22
+        ]
+       }
+      ],
+      "title": "Third take (lyrics fidelity highest)",
+      "properties": {
+       "Node name for S&R": "YuE2GenerateMusic"
+      },
+      "widgets_values": [
+       null,
+       null,
+       "",
+       0,
+       "fixed",
+       "full",
+       360.0,
+       1.0,
+       0.95,
+       100,
+       1.2,
+       1.0
+      ]
+     },
+     {
+      "id": 813,
+      "type": "EmptyYuE2LatentAudio",
+      "pos": [
+       800,
+       1320
+      ],
+      "size": [
+       260,
+       80
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "seconds",
+        "name": "seconds",
+        "type": "FLOAT",
+        "widget": {
+         "name": "seconds"
+        },
+        "link": 22
+       },
+       {
+        "localized_name": "batch_size",
+        "name": "batch_size",
+        "type": "INT",
+        "widget": {
+         "name": "batch_size"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         26
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "EmptyYuE2LatentAudio"
+      },
+      "widgets_values": [
+       120.0,
+       1
+      ]
+     },
+     {
+      "id": 814,
+      "type": "ConditioningZeroOut",
+      "pos": [
+       800.0,
+       1470
+      ],
+      "size": [
+       240,
+       50
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "conditioning",
+        "name": "conditioning",
+        "type": "CONDITIONING",
+        "link": 23
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "CONDITIONING",
+        "name": "CONDITIONING",
+        "type": "CONDITIONING",
+        "links": [
+         25
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "ConditioningZeroOut"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 815,
+      "type": "KSampler",
+      "pos": [
+       1100,
+       1320
+      ],
+      "size": [
+       300,
+       260
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 34
+       },
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "link": 24
+       },
+       {
+        "localized_name": "negative",
+        "name": "negative",
+        "type": "CONDITIONING",
+        "link": 25
+       },
+       {
+        "localized_name": "latent_image",
+        "name": "latent_image",
+        "type": "LATENT",
+        "link": 26
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 31
+       },
+       {
+        "localized_name": "steps",
+        "name": "steps",
+        "type": "INT",
+        "widget": {
+         "name": "steps"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "cfg",
+        "name": "cfg",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "sampler_name",
+        "name": "sampler_name",
+        "type": "COMBO",
+        "widget": {
+         "name": "sampler_name"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "scheduler",
+        "name": "scheduler",
+        "type": "COMBO",
+        "widget": {
+         "name": "scheduler"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "denoise",
+        "name": "denoise",
+        "type": "FLOAT",
+        "widget": {
+         "name": "denoise"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         27
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+       0,
+       "fixed",
+       32,
+       1.0,
+       "dpm_2",
+       "sgm_uniform",
+       1.0
+      ]
+     },
+     {
+      "id": 816,
+      "type": "VAEDecodeAudio",
+      "pos": [
+       1460,
+       1320
+      ],
+      "size": [
+       220,
+       60
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "samples",
+        "name": "samples",
+        "type": "LATENT",
+        "link": 27
+       },
+       {
+        "localized_name": "vae",
+        "name": "vae",
+        "type": "VAE",
+        "link": 40
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "AUDIO",
+        "name": "AUDIO",
+        "type": "AUDIO",
+        "links": [
+         64
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "VAEDecodeAudio"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 817,
+      "type": "ComfyMathExpression",
+      "pos": [
+       0.0,
+       774
+      ],
+      "size": [
+       300,
+       150
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "values.a",
+        "name": "values.a",
+        "label": "a",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": 55
+       },
+       {
+        "localized_name": "values.b",
+        "name": "values.b",
+        "label": "b",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": null
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "FLOAT",
+        "name": "FLOAT",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "INT",
+        "name": "INT",
+        "type": "INT",
+        "links": [
+         28,
+         29
+        ]
+       },
+       {
+        "localized_name": "BOOL",
+        "name": "BOOL",
+        "type": "BOOLEAN",
+        "links": null
+       }
+      ],
+      "title": "take seed + 1",
+      "properties": {
+       "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+       "a + 1"
+      ]
+     },
+     {
+      "id": 818,
+      "type": "ComfyMathExpression",
+      "pos": [
+       0,
+       1320
+      ],
+      "size": [
+       300,
+       150
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "values.a",
+        "name": "values.a",
+        "label": "a",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": 56
+       },
+       {
+        "localized_name": "values.b",
+        "name": "values.b",
+        "label": "b",
+        "shape": 7,
+        "type": "FLOAT,INT,BOOLEAN",
+        "link": null
+       },
+       {
+        "localized_name": "expression",
+        "name": "expression",
+        "type": "STRING",
+        "widget": {
+         "name": "expression"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "FLOAT",
+        "name": "FLOAT",
+        "type": "FLOAT",
+        "links": null
+       },
+       {
+        "localized_name": "INT",
+        "name": "INT",
+        "type": "INT",
+        "links": [
+         30,
+         31
+        ]
+       },
+       {
+        "localized_name": "BOOL",
+        "name": "BOOL",
+        "type": "BOOLEAN",
+        "links": null
+       }
+      ],
+      "title": "take seed + 2",
+      "properties": {
+       "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+       "a + 2"
+      ]
+     }
+    ],
+    "groups": [],
+    "links": [
+     {
+      "id": 1,
+      "origin_id": 801,
+      "origin_slot": 1,
+      "target_id": 802,
+      "target_slot": 0,
+      "type": "FLOAT"
+     },
+     {
+      "id": 2,
+      "origin_id": 801,
+      "origin_slot": 0,
+      "target_id": 803,
+      "target_slot": 0,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 3,
+      "origin_id": 801,
+      "origin_slot": 0,
+      "target_id": 804,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 4,
+      "origin_id": 803,
+      "origin_slot": 0,
+      "target_id": 804,
+      "target_slot": 2,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 5,
+      "origin_id": 802,
+      "origin_slot": 0,
+      "target_id": 804,
+      "target_slot": 3,
+      "type": "LATENT"
+     },
+     {
+      "id": 6,
+      "origin_id": 804,
+      "origin_slot": 0,
+      "target_id": 805,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 7,
+      "origin_id": 806,
+      "origin_slot": 0,
+      "target_id": 801,
+      "target_slot": 7,
+      "type": "FLOAT"
+     },
+     {
+      "id": 8,
+      "origin_id": 806,
+      "origin_slot": 1,
+      "target_id": 801,
+      "target_slot": 8,
+      "type": "FLOAT"
+     },
+     {
+      "id": 9,
+      "origin_id": 806,
+      "origin_slot": 2,
+      "target_id": 801,
+      "target_slot": 9,
+      "type": "INT"
+     },
+     {
+      "id": 10,
+      "origin_id": 806,
+      "origin_slot": 0,
+      "target_id": 807,
+      "target_slot": 7,
+      "type": "FLOAT"
+     },
+     {
+      "id": 11,
+      "origin_id": 806,
+      "origin_slot": 1,
+      "target_id": 807,
+      "target_slot": 8,
+      "type": "FLOAT"
+     },
+     {
+      "id": 12,
+      "origin_id": 806,
+      "origin_slot": 2,
+      "target_id": 807,
+      "target_slot": 9,
+      "type": "INT"
+     },
+     {
+      "id": 13,
+      "origin_id": 807,
+      "origin_slot": 1,
+      "target_id": 808,
+      "target_slot": 0,
+      "type": "FLOAT"
+     },
+     {
+      "id": 14,
+      "origin_id": 807,
+      "origin_slot": 0,
+      "target_id": 809,
+      "target_slot": 0,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 15,
+      "origin_id": 807,
+      "origin_slot": 0,
+      "target_id": 810,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 16,
+      "origin_id": 809,
+      "origin_slot": 0,
+      "target_id": 810,
+      "target_slot": 2,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 17,
+      "origin_id": 808,
+      "origin_slot": 0,
+      "target_id": 810,
+      "target_slot": 3,
+      "type": "LATENT"
+     },
+     {
+      "id": 18,
+      "origin_id": 810,
+      "origin_slot": 0,
+      "target_id": 811,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 19,
+      "origin_id": 806,
+      "origin_slot": 0,
+      "target_id": 812,
+      "target_slot": 7,
+      "type": "FLOAT"
+     },
+     {
+      "id": 20,
+      "origin_id": 806,
+      "origin_slot": 1,
+      "target_id": 812,
+      "target_slot": 8,
+      "type": "FLOAT"
+     },
+     {
+      "id": 21,
+      "origin_id": 806,
+      "origin_slot": 2,
+      "target_id": 812,
+      "target_slot": 9,
+      "type": "INT"
+     },
+     {
+      "id": 22,
+      "origin_id": 812,
+      "origin_slot": 1,
+      "target_id": 813,
+      "target_slot": 0,
+      "type": "FLOAT"
+     },
+     {
+      "id": 23,
+      "origin_id": 812,
+      "origin_slot": 0,
+      "target_id": 814,
+      "target_slot": 0,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 24,
+      "origin_id": 812,
+      "origin_slot": 0,
+      "target_id": 815,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 25,
+      "origin_id": 814,
+      "origin_slot": 0,
+      "target_id": 815,
+      "target_slot": 2,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 26,
+      "origin_id": 813,
+      "origin_slot": 0,
+      "target_id": 815,
+      "target_slot": 3,
+      "type": "LATENT"
+     },
+     {
+      "id": 27,
+      "origin_id": 815,
+      "origin_slot": 0,
+      "target_id": 816,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 28,
+      "origin_id": 817,
+      "origin_slot": 1,
+      "target_id": 807,
+      "target_slot": 4,
+      "type": "INT"
+     },
+     {
+      "id": 29,
+      "origin_id": 817,
+      "origin_slot": 1,
+      "target_id": 810,
+      "target_slot": 4,
+      "type": "INT"
+     },
+     {
+      "id": 30,
+      "origin_id": 818,
+      "origin_slot": 1,
+      "target_id": 812,
+      "target_slot": 4,
+      "type": "INT"
+     },
+     {
+      "id": 31,
+      "origin_id": 818,
+      "origin_slot": 1,
+      "target_id": 815,
+      "target_slot": 4,
+      "type": "INT"
+     },
+     {
+      "id": 32,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 804,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 33,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 810,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 34,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 815,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 35,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 801,
+      "target_slot": 0,
+      "type": "CLIP"
+     },
+     {
+      "id": 36,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 807,
+      "target_slot": 0,
+      "type": "CLIP"
+     },
+     {
+      "id": 37,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 812,
+      "target_slot": 0,
+      "type": "CLIP"
+     },
+     {
+      "id": 38,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 805,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 39,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 811,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 40,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 816,
+      "target_slot": 1,
+      "type": "VAE"
+     },
+     {
+      "id": 41,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 801,
+      "target_slot": 1,
+      "type": "STRING"
+     },
+     {
+      "id": 42,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 807,
+      "target_slot": 1,
+      "type": "STRING"
+     },
+     {
+      "id": 43,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 812,
+      "target_slot": 1,
+      "type": "STRING"
+     },
+     {
+      "id": 44,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 801,
+      "target_slot": 2,
+      "type": "STRING"
+     },
+     {
+      "id": 45,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 807,
+      "target_slot": 2,
+      "type": "STRING"
+     },
+     {
+      "id": 46,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 812,
+      "target_slot": 2,
+      "type": "STRING"
+     },
+     {
+      "id": 47,
+      "origin_id": -10,
+      "origin_slot": 5,
+      "target_id": 801,
+      "target_slot": 3,
+      "type": "STRING"
+     },
+     {
+      "id": 48,
+      "origin_id": -10,
+      "origin_slot": 5,
+      "target_id": 807,
+      "target_slot": 3,
+      "type": "STRING"
+     },
+     {
+      "id": 49,
+      "origin_id": -10,
+      "origin_slot": 5,
+      "target_id": 812,
+      "target_slot": 3,
+      "type": "STRING"
+     },
+     {
+      "id": 50,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 801,
+      "target_slot": 5,
+      "type": "COMBO"
+     },
+     {
+      "id": 51,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 807,
+      "target_slot": 5,
+      "type": "COMBO"
+     },
+     {
+      "id": 52,
+      "origin_id": -10,
+      "origin_slot": 6,
+      "target_id": 812,
+      "target_slot": 5,
+      "type": "COMBO"
+     },
+     {
+      "id": 53,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 801,
+      "target_slot": 4,
+      "type": "INT"
+     },
+     {
+      "id": 54,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 804,
+      "target_slot": 4,
+      "type": "INT"
+     },
+     {
+      "id": 55,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 817,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 56,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 818,
+      "target_slot": 0,
+      "type": "INT"
+     },
+     {
+      "id": 57,
+      "origin_id": -10,
+      "origin_slot": 8,
+      "target_id": 801,
+      "target_slot": 6,
+      "type": "FLOAT"
+     },
+     {
+      "id": 58,
+      "origin_id": -10,
+      "origin_slot": 8,
+      "target_id": 807,
+      "target_slot": 6,
+      "type": "FLOAT"
+     },
+     {
+      "id": 59,
+      "origin_id": -10,
+      "origin_slot": 8,
+      "target_id": 812,
+      "target_slot": 6,
+      "type": "FLOAT"
+     },
+     {
+      "id": 60,
+      "origin_id": -10,
+      "origin_slot": 9,
+      "target_id": 806,
+      "target_slot": 2,
+      "type": "INT"
+     },
+     {
+      "id": 61,
+      "origin_id": 805,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 62,
+      "origin_id": 801,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 1,
+      "type": "FLOAT"
+     },
+     {
+      "id": 63,
+      "origin_id": 811,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 2,
+      "type": "AUDIO"
+     },
+     {
+      "id": 64,
+      "origin_id": 816,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 3,
+      "type": "AUDIO"
+     }
+    ],
+    "extra": {},
+    "category": "Plenio/YuE2",
+    "description": "Renders the final style, lyrics and score with YuE2 exactly as given (native nodes, 32 steps). The take seed drives both the token and the audio sampling. A second and a third take (seed + 1, + 2) render only when Best Take asks for them (the brief's lyrics fidelity)."
+   }
+  ]
+ },
+ "extra": {}
+}

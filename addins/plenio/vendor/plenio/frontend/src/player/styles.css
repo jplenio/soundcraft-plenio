@@ -1,0 +1,180 @@
+/* The Plenio Player's base: the colours (the song's palette sets --accent, --accent2, --deep, --glow),
+   the fonts of the system (the player works offline), buttons, chips and the scrollbars. */
+/* a song's page opened from a card: its cover glides there, the rest fades (layout.ts withTransition) */
+::view-transition-group(song-cover) {
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.22s;
+}
+html.vt .main > * {
+  animation: none !important;
+}
+
+:root {
+  --font: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Consolas, 'Liberation Mono', monospace;
+  --muted: rgba(235, 232, 245, 0.52);
+  --accent: #a78bfa;
+  --accent2: #f472b6;
+  --deep: #0c0a16;
+  --glow: rgba(167, 139, 250, 0.35);
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #0a0910;
+  color: #f2f0f8;
+  font: 14px/1.4 var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+a {
+  color: inherit;
+}
+button {
+  font-family: var(--font);
+}
+/* The open list of a select draws its entries on the select's own background - a see-through one in the
+   player, so on Windows the entries not chosen were white on white and only the one under the mouse showed.
+   Every entry gets a solid dark background of its own. */
+select option,
+select optgroup {
+  background-color: #1b1726;
+  color: #f2f0f8;
+}
+select optgroup {
+  color: rgba(242, 240, 248, 0.6);
+  font-style: normal;
+}
+select option:checked {
+  background-color: color-mix(in srgb, var(--accent) 40%, #1b1726);
+  color: #fff;
+}
+select option:disabled {
+  color: rgba(242, 240, 248, 0.35);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.primary,
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 99px;
+  font: 600 14px var(--font);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s, background 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.primary {
+  border: 0;
+  background: var(--accent);
+  color: #0b0a12;
+  box-shadow: 0 8px 26px var(--glow);
+}
+.primary:hover:not(:disabled) {
+  transform: scale(1.04);
+}
+.ghost {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+.ghost:hover:not(:disabled),
+.ghost.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+  flex: none;
+}
+.icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.icon-btn.on {
+  color: var(--accent);
+}
+.icon-btn:active {
+  transform: scale(0.92);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.82);
+  font: 500 12px var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.chip:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.chip.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: #fff;
+}
+input[type='range'] {
+  accent-color: var(--accent);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::selection {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

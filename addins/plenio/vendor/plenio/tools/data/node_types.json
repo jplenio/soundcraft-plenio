@@ -1,0 +1,7295 @@
+{
+ "comfyui_version": "0.41.0",
+ "comfyui_ref": "v0.41.0",
+ "nodes": {
+  "AudioEncoderLoader": {
+   "input": {
+    "required": {
+     "audio_encoder_name": [
+      "COMBO",
+      {
+       "multiselect": false,
+       "options": []
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio_encoder_name"
+    ]
+   },
+   "output": [
+    "AUDIO_ENCODER"
+   ],
+   "output_name": [
+    "AUDIO_ENCODER"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/loaders",
+   "display_name": "Load Audio Encoder"
+  },
+  "CFGGuider": {
+   "input": {
+    "required": {
+     "model": [
+      "MODEL",
+      {}
+     ],
+     "positive": [
+      "CONDITIONING",
+      {}
+     ],
+     "negative": [
+      "CONDITIONING",
+      {}
+     ],
+     "cfg": [
+      "FLOAT",
+      {
+       "default": 8.0,
+       "min": 0.0,
+       "max": 100.0,
+       "step": 0.1,
+       "round": 0.01
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "model",
+     "positive",
+     "negative",
+     "cfg"
+    ]
+   },
+   "output": [
+    "GUIDER"
+   ],
+   "output_name": [
+    "GUIDER"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/sampling/guiders",
+   "display_name": "CFG Guider"
+  },
+  "CLIPLoader": {
+   "input": {
+    "required": {
+     "clip_name": [
+      []
+     ],
+     "type": [
+      [
+       "stable_diffusion",
+       "stable_cascade",
+       "sd3",
+       "stable_audio",
+       "mochi",
+       "ltxv",
+       "pixart",
+       "cosmos",
+       "lumina2",
+       "wan",
+       "hidream",
+       "chroma",
+       "ace",
+       "omnigen2",
+       "qwen_image",
+       "hunyuan_image",
+       "flux2",
+       "ovis",
+       "longcat_image",
+       "cogvideox",
+       "lens",
+       "pixeldit",
+       "ideogram4",
+       "boogu",
+       "krea2",
+       "joyimage",
+       "mage",
+       "minimax",
+       "yue2",
+       "flux3"
+      ]
+     ]
+    },
+    "optional": {
+     "device": [
+      [
+       "default",
+       "cpu"
+      ],
+      {
+       "advanced": true
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "clip_name",
+     "type"
+    ],
+    "optional": [
+     "device"
+    ]
+   },
+   "output": [
+    "CLIP"
+   ],
+   "output_name": [
+    "CLIP"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/loaders",
+   "display_name": "Load CLIP"
+  },
+  "CLIPTextEncode": {
+   "input": {
+    "required": {
+     "text": [
+      "STRING",
+      {
+       "multiline": true,
+       "dynamicPrompts": true,
+       "tooltip": "The text to be encoded."
+      }
+     ],
+     "clip": [
+      "CLIP",
+      {
+       "tooltip": "The CLIP model used for encoding the text."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "text",
+     "clip"
+    ]
+   },
+   "output": [
+    "CONDITIONING"
+   ],
+   "output_name": [
+    "CONDITIONING"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/conditioning",
+   "display_name": "CLIP Text Encode (Prompt)"
+  },
+  "CheckpointLoaderSimple": {
+   "input": {
+    "required": {
+     "ckpt_name": [
+      [],
+      {
+       "tooltip": "The name of the checkpoint (model) to load."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "ckpt_name"
+    ]
+   },
+   "output": [
+    "MODEL",
+    "CLIP",
+    "VAE"
+   ],
+   "output_name": [
+    "MODEL",
+    "CLIP",
+    "VAE"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "model/loaders",
+   "display_name": "Load Checkpoint"
+  },
+  "ComfyMathExpression": {
+   "input": {
+    "required": {
+     "expression": [
+      "STRING",
+      {
+       "default": "a + b",
+       "multiline": true
+      }
+     ],
+     "values": [
+      "COMFY_AUTOGROW_V3",
+      {
+       "template": {
+        "input": {
+         "required": {
+          "value": [
+           "FLOAT,INT,BOOLEAN",
+           {}
+          ]
+         }
+        },
+        "names": [
+         "a",
+         "b",
+         "c",
+         "d",
+         "e",
+         "f",
+         "g",
+         "h",
+         "i",
+         "j",
+         "k",
+         "l",
+         "m",
+         "n",
+         "o",
+         "p",
+         "q",
+         "r",
+         "s",
+         "t",
+         "u",
+         "v",
+         "w",
+         "x",
+         "y",
+         "z"
+        ],
+        "min": 1
+       }
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "expression",
+     "values"
+    ]
+   },
+   "output": [
+    "FLOAT",
+    "INT",
+    "BOOLEAN"
+   ],
+   "output_name": [
+    "FLOAT",
+    "INT",
+    "BOOL"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "utilities",
+   "display_name": "Math Expression"
+  },
+  "ComfySwitchNode": {
+   "input": {
+    "required": {
+     "switch": [
+      "BOOLEAN",
+      {}
+     ]
+    },
+    "optional": {
+     "on_false": [
+      "COMFY_MATCHTYPE_V3",
+      {
+       "lazy": true,
+       "template": {
+        "template_id": "switch",
+        "allowed_types": "*"
+       }
+      }
+     ],
+     "on_true": [
+      "COMFY_MATCHTYPE_V3",
+      {
+       "lazy": true,
+       "template": {
+        "template_id": "switch",
+        "allowed_types": "*"
+       }
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "switch"
+    ],
+    "optional": [
+     "on_false",
+     "on_true"
+    ]
+   },
+   "output": [
+    "COMFY_MATCHTYPE_V3"
+   ],
+   "output_name": [
+    "output"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "utilities/logic",
+   "display_name": "If/Else Switch"
+  },
+  "ConditioningZeroOut": {
+   "input": {
+    "required": {
+     "conditioning": [
+      "CONDITIONING"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "conditioning"
+    ]
+   },
+   "output": [
+    "CONDITIONING"
+   ],
+   "output_name": [
+    "CONDITIONING"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/conditioning/transform",
+   "display_name": "Conditioning Zero Out"
+  },
+  "EmptyFlux2LatentImage": {
+   "input": {
+    "required": {
+     "width": [
+      "INT",
+      {
+       "default": 1024,
+       "min": 16,
+       "max": 16384,
+       "step": 16
+      }
+     ],
+     "height": [
+      "INT",
+      {
+       "default": 1024,
+       "min": 16,
+       "max": 16384,
+       "step": 16
+      }
+     ],
+     "batch_size": [
+      "INT",
+      {
+       "default": 1,
+       "min": 1,
+       "max": 4096
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "width",
+     "height",
+     "batch_size"
+    ]
+   },
+   "output": [
+    "LATENT"
+   ],
+   "output_name": [
+    "LATENT"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/latent/flux",
+   "display_name": "Empty Flux 2 Latent"
+  },
+  "EmptyMiniMaxMusic3LatentAudio": {
+   "input": {
+    "required": {
+     "seconds": [
+      "FLOAT",
+      {
+       "default": 120.0,
+       "min": 0.04,
+       "max": 360.0,
+       "step": 0.04
+      }
+     ],
+     "batch_size": [
+      "INT",
+      {
+       "default": 1,
+       "min": 1,
+       "max": 4096
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "seconds",
+     "batch_size"
+    ]
+   },
+   "output": [
+    "LATENT"
+   ],
+   "output_name": [
+    "LATENT"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/latent/minimax music",
+   "display_name": "Empty MiniMax Music3 Latent Audio"
+  },
+  "EmptyYuE2LatentAudio": {
+   "input": {
+    "required": {
+     "seconds": [
+      "FLOAT",
+      {
+       "default": 120.0,
+       "min": 0.04,
+       "max": 1000.0,
+       "step": 0.04
+      }
+     ],
+     "batch_size": [
+      "INT",
+      {
+       "default": 1,
+       "min": 1,
+       "max": 4096
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "seconds",
+     "batch_size"
+    ]
+   },
+   "output": [
+    "LATENT"
+   ],
+   "output_name": [
+    "LATENT"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/latent/yue2",
+   "display_name": "Empty YuE2 Latent Audio"
+  },
+  "EndLoop": {
+   "input": {
+    "required": {
+     "accumulate": [
+      "BOOLEAN",
+      {
+       "tooltip": "Return output_value from every iteration when enabled; otherwise return only the final iteration.",
+       "default": false
+      }
+     ]
+    },
+    "optional": {
+     "output_value": [
+      "COMFY_MATCHTYPE_V3",
+      {
+       "tooltip": "Value returned by End Loop. It returns the final iteration or all iterations according to accumulate.",
+       "template": {
+        "template_id": "output_value",
+        "allowed_types": "*"
+       }
+      }
+     ],
+     "next_iteration_value": [
+      "COMFY_MATCHTYPE_V3",
+      {
+       "tooltip": "Value sent from End Loop back to Start Loop for the next iteration.",
+       "template": {
+        "template_id": "carried_value",
+        "allowed_types": "*"
+       }
+      }
+     ],
+     "terminations": [
+      "COMFY_AUTOGROW_V3",
+      {
+       "tooltip": "Connect outputs that must execute on every iteration. Their values are not returned.",
+       "template": {
+        "input": {
+         "required": {
+          "termination": [
+           "*",
+           {
+            "tooltip": "Connect a preview or side-effect output that must execute on every iteration. Its value is not returned."
+           }
+          ]
+         }
+        },
+        "prefix": "termination",
+        "min": 0,
+        "max": 50
+       }
+      }
+     ]
+    },
+    "hidden": {
+     "execution_list": [
+      "EXECUTION_LIST"
+     ],
+     "unique_id": [
+      "UNIQUE_ID"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "accumulate"
+    ],
+    "optional": [
+     "output_value",
+     "next_iteration_value",
+     "terminations"
+    ],
+    "hidden": [
+     "execution_list",
+     "unique_id"
+    ]
+   },
+   "output": [
+    "COMFY_MATCHTYPE_V3"
+   ],
+   "output_name": [
+    "outputs"
+   ],
+   "output_is_list": [
+    true
+   ],
+   "output_node": false,
+   "category": "utilities/looping",
+   "display_name": "End Loop"
+  },
+  "Flux2Scheduler": {
+   "input": {
+    "required": {
+     "steps": [
+      "INT",
+      {
+       "default": 20,
+       "min": 1,
+       "max": 4096
+      }
+     ],
+     "width": [
+      "INT",
+      {
+       "default": 1024,
+       "min": 16,
+       "max": 16384,
+       "step": 1
+      }
+     ],
+     "height": [
+      "INT",
+      {
+       "default": 1024,
+       "min": 16,
+       "max": 16384,
+       "step": 1
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "steps",
+     "width",
+     "height"
+    ]
+   },
+   "output": [
+    "SIGMAS"
+   ],
+   "output_name": [
+    "SIGMAS"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/sampling/schedulers",
+   "display_name": null
+  },
+  "KSampler": {
+   "input": {
+    "required": {
+     "model": [
+      "MODEL",
+      {
+       "tooltip": "The model used for denoising the input latent."
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "default": 0,
+       "min": 0,
+       "max": 18446744073709551615,
+       "control_after_generate": true,
+       "tooltip": "The random seed used for creating the noise."
+      }
+     ],
+     "steps": [
+      "INT",
+      {
+       "default": 20,
+       "min": 1,
+       "max": 10000,
+       "tooltip": "The number of steps used in the denoising process."
+      }
+     ],
+     "cfg": [
+      "FLOAT",
+      {
+       "default": 8.0,
+       "min": 0.0,
+       "max": 100.0,
+       "step": 0.1,
+       "round": 0.01,
+       "tooltip": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality."
+      }
+     ],
+     "sampler_name": [
+      [
+       "euler",
+       "euler_cfg_pp",
+       "euler_ancestral",
+       "euler_ancestral_cfg_pp",
+       "heun",
+       "heunpp2",
+       "exp_heun_2_x0",
+       "exp_heun_2_x0_sde",
+       "dpm_2",
+       "dpm_2_ancestral",
+       "lms",
+       "dpm_fast",
+       "dpm_adaptive",
+       "dpmpp_2s_ancestral",
+       "dpmpp_2s_ancestral_cfg_pp",
+       "dpmpp_sde",
+       "dpmpp_sde_gpu",
+       "dpmpp_2m",
+       "dpmpp_2m_cfg_pp",
+       "dpmpp_2m_sde",
+       "dpmpp_2m_sde_gpu",
+       "dpmpp_2m_sde_heun",
+       "dpmpp_2m_sde_heun_gpu",
+       "dpmpp_3m_sde",
+       "dpmpp_3m_sde_gpu",
+       "ddpm",
+       "lcm",
+       "ipndm",
+       "ipndm_v",
+       "deis",
+       "cfgpp_ud10_ab",
+       "res_multistep",
+       "res_multistep_cfg_pp",
+       "res_multistep_ancestral",
+       "res_multistep_ancestral_cfg_pp",
+       "gradient_estimation",
+       "gradient_estimation_cfg_pp",
+       "er_sde",
+       "seeds_2",
+       "seeds_3",
+       "sa_solver",
+       "sa_solver_pece",
+       "ddim",
+       "uni_pc",
+       "uni_pc_bh2"
+      ],
+      {
+       "tooltip": "The algorithm used when sampling, this can affect the quality, speed, and style of the generated output."
+      }
+     ],
+     "scheduler": [
+      [
+       "simple",
+       "sgm_uniform",
+       "karras",
+       "exponential",
+       "ddim_uniform",
+       "beta",
+       "normal",
+       "linear_quadratic",
+       "kl_optimal"
+      ],
+      {
+       "tooltip": "The scheduler controls how noise is gradually removed to form the image."
+      }
+     ],
+     "positive": [
+      "CONDITIONING",
+      {
+       "tooltip": "The conditioning describing the attributes you want to include in the image."
+      }
+     ],
+     "negative": [
+      "CONDITIONING",
+      {
+       "tooltip": "The conditioning describing the attributes you want to exclude from the image."
+      }
+     ],
+     "latent_image": [
+      "LATENT",
+      {
+       "tooltip": "The latent image to denoise."
+      }
+     ],
+     "denoise": [
+      "FLOAT",
+      {
+       "default": 1.0,
+       "min": 0.0,
+       "max": 1.0,
+       "step": 0.01,
+       "tooltip": "The amount of denoising applied, lower values will maintain the structure of the initial image allowing for image to image sampling."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "model",
+     "seed",
+     "steps",
+     "cfg",
+     "sampler_name",
+     "scheduler",
+     "positive",
+     "negative",
+     "latent_image",
+     "denoise"
+    ]
+   },
+   "output": [
+    "LATENT"
+   ],
+   "output_name": [
+    "LATENT"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/sampling",
+   "display_name": "KSampler"
+  },
+  "KSamplerSelect": {
+   "input": {
+    "required": {
+     "sampler_name": [
+      "COMBO",
+      {
+       "multiselect": false,
+       "options": [
+        "euler",
+        "euler_cfg_pp",
+        "euler_ancestral",
+        "euler_ancestral_cfg_pp",
+        "heun",
+        "heunpp2",
+        "exp_heun_2_x0",
+        "exp_heun_2_x0_sde",
+        "dpm_2",
+        "dpm_2_ancestral",
+        "lms",
+        "dpm_fast",
+        "dpm_adaptive",
+        "dpmpp_2s_ancestral",
+        "dpmpp_2s_ancestral_cfg_pp",
+        "dpmpp_sde",
+        "dpmpp_sde_gpu",
+        "dpmpp_2m",
+        "dpmpp_2m_cfg_pp",
+        "dpmpp_2m_sde",
+        "dpmpp_2m_sde_gpu",
+        "dpmpp_2m_sde_heun",
+        "dpmpp_2m_sde_heun_gpu",
+        "dpmpp_3m_sde",
+        "dpmpp_3m_sde_gpu",
+        "ddpm",
+        "lcm",
+        "ipndm",
+        "ipndm_v",
+        "deis",
+        "cfgpp_ud10_ab",
+        "res_multistep",
+        "res_multistep_cfg_pp",
+        "res_multistep_ancestral",
+        "res_multistep_ancestral_cfg_pp",
+        "gradient_estimation",
+        "gradient_estimation_cfg_pp",
+        "er_sde",
+        "seeds_2",
+        "seeds_3",
+        "sa_solver",
+        "sa_solver_pece",
+        "ddim",
+        "uni_pc",
+        "uni_pc_bh2"
+       ]
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "sampler_name"
+    ]
+   },
+   "output": [
+    "SAMPLER"
+   ],
+   "output_name": [
+    "SAMPLER"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/sampling/samplers",
+   "display_name": null
+  },
+  "LoadAudio": {
+   "input": {
+    "required": {
+     "audio": [
+      "COMBO",
+      {
+       "multiselect": false,
+       "options": [],
+       "audio_upload": true
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio"
+    ]
+   },
+   "output": [
+    "AUDIO"
+   ],
+   "output_name": [
+    "AUDIO"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "audio",
+   "display_name": "Load Audio"
+  },
+  "LoopIteration": {
+   "input": {
+    "required": {
+     "iteration_index": [
+      "INT",
+      {}
+     ],
+     "is_first": [
+      "BOOLEAN",
+      {}
+     ],
+     "is_last": [
+      "BOOLEAN",
+      {}
+     ],
+     "reuse_cache": [
+      "BOOLEAN",
+      {}
+     ]
+    },
+    "optional": {
+     "list_item": [
+      "*",
+      {}
+     ],
+     "current_iteration_value": [
+      "*",
+      {}
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "iteration_index",
+     "is_first",
+     "is_last",
+     "reuse_cache"
+    ],
+    "optional": [
+     "list_item",
+     "current_iteration_value"
+    ]
+   },
+   "output": [
+    "INT",
+    "BOOLEAN",
+    "BOOLEAN",
+    "*",
+    "*"
+   ],
+   "output_name": [
+    "INT",
+    "BOOLEAN",
+    "BOOLEAN",
+    "*",
+    "*"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    true
+   ],
+   "output_node": false,
+   "category": "sd",
+   "display_name": null
+  },
+  "LoraLoader": {
+   "input": {
+    "required": {
+     "model": [
+      "MODEL",
+      {
+       "tooltip": "The diffusion model the LoRA will be applied to."
+      }
+     ],
+     "clip": [
+      "CLIP",
+      {
+       "tooltip": "The CLIP model the LoRA will be applied to."
+      }
+     ],
+     "lora_name": [
+      [],
+      {
+       "tooltip": "The name of the LoRA."
+      }
+     ],
+     "strength_model": [
+      "FLOAT",
+      {
+       "default": 1.0,
+       "min": -100.0,
+       "max": 100.0,
+       "step": 0.01,
+       "tooltip": "How strongly to modify the diffusion model. This value can be negative."
+      }
+     ],
+     "strength_clip": [
+      "FLOAT",
+      {
+       "default": 1.0,
+       "min": -100.0,
+       "max": 100.0,
+       "step": 0.01,
+       "tooltip": "How strongly to modify the CLIP model. This value can be negative."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "model",
+     "clip",
+     "lora_name",
+     "strength_model",
+     "strength_clip"
+    ]
+   },
+   "output": [
+    "MODEL",
+    "CLIP"
+   ],
+   "output_name": [
+    "MODEL",
+    "CLIP"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "model/loaders",
+   "display_name": "Load LoRA (Model and CLIP)"
+  },
+  "MiniMaxMusic3TextEncode": {
+   "input": {
+    "required": {
+     "clip": [
+      "CLIP",
+      {}
+     ],
+     "caption": [
+      "STRING",
+      {
+       "multiline": true,
+       "dynamicPrompts": true
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "multiline": true,
+       "dynamicPrompts": true
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "default": 0,
+       "min": 0,
+       "max": 18446744073709551615,
+       "control_after_generate": true
+      }
+     ],
+     "max_duration": [
+      "FLOAT",
+      {
+       "tooltip": "Maximum duration in seconds; the model can end the song earlier.",
+       "default": 120.0,
+       "min": 0.04,
+       "max": 360.0,
+       "step": 0.04
+      }
+     ],
+     "cfg_scale": [
+      "FLOAT",
+      {
+       "advanced": true,
+       "default": 1.5,
+       "min": 0.0,
+       "max": 100.0,
+       "step": 0.1,
+       "round": 0.01
+      }
+     ],
+     "top_k": [
+      "INT",
+      {
+       "advanced": true,
+       "default": 50,
+       "min": 1,
+       "max": 16384
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "clip",
+     "caption",
+     "lyrics",
+     "seed",
+     "max_duration",
+     "cfg_scale",
+     "top_k"
+    ]
+   },
+   "output": [
+    "CONDITIONING",
+    "FLOAT"
+   ],
+   "output_name": [
+    "CONDITIONING",
+    "seconds"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "model/conditioning/minimax music",
+   "display_name": "MiniMax Music3 Text Encode"
+  },
+  "PlenioApplyArrangement": {
+   "input": {
+    "required": {
+     "score": [
+      "STRING",
+      {
+       "tooltip": "The score to arrange (native two-voice ABC).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Song Brief or Cover Brief: the creative mode and the closeness."
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "tooltip": "Varies the notes of the instrument lines Plenio writes (the same seed, the same notes).",
+       "default": 0,
+       "min": 0,
+       "max": 18446744073709551615,
+       "control_after_generate": "fixed"
+      }
+     ]
+    },
+    "optional": {
+     "answer": [
+      "STRING",
+      {
+       "tooltip": "The writer's answer to Compose Arrangement's prompt; requested only when a plan is wanted.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "engine": [
+      "PLENIO_ENGINE",
+      {
+       "tooltip": "The music model: YuE2's context budget is checked with it."
+      }
+     ],
+     "style": [
+      "STRING",
+      {
+       "tooltip": "The song's style, for the exact context budget (a cover's is estimated).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "The song's lyrics, for the exact context budget (a cover's are estimated).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "first": [
+      "PLENIO_ARRANGEMENT",
+      {
+       "tooltip": "The first Apply Arrangement's state: this node is then the re-ask round - it reads the writer's second answer (only when sections were asked again) and keeps the better arrangement."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "score",
+     "brief",
+     "seed"
+    ],
+    "optional": [
+     "answer",
+     "engine",
+     "style",
+     "lyrics",
+     "first"
+    ]
+   },
+   "output": [
+    "STRING",
+    "PLENIO_REPORT",
+    "STRING",
+    "STRING",
+    "PLENIO_ARRANGEMENT"
+   ],
+   "output_name": [
+    "score",
+    "report",
+    "reask_prompt",
+    "reask_schema",
+    "state"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Score",
+   "display_name": "Apply Arrangement"
+  },
+  "PlenioApplyHeardCheck": {
+   "input": {
+    "required": {
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "The lyrics draft Transcribe Lyrics made from the source's singing (its 'lyrics' output).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "answer": [
+      "STRING",
+      {
+       "tooltip": "The writer model's answer (asked only for a cover's original lyrics).",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "report": [
+      "PLENIO_REPORT",
+      {
+       "tooltip": "Transcribe Lyrics' report: which words it heard unsure (they are marked for the writer)."
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "The Cover Brief: only original lyrics are checked; its title names the song for the writer."
+      }
+     ],
+     "language": [
+      "STRING",
+      {
+       "tooltip": "The language Transcribe Lyrics heard (its 'language' output).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "lyrics"
+    ],
+    "optional": [
+     "answer",
+     "report",
+     "brief",
+     "language"
+    ]
+   },
+   "output": [
+    "STRING",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "lyrics",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Lyrics",
+   "display_name": "Apply Misheard Check"
+  },
+  "PlenioApplySungCheck": {
+   "input": {
+    "required": {
+     "record": [
+      "STRING",
+      {
+       "tooltip": "The release record Export Release wrote (its 'record' output).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "answer": [
+      "STRING",
+      {
+       "tooltip": "Never asked.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "language": [
+      "STRING",
+      {
+       "tooltip": "Not used.",
+       "default": "",
+       "multiline": false
+      }
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "record"
+    ],
+    "optional": [
+     "answer",
+     "language"
+    ],
+    "hidden": [
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "STRING",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "record",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": true,
+   "category": "Plenio/Lyrics",
+   "display_name": "Apply Sung Check (retired)"
+  },
+  "PlenioAudioModelLoader": {
+   "input": {
+    "required": {
+     "kind": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "super-resolution: for HQ 2 · Regenerate Highs and Refine (48 kHz); separation: for Separate Stems.",
+       "options": [
+        {
+         "key": "super-resolution",
+         "inputs": {
+          "required": {
+           "model": [
+            "COMBO",
+            {
+             "tooltip": "A model file in models/audio_sr.",
+             "multiselect": false,
+             "options": []
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "separation",
+         "inputs": {
+          "required": {
+           "model": [
+            "COMBO",
+            {
+             "tooltip": "A model file in models/audio_separation.",
+             "multiselect": false,
+             "options": []
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "kind"
+    ]
+   },
+   "output": [
+    "PLENIO_AUDIO_MODEL"
+   ],
+   "output_name": [
+    "model"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio",
+   "display_name": "Load Audio Model"
+  },
+  "PlenioBestTake": {
+   "input": {
+    "required": {
+     "take": [
+      "AUDIO",
+      {
+       "tooltip": "The first take."
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "The lyrics the takes sing (the final lyrics of the Song Sheet).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Song Brief or Cover Brief: its lyrics fidelity (without one: the first take)."
+      }
+     ],
+     "second": [
+      "AUDIO",
+      {
+       "tooltip": "A second take (the next seed): rendered only when the first sang under 96 % of the lyrics.",
+       "lazy": true
+      }
+     ],
+     "third": [
+      "AUDIO",
+      {
+       "tooltip": "A third take: rendered only with highest fidelity, when neither take sang 96 % of the lyrics.",
+       "lazy": true
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "take",
+     "lyrics"
+    ],
+    "optional": [
+     "brief",
+     "second",
+     "third"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio analysis",
+   "display_name": "Best Take · lyrics fidelity"
+  },
+  "PlenioComposeArrangement": {
+   "input": {
+    "required": {
+     "score": [
+      "STRING",
+      {
+       "tooltip": "The score to arrange (native two-voice ABC).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Song Brief or Cover Brief: the creative mode and the closeness."
+      }
+     ]
+    },
+    "optional": {
+     "engine": [
+      "PLENIO_ENGINE",
+      {
+       "tooltip": "The music model (its name in the prompt)."
+      }
+     ],
+     "style": [
+      "STRING",
+      {
+       "tooltip": "The song's style, for the mood (optional).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "The song's lyrics, for the mood (optional).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "score",
+     "brief"
+    ],
+    "optional": [
+     "engine",
+     "style",
+     "lyrics"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING"
+   ],
+   "output_name": [
+    "prompt",
+    "schema"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Score",
+   "display_name": "Compose Arrangement"
+  },
+  "PlenioComposeHeardCheck": {
+   "input": {
+    "required": {
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "The lyrics draft Transcribe Lyrics made from the source's singing (its 'lyrics' output).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "report": [
+      "PLENIO_REPORT",
+      {
+       "tooltip": "Transcribe Lyrics' report: which words it heard unsure (they are marked for the writer)."
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "The Cover Brief: only original lyrics are checked; its title names the song for the writer."
+      }
+     ],
+     "language": [
+      "STRING",
+      {
+       "tooltip": "The language Transcribe Lyrics heard (its 'language' output).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "lyrics"
+    ],
+    "optional": [
+     "report",
+     "brief",
+     "language"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING"
+   ],
+   "output_name": [
+    "prompt",
+    "schema"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Lyrics",
+   "display_name": "Compose Misheard Check"
+  },
+  "PlenioComposePrompt": {
+   "input": {
+    "required": {
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "From Song Brief or Cover Brief."
+      }
+     ],
+     "engine": [
+      "PLENIO_ENGINE",
+      {
+       "tooltip": "From the music model block (Engine Profile)."
+      }
+     ],
+     "detail": [
+      "COMBO",
+      {
+       "tooltip": "How compact or rich the lyrics should be.",
+       "advanced": true,
+       "default": "standard",
+       "multiselect": false,
+       "options": [
+        "concise",
+        "standard",
+        "rich"
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "score": [
+      "STRING",
+      {
+       "tooltip": "The final score: its sections (and for covers its phrasing and tempo) guide the lyrics.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "language": [
+      "STRING",
+      {
+       "tooltip": "Detected lyrics language (Transcribe Lyrics); requested only for original-lyrics covers whose brief says 'auto'.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "reference_lyrics": [
+      "STRING",
+      {
+       "tooltip": "The source's lyrics draft (Transcribe Lyrics: lyrics); requested only for new-lyrics covers with the phrasing reference or a lyrics closeness above 0. Sectioned lyrics give the writer a syllable target per line.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "brief",
+     "engine",
+     "detail"
+    ],
+    "optional": [
+     "score",
+     "language",
+     "reference_lyrics"
+    ]
+   },
+   "output": [
+    "STRING",
+    "PLENIO_REQUEST"
+   ],
+   "output_name": [
+    "prompt",
+    "request"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Writing",
+   "display_name": "Compose Writing Prompt"
+  },
+  "PlenioComposeSungCheck": {
+   "input": {
+    "required": {
+     "record": [
+      "STRING",
+      {
+       "tooltip": "The release record Export Release wrote (its 'record' output).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "language": [
+      "STRING",
+      {
+       "tooltip": "Not used.",
+       "default": "",
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "record"
+    ],
+    "optional": [
+     "language"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING"
+   ],
+   "output_name": [
+    "prompt",
+    "schema"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Lyrics",
+   "display_name": "Compose Sung Check (retired)"
+  },
+  "PlenioCoverBrief": {
+   "input": {
+    "required": {
+     "mode": [
+      "COMBO",
+      {
+       "tooltip": "new cover every run (default): each run writes and renders another version, without stops. one cover, stop to review: the Song Sheets stop so you can check the transcription and the lyrics; later runs render new takes.",
+       "default": "new cover every run",
+       "multiselect": false,
+       "options": [
+        "new cover every run",
+        "one cover, stop to review"
+       ]
+      }
+     ],
+     "template": [
+      "COMBO",
+      {
+       "tooltip": "Optional target style. Style fields you leave empty are taken from the template.",
+       "default": "none",
+       "multiselect": false,
+       "options": [
+        "none",
+        "african/afrobeat-classic-instrumental",
+        "african/afrobeats-vocal",
+        "african/amapiano-instrumental",
+        "african/desert-blues-vocal",
+        "african/ethio-jazz-instrumental",
+        "african/gqom-instrumental",
+        "african/highlife-instrumental",
+        "african/soukous-instrumental",
+        "alternative/alternative-rock-vocal",
+        "alternative/britpop-vocal",
+        "alternative/new-wave-vocal",
+        "alternative/uk-garage-vocal",
+        "ambient/ambient-choir-vocalise",
+        "ambient/ambient-guitar",
+        "ambient/chillout-pads-strings",
+        "ambient/dark-ambient-drone",
+        "asian/anime-opening-vocal",
+        "asian/bollywood-vocal",
+        "asian/chinese-traditional-instrumental",
+        "asian/city-pop-vocal",
+        "asian/enka-vocal",
+        "asian/game-jrpg-orchestral",
+        "asian/indian-classical-instrumental",
+        "asian/j-rock-vocal",
+        "asian/kpop-vocal",
+        "asian/mandopop-ballad-vocal",
+        "blues/blues-ballad-vocal",
+        "blues/boogie-woogie-instrumental",
+        "blues/chicago-blues-vocal",
+        "blues/delta-blues-vocal",
+        "blues/electric-blues-instrumental",
+        "cinematic/corporate-uplifting-instrumental",
+        "cinematic/documentary-underscore-instrumental",
+        "cinematic/emotional-piano-underscore",
+        "cinematic/epic-trailer-instrumental",
+        "cinematic/fantasy-adventure-orchestral",
+        "cinematic/horror-suspense-instrumental",
+        "cinematic/orchestral-action-instrumental",
+        "cinematic/sports-stadium-anthem",
+        "classical/baroque-concerto-instrumental",
+        "classical/cello-and-piano",
+        "classical/choral-sacred-vocal",
+        "classical/cinematic-romance",
+        "classical/gregorian-chant-vocal",
+        "classical/impressionist-piano-instrumental",
+        "classical/minimalism-instrumental",
+        "classical/mystical-neoclassical",
+        "classical/neoclassical-piano",
+        "classical/opera-aria-vocal",
+        "classical/piano-and-strings",
+        "classical/romantic-string-ensemble",
+        "classical/string-quartet-instrumental",
+        "classical/symphonic-orchestral-instrumental",
+        "comedy/comedy-rap-vocal",
+        "comedy/english-parody-pop-vocal",
+        "comedy/german-absurd-novelty",
+        "country/americana-vocal",
+        "country/bluegrass-instrumental",
+        "country/country-ballad-vocal",
+        "country/honky-tonk-vocal",
+        "country/modern-country-pop-vocal",
+        "country/outlaw-country-vocal",
+        "disco/classic-disco-vocal",
+        "disco/italo-disco-vocal",
+        "edm/big-room-festival-instrumental",
+        "edm/breakbeat-instrumental",
+        "edm/dance-anthem-instrumental",
+        "edm/drum-and-bass-instrumental",
+        "edm/dubstep-instrumental",
+        "edm/eurodance-vocal",
+        "edm/future-bass-vocal",
+        "edm/future-rave-sparse-vocals",
+        "edm/goa-trance-instrumental",
+        "edm/hardgroove-techno-instrumental",
+        "edm/hardstyle-instrumental",
+        "edm/jungle-instrumental",
+        "edm/liquid-drum-and-bass-sparse-vocals",
+        "edm/melodic-techno-instrumental",
+        "edm/neurofunk-dnb-instrumental",
+        "edm/progressive-trance-instrumental",
+        "edm/psytrance-instrumental",
+        "edm/uplifting-trance-instrumental",
+        "electronic/analog-space-electronic",
+        "electronic/berlin-school-sequencer",
+        "electronic/chiptune-instrumental",
+        "electronic/cinematic-electronica",
+        "electronic/downtempo-electronica",
+        "electronic/ebm-darkwave-vocal",
+        "electronic/electro-swing-vocal",
+        "electronic/idm-experimental-instrumental",
+        "electronic/lofi-hiphop-instrumental",
+        "electronic/minimal-electronic-german-vocals",
+        "electronic/peak-time-techno-sparse-vocals",
+        "electronic/synth-pop-vocal",
+        "electronic/synthwave",
+        "electronic/trip-hop",
+        "electronic/vaporwave-instrumental",
+        "european/alpine-volksmusik-instrumental",
+        "european/balkan-brass-instrumental",
+        "european/chanson-vocal",
+        "european/fado-vocal",
+        "european/flamenco-instrumental",
+        "european/carnival-song-vocal",
+        "european/irish-pub-session-instrumental",
+        "european/italian-pop-vocal",
+        "european/klezmer-instrumental",
+        "european/party-schlager-vocal",
+        "european/polka-instrumental",
+        "european/russian-folk-vocal",
+        "european/schlager-vocal",
+        "european/viennese-waltz-instrumental",
+        "folk/appalachian-folk-instrumental",
+        "folk/celtic-folk-vocal",
+        "folk/dark-fairytale-folk-vocal",
+        "folk/folk-punk-vocal",
+        "folk/german-liedermacher-vocal",
+        "folk/melancholic-folk-ballad-vocal",
+        "folk/mystical-medieval-folk-vocal",
+        "folk/nordic-folk-vocal",
+        "folk/romantic-solo-guitar",
+        "folk/sea-shanty-vocal",
+        "funk/classic-funk-instrumental",
+        "funk/nu-disco-funk",
+        "gospel/contemporary-worship-vocal",
+        "gospel/german-worship-vocal",
+        "gospel/gospel-choir-vocal",
+        "gospel/hymn-choir-vocal",
+        "hiphop/boom-bap-hiphop-vocal",
+        "hiphop/cloud-rap-vocal",
+        "hiphop/drill-instrumental",
+        "hiphop/german-rap-vocal",
+        "hiphop/melodic-trap-vocal",
+        "hiphop/old-school-hiphop-vocal",
+        "hiphop/phonk-instrumental",
+        "hiphop/rnb-vocal",
+        "hiphop/trap-instrumental",
+        "house/acid-house-instrumental",
+        "house/afro-house-vocal",
+        "house/bass-house-instrumental",
+        "house/deep-house",
+        "house/disco-house-vocal",
+        "house/electro-house-instrumental",
+        "house/french-house-instrumental",
+        "house/melodic-house",
+        "house/organic-house",
+        "house/progressive-house-dreamy-bittersweet",
+        "house/progressive-house-melodic-trance",
+        "house/progressive-house-sparse-vocals",
+        "house/tech-house-instrumental",
+        "jazz/bebop-instrumental",
+        "jazz/cool-jazz-instrumental",
+        "jazz/dixieland-instrumental",
+        "jazz/gypsy-jazz-instrumental",
+        "jazz/jazz-funk",
+        "jazz/smooth-jazz-instrumental",
+        "jazz/smooth-jazz-vocal-late-night",
+        "jazz/smooth-jazz-vocal-positive-resolution",
+        "jazz/swing-big-band-instrumental",
+        "jazz/vocal-jazz-crooner",
+        "kids/birthday-song-vocal",
+        "kids/children-song-vocal",
+        "kids/german-birthday-song-vocal",
+        "kids/kids-adventure-song-vocal",
+        "kids/lullaby-vocal",
+        "kids/nursery-rhyme-german-vocal",
+        "latin/bachata-vocal",
+        "latin/bossa-nova-vocal",
+        "latin/cumbia-instrumental",
+        "latin/latin-pop-vocal",
+        "latin/merengue-instrumental",
+        "latin/norteno-corrido-vocal",
+        "latin/reggaeton-vocal",
+        "latin/salsa-vocal",
+        "latin/samba-instrumental",
+        "latin/son-cubano-vocal",
+        "latin/tango-instrumental",
+        "meditation/focus-study-instrumental",
+        "meditation/meditation-healing-instrumental",
+        "meditation/nature-soundscape-instrumental",
+        "meditation/sleep-music-instrumental",
+        "metal/black-metal-instrumental",
+        "metal/death-metal-vocal",
+        "metal/doom-metal-instrumental",
+        "metal/folk-metal-vocal",
+        "metal/grunge-vocal",
+        "metal/heavy-metal-vocal",
+        "metal/industrial-metal-vocal",
+        "metal/melodic-metal-instrumental",
+        "metal/metalcore-vocal",
+        "metal/nu-metal-vocal",
+        "metal/power-metal-vocal",
+        "metal/progressive-djent-instrumental",
+        "metal/sludge-post-metal-instrumental",
+        "metal/symphonic-metal-vocal",
+        "metal/thrash-metal-vocal",
+        "musical/broadway-ballad-vocal",
+        "musical/german-musical-vocal",
+        "musical/musical-theatre-ensemble-vocal",
+        "pop/art-pop-vocal",
+        "pop/bedroom-pop-vocal",
+        "pop/dance-pop-vocal",
+        "pop/dream-pop-electronic-vocal",
+        "pop/german-pop-vocal",
+        "pop/hyperpop-vocal",
+        "pop/indie-pop-vocal",
+        "pop/power-ballad-vocal",
+        "pop/singer-songwriter-acoustic-vocal",
+        "punk/pop-punk-vocal",
+        "punk/post-punk-vocal",
+        "punk/punk-rock-vocal",
+        "punk/ska-punk-vocal",
+        "reggae/dancehall-vocal",
+        "reggae/dub-instrumental",
+        "reggae/rocksteady-vocal",
+        "reggae/roots-reggae-vocal",
+        "reggae/ska-jamaican-instrumental",
+        "rock/blues-rock-instrumental",
+        "rock/classic-rock-vocal",
+        "rock/garage-rock-vocal",
+        "rock/hard-rock-vocal",
+        "rock/indie-rock-vocal",
+        "rock/pop-rock-vocal",
+        "rock/post-rock-instrumental",
+        "rock/progressive-rock-instrumental",
+        "rock/psychedelic-rock-instrumental",
+        "rock/rockabilly-vocal",
+        "rock/shoegaze-vocal",
+        "rock/southern-rock-vocal",
+        "rock/stoner-rock-instrumental",
+        "rock/surf-rock-instrumental",
+        "seasonal/christmas-carol-vocal",
+        "seasonal/christmas-pop-vocal",
+        "seasonal/german-christmas-vocal",
+        "seasonal/wedding-ceremony-instrumental",
+        "seasonal/wedding-first-dance-vocal",
+        "soul/doo-wop-vocal",
+        "soul/motown-soul-vocal",
+        "soul/neo-soul-vocal",
+        "soul/soul-ballad-vocal",
+        "world/andean-folk-instrumental",
+        "world/arabic-pop-vocal",
+        "world/bhangra-instrumental",
+        "world/calypso-soca-vocal",
+        "world/gamelan-instrumental",
+        "world/gnawa-instrumental",
+        "world/hawaiian-slack-key-instrumental",
+        "world/mariachi-vocal",
+        "world/mongolian-throat-singing-instrumental",
+        "world/qawwali-vocal",
+        "world/turkish-folk-instrumental"
+       ]
+      }
+     ],
+     "description": [
+      "STRING",
+      {
+       "tooltip": "How the cover should sound - instruments, feel, production. Sent to the writing model; a genre or a description is needed.",
+       "default": "",
+       "multiline": true
+      }
+     ],
+     "genre": [
+      "STRING",
+      {
+       "tooltip": "Target genre, e.g. 'acoustic folk'.",
+       "default": "",
+       "multiline": false
+      }
+     ],
+     "mood": [
+      "STRING",
+      {
+       "tooltip": "Mood words, e.g. 'warm, intimate'.",
+       "default": "",
+       "multiline": false
+      }
+     ],
+     "vocals": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "original lyrics: the source's words, transcribed. new lyrics: new words on the source's melody. instrumental: an instrument plays the vocal melody, or accompaniment only.",
+       "options": [
+        {
+         "key": "instrumental",
+         "inputs": {
+          "required": {
+           "melody": [
+            "COMBO",
+            {
+             "tooltip": "An instrument plays the vocal melody, or accompaniment only.",
+             "default": "instrument plays the lead",
+             "multiselect": false,
+             "options": [
+              "instrument plays the lead",
+              "accompaniment only"
+             ]
+            }
+           ],
+           "lead_instrument": [
+            "STRING",
+            {
+             "tooltip": "Optional lead instrument, e.g. 'piano'.",
+             "default": "",
+             "multiline": false
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "original lyrics",
+         "inputs": {
+          "required": {
+           "language": [
+            "STRING",
+            {
+             "tooltip": "Language of the source's lyrics; 'auto' detects it from the singing.",
+             "default": "auto",
+             "multiline": false
+            }
+           ],
+           "voice": [
+            "STRING",
+            {
+             "tooltip": "Vocal character, e.g. 'soft female voice'.",
+             "default": "",
+             "multiline": false
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "new lyrics",
+         "inputs": {
+          "required": {
+           "language": [
+            "STRING",
+            {
+             "tooltip": "Language of the new lyrics.",
+             "default": "English",
+             "multiline": false
+            }
+           ],
+           "voice": [
+            "STRING",
+            {
+             "tooltip": "Vocal character, e.g. 'soft female voice' - one that fits the melody's range (YuE2 sings it as written).",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "theme": [
+            "STRING",
+            {
+             "tooltip": "What the new lyrics are about, e.g. 'leaving home'.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "phrasing_reference": [
+            "BOOLEAN",
+            {
+             "tooltip": "Show the writer the source's transcribed lyrics as a phrasing reference (runs the lyrics ASR).",
+             "default": false
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ],
+     "harmony": [
+      "COMBO",
+      {
+       "tooltip": "new accompaniment: the source's chords are removed and YuE2 re-harmonises (melody mode). keep original chords: the chords stay (full mode; the 2 · YuE2 · Cover template starts with it).",
+       "default": "new accompaniment",
+       "multiselect": false,
+       "options": [
+        "new accompaniment",
+        "keep original chords"
+       ]
+      }
+     ],
+     "title": [
+      "STRING",
+      {
+       "tooltip": "Optional fixed title, e.g. 'Original Title (Jazz Cover)'. Empty: the source recording's title with '-cover' when 'source' is connected; else the writer proposes one.",
+       "advanced": true,
+       "default": "",
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "arrangement": [
+      "COMBO",
+      {
+       "display_name": "arrangement (experimental)",
+       "tooltip": "off (default): the transcribed score stays as it is. A creative mode (experimental) re-arranges the sections within the song flow closeness; the line under the brief says what the chosen mode does.",
+       "default": "off",
+       "multiselect": false,
+       "options": [
+        "off",
+        "standard",
+        "sterile",
+        "unplugged",
+        "varied",
+        "call and response",
+        "signature motif",
+        "hypnotic",
+        "breakdown",
+        "dramatic",
+        "many instruments",
+        "jazz colours",
+        "fantasy",
+        "key change"
+       ]
+      }
+     ],
+     "song_flow_closeness": [
+      "INT",
+      {
+       "display_name": "song flow closeness",
+       "tooltip": "Creative modes only (experimental): how close the cover stays to the original - 100 exactly, 80 chords and key stay, 50 recognisable, 20 a free version, 0 only a hint. The form always stays.",
+       "default": 70,
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "display": "slider"
+      }
+     ],
+     "lyrics_closeness": [
+      "INT",
+      {
+       "display_name": "lyrics closeness",
+       "tooltip": "New lyrics only (experimental): how close they stay to the source's lyrics - 0 without its text (default), 30 its theme, 60 its story, 90-100 its meaning line by line.",
+       "default": 0,
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "display": "slider"
+      }
+     ],
+     "lines_under_singing": [
+      "BOOLEAN",
+      {
+       "display_name": "lines under the singing (experimental)",
+       "tooltip": "Creative modes only (experimental): off - the instrument line plays where the voice rests, as in YuE2's own scores; on - it also sounds under the singing, calm and below the voice.",
+       "default": false
+      }
+     ],
+     "creativity": [
+      "INT",
+      {
+       "tooltip": "0 steady ... 50 the reference (as before the slider) ... 100 experimental (the default) ... 200 adventurous: how much the writer and YuE2 dare. More surprises also means more misses - try a few seeds.",
+       "default": 100,
+       "min": 0,
+       "max": 200,
+       "step": 1,
+       "display": "slider"
+      }
+     ],
+     "source": [
+      "AUDIO",
+      {
+       "tooltip": "The source recording (its Load Audio node): with an empty title the cover is named after it - the recording's title tag, else its file name, with '-cover' - so a cover is easy to match with its source."
+      }
+     ],
+     "lyrics_fidelity": [
+      "COMBO",
+      {
+       "display_name": "lyrics fidelity",
+       "tooltip": "standard: one take. high: a second take when the first sang under 96 % of the words as written; the better is kept. highest: a third when neither reached 96 %. Takes longer (up to 2x or 3x).",
+       "default": "standard",
+       "multiselect": false,
+       "options": [
+        "standard",
+        "high - best of 2 takes",
+        "highest - best of 3 takes"
+       ]
+      }
+     ],
+     "original_notes": [
+      "INT",
+      {
+       "display_name": "original notes",
+       "tooltip": "How many of the source's notes YuE2 gets: 100 all. Less leaves out the least important of the instrument line and chords (an instrumental's melody too; a sung one keeps all), nothing new; 0 about a quarter.",
+       "default": 100,
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "display": "slider"
+      }
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "unique_id": [
+      "UNIQUE_ID"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "mode",
+     "template",
+     "description",
+     "genre",
+     "mood",
+     "vocals",
+     "harmony",
+     "title"
+    ],
+    "optional": [
+     "arrangement",
+     "song_flow_closeness",
+     "lyrics_closeness",
+     "lines_under_singing",
+     "creativity",
+     "source",
+     "lyrics_fidelity",
+     "original_notes"
+    ],
+    "hidden": [
+     "prompt",
+     "unique_id"
+    ]
+   },
+   "output": [
+    "PLENIO_BRIEF",
+    "STRING",
+    "BOOLEAN",
+    "BOOLEAN",
+    "INT",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "INT",
+    "INT",
+    "BOOLEAN",
+    "INT",
+    "INT"
+   ],
+   "output_name": [
+    "brief",
+    "brief_text",
+    "use_source_lyrics",
+    "instrumental",
+    "song_seed",
+    "template",
+    "genre",
+    "mood",
+    "vocals",
+    "language",
+    "voice",
+    "theme",
+    "harmony",
+    "arrangement",
+    "song_flow_closeness",
+    "lyrics_closeness",
+    "lines_under_singing",
+    "creativity",
+    "original_notes"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Song",
+   "display_name": "Cover Brief"
+  },
+  "PlenioCreativity": {
+   "input": {
+    "required": {
+     "stage": [
+      "COMBO",
+      {
+       "tooltip": "writer: the first draft's temperature; arrangement: a creative mode's plan; plan: YuE2's score (ABC); take: YuE2's performance (music tokens).",
+       "default": "take",
+       "multiselect": false,
+       "options": [
+        "writer",
+        "arrangement",
+        "plan",
+        "take"
+       ]
+      }
+     ],
+     "creativity": [
+      "INT",
+      {
+       "tooltip": "0 steady ... 50 the reference (the native defaults) ... 100 experimental (the default) ... 200 adventurous. A connected brief's creativity takes its place.",
+       "default": 100,
+       "min": 0,
+       "max": 200,
+       "step": 1,
+       "display": "slider"
+      }
+     ]
+    },
+    "optional": {
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Optional: its creativity is used instead."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "stage",
+     "creativity"
+    ],
+    "optional": [
+     "brief"
+    ]
+   },
+   "output": [
+    "FLOAT",
+    "FLOAT",
+    "INT"
+   ],
+   "output_name": [
+    "temperature",
+    "top_p",
+    "top_k"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Song",
+   "display_name": "Creativity"
+  },
+  "PlenioEQ": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The audio to equalise (every item of a batch)."
+      }
+     ],
+     "mode": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "flat: no change; manual: your bands; match: a proposal fitted to the audio.",
+       "options": [
+        {
+         "key": "flat",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "manual",
+         "inputs": {
+          "required": {
+           "bands": [
+            "STRING",
+            {
+             "tooltip": "EQ bands (plenio.eq/1); edit them on the curve.",
+             "default": "{\"schema\": \"plenio.eq/1\", \"preamp_db\": 0.0, \"bands\": []}",
+             "multiline": true
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "match preset",
+         "inputs": {
+          "required": {
+           "preset": [
+            "COMBO",
+            {
+             "tooltip": "Tone match recipes (reference recipes need the reference input).",
+             "default": "Warm - gentle (workflow default)",
+             "multiselect": false,
+             "options": [
+              "Warm - gentle (workflow default)",
+              "Warm - subtle mastering",
+              "Warm - rounded mix",
+              "Warm - upper-mid softening",
+              "Bright - subtle mastering",
+              "Bright - gentle clarity",
+              "Bright - open mix",
+              "Reference - subtle mastering",
+              "Reference - balanced",
+              "Reference - broad match"
+             ]
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "custom match",
+         "inputs": {
+          "required": {
+           "target": [
+            "COMBO",
+            {
+             "tooltip": "warm / bright: a gentle tilt around 1 kHz; reference: the tone of the reference input.",
+             "default": "warm",
+             "multiselect": false,
+             "options": [
+              "warm",
+              "bright",
+              "reference"
+             ]
+            }
+           ],
+           "strength": [
+            "FLOAT",
+            {
+             "tooltip": "How far to move towards the target.",
+             "default": 0.35,
+             "min": 0.0,
+             "max": 1.0,
+             "step": 0.05
+            }
+           ],
+           "max_gain_db": [
+            "FLOAT",
+            {
+             "tooltip": "Largest boost or cut of the curve.",
+             "default": 2.0,
+             "min": 0.1,
+             "max": 6.0,
+             "step": 0.1
+            }
+           ],
+           "max_bands": [
+            "INT",
+            {
+             "tooltip": "Most peak bands the match may use.",
+             "default": 4,
+             "min": 1,
+             "max": 6
+            }
+           ],
+           "min_hz": [
+            "FLOAT",
+            {
+             "tooltip": "Lowest frequency the match measures and may place a band at (Hz).",
+             "advanced": true,
+             "default": 40.0,
+             "min": 20.0,
+             "max": 1000.0,
+             "step": 1.0
+            }
+           ],
+           "max_hz": [
+            "FLOAT",
+            {
+             "tooltip": "Highest frequency the match measures and may place a band at (Hz; at most 45 % of the sample rate).",
+             "advanced": true,
+             "default": 16000.0,
+             "min": 1000.0,
+             "max": 20000.0,
+             "step": 100.0
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "reference": [
+      "AUDIO",
+      {
+       "tooltip": "Reference recording for the 'reference' target."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "mode"
+    ],
+    "optional": [
+     "reference"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Mastering",
+   "display_name": "EQ"
+  },
+  "PlenioEngine": {
+   "input": {
+    "required": {
+     "clip": [
+      "CLIP",
+      {
+       "tooltip": "CLIP output of the music model's loader."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "clip"
+    ]
+   },
+   "output": [
+    "PLENIO_ENGINE"
+   ],
+   "output_name": [
+    "engine"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Model",
+   "display_name": "Engine Profile"
+  },
+  "PlenioExportRelease": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The finished audio (every item of a batch becomes one file)."
+      }
+     ],
+     "folder": [
+      "STRING",
+      {
+       "tooltip": "Sub-folder of the ComfyUI output folder.",
+       "default": "plenio",
+       "multiline": false
+      }
+     ],
+     "naming": [
+      "STRING",
+      {
+       "tooltip": "File name: {title}, {date}, {seed}, {genre}, {artist} ... (the variables of the tags); '/' makes sub-folders; [optional {parts}] vanish when empty.",
+       "default": "{date} {title}",
+       "multiline": false
+      }
+     ],
+     "collision": [
+      "COMBO",
+      {
+       "tooltip": "When the file exists: number (add ' (2)' - also to a title another song of the folder has), overwrite, or stop with an error.",
+       "advanced": true,
+       "default": "number",
+       "multiselect": false,
+       "options": [
+        "number",
+        "overwrite",
+        "error"
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "title": [
+      "STRING",
+      {
+       "tooltip": "Song title (from the Song Sheet). Without it: the copied title or the source file name.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "original": [
+      "AUDIO",
+      {
+       "tooltip": "Also export this audio (for example the unmastered take) as '<name> (original).flac'."
+      }
+     ],
+     "cover": [
+      "IMAGE",
+      {
+       "tooltip": "Cover art (square crop, JPEG)."
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Optional: the brief, so that tags and the file name can use its fields ({genre}, {mood} ...)."
+      }
+     ],
+     "reports": [
+      "COMFY_AUTOGROW_V3",
+      {
+       "tooltip": "Reports to include in the release record (Song Sheets, mastering).",
+       "template": {
+        "input": {
+         "required": {
+          "report": [
+           "PLENIO_REPORT",
+           {
+            "tooltip": "A Plenio report to include in the record."
+           }
+          ]
+         }
+        },
+        "prefix": "report_",
+        "min": 0,
+        "max": 16
+       }
+      }
+     ],
+     "flac": [
+      "BOOLEAN",
+      {
+       "tooltip": "FLAC 24-bit (lossless).",
+       "default": true
+      }
+     ],
+     "mp3": [
+      "BOOLEAN",
+      {
+       "tooltip": "MP3 VBR V0 (LAME).",
+       "default": false
+      }
+     ],
+     "wav": [
+      "BOOLEAN",
+      {
+       "tooltip": "WAV 32-bit float (no clipping; few tags, no cover).",
+       "default": false
+      }
+     ],
+     "tags": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "Metadata written into the files: the title only, tags typed or connected (with {variables}), or the tags of the loaded file.",
+       "options": [
+        {
+         "key": "title only",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "tags",
+         "inputs": {
+          "required": {
+           "artist": [
+            "STRING",
+            {
+             "tooltip": "The artist tag. Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "album": [
+            "STRING",
+            {
+             "tooltip": "The album tag. Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "date": [
+            "STRING",
+            {
+             "tooltip": "Year or date, e.g. 2026 or {date}. Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "track": [
+            "STRING",
+            {
+             "tooltip": "Track number, e.g. 3 or 3/12. Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "genre": [
+            "STRING",
+            {
+             "tooltip": "The genre tag, e.g. {genre} (the brief's). Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "comment": [
+            "STRING",
+            {
+             "tooltip": "The comment tag; empty: none. Text with {variables}, or connect a text output to the field.",
+             "default": "Powered by Plenio Music Production System / ComfyUI",
+             "multiline": false
+            }
+           ],
+           "album_artist": [
+            "STRING",
+            {
+             "tooltip": "The album artist tag. Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "composer": [
+            "STRING",
+            {
+             "tooltip": "The composer tag. Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ]
+          },
+          "optional": {
+           "lyrics": [
+            "STRING",
+            {
+             "tooltip": "The lyrics tag (FLAC, MP3; players show it), e.g. {lyrics}. Text with {variables}, or connect a text output to the field.",
+             "default": "",
+             "multiline": false
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "copy from loaded file",
+         "inputs": {
+          "required": {}
+         }
+        }
+       ]
+      }
+     ],
+     "sheet_music": [
+      "COMBO",
+      {
+       "display_name": "sheet music",
+       "tooltip": "Also save the sheet music (both voices, chords, sections, the lyrics under the notes) as '<name>.pdf' on A4 or Letter pages; an open ComfyUI page draws it after the export. Needs a score (YuE2).",
+       "default": "off",
+       "multiselect": false,
+       "options": [
+        "off",
+        "PDF (A4)",
+        "PDF (Letter)"
+       ]
+      }
+     ],
+     "sheet_music_size": [
+      "COMBO",
+      {
+       "display_name": "sheet music size",
+       "tooltip": "How large the sheet music draws: standard about 3 bars a line, smaller 3-4, compact about 4, large 1-2 (the biggest notes).",
+       "default": "standard",
+       "multiselect": false,
+       "options": [
+        "standard",
+        "smaller",
+        "compact",
+        "large"
+       ]
+      }
+     ],
+     "project_in_flac": [
+      "BOOLEAN",
+      {
+       "display_name": "project in FLAC",
+       "tooltip": "Store the release record (workflow, Song Sheets, seeds, settings) inside the song's FLAC: File > Continue a Plenio song... opens the song from the FLAC alone. Off for files you share without their making-of.",
+       "default": true
+      }
+     ],
+     "lyrics_srt": [
+      "BOOLEAN",
+      {
+       "display_name": "lyrics subtitles (SRT)",
+       "tooltip": "Write the lyrics as subtitles: '(lines).srt' whole lines, '(notes).srt' note by note, '(sung).srt' what the take really sings. Timed by listening (Qwen3-ASR and its aligner, 5.9 GB, fetched on first use).",
+       "default": true
+      }
+     ],
+     "lyrics_timing": [
+      "COMBO",
+      {
+       "display_name": "lyrics heard on",
+       "tooltip": "What the lyrics ASR hears for the subtitles and the player: the take's vocal stem - more exact times, the model of Stems and Sung Pitch, about half a minute per take - or the song (quicker).",
+       "default": "vocal stem",
+       "multiselect": false,
+       "options": [
+        "the song",
+        "vocal stem"
+       ]
+      }
+     ],
+     "song_page": [
+      "BOOLEAN",
+      {
+       "display_name": "song page (HTML)",
+       "tooltip": "Also write '<name>.html': the song on one page to open in any browser - the lyrics with their sections and the prompts to copy, every setting, how it was made, the sound, the score and links to the files.",
+       "default": true
+      }
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "folder",
+     "naming",
+     "collision"
+    ],
+    "optional": [
+     "title",
+     "original",
+     "cover",
+     "brief",
+     "reports",
+     "flac",
+     "mp3",
+     "wav",
+     "tags",
+     "sheet_music",
+     "sheet_music_size",
+     "project_in_flac",
+     "lyrics_srt",
+     "lyrics_timing",
+     "song_page"
+    ],
+    "hidden": [
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING"
+   ],
+   "output_name": [
+    "files",
+    "record"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": true,
+   "category": "Plenio/Release",
+   "display_name": "Export Release"
+  },
+  "PlenioFitLyrics": {
+   "input": {
+    "required": {
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "The lyrics: Parse Song Draft's, or the previous Fit Lyrics'.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Song Brief or Cover Brief: only new cover lyrics are fitted."
+      }
+     ],
+     "last": [
+      "BOOLEAN",
+      {
+       "tooltip": "The last round: asks the writer nothing more; shortens lines one or two syllables too long.",
+       "default": false
+      }
+     ]
+    },
+    "optional": {
+     "score": [
+      "STRING",
+      {
+       "tooltip": "The final score: its Vocal phrases are the targets.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "reference_lyrics": [
+      "STRING",
+      {
+       "tooltip": "The source's lyrics (Transcribe Lyrics), for the meaning when the brief keeps close to them; requested only then.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "state": [
+      "PLENIO_LYRICS_FIT",
+      {
+       "tooltip": "The previous Fit Lyrics' state: what it asked the writer."
+      }
+     ],
+     "answer": [
+      "STRING",
+      {
+       "tooltip": "The writer's answer to the previous Fit Lyrics' prompt; requested only when it asked.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "lyrics",
+     "brief",
+     "last"
+    ],
+    "optional": [
+     "score",
+     "reference_lyrics",
+     "state",
+     "answer"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING",
+    "STRING",
+    "PLENIO_LYRICS_FIT",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "lyrics",
+    "prompt",
+    "schema",
+    "state",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Writing",
+   "display_name": "Fit Lyrics"
+  },
+  "PlenioHQDeReverb": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The song (every item of a batch)."
+      }
+     ],
+     "preset": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "auto: the profile that fits the song's genre (from the connected brief; standard without one). standard, gentle, strong and wide are the same four profiles in HQ 1, 2 and 3; custom shows the fields.",
+       "options": [
+        {
+         "key": "auto - from the song's genre",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "standard - pop, hip-hop, soul, world",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "gentle - classical, jazz, folk",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "strong - rock, metal, punk",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "wide - electronic, dance, ambient",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "custom - the fields below",
+         "inputs": {
+          "required": {
+           "dereverb": [
+            "FLOAT",
+            {
+             "tooltip": "0 off ... 1: how much of the late, diffuse room above 600 Hz is taken out.",
+             "default": 0.45,
+             "min": 0.0,
+             "max": 1.0,
+             "step": 0.05
+            }
+           ],
+           "phase_lock": [
+            "FLOAT",
+            {
+             "tooltip": "0 off ... 1: how far the phase above 2 kHz follows its strong neighbours.",
+             "default": 0.55,
+             "min": 0.0,
+             "max": 1.0,
+             "step": 0.05
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Optional: Song Brief or Cover Brief - its genre chooses the profile for 'auto'."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "preset"
+    ],
+    "optional": [
+     "brief"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Mastering",
+   "display_name": "HQ 3 · De-Reverb"
+  },
+  "PlenioHQMastering": {
+   "input": {
+    "required": {
+     "hq_mastering": [
+      "PLENIO_FINISH_SWITCH",
+      {
+       "display_name": "HQ mastering",
+       "tooltip": "Highest mastering quality: UniverSR (HQ 2) regenerates the highs - clearly fewer AI shimmer and artifacts, but the song takes about twice as long. Off (default; on in Enhance & Master): UniverSR is not needed.",
+       "default": false,
+       "socketless": true
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "hq_mastering"
+    ]
+   },
+   "output": [
+    "BOOLEAN"
+   ],
+   "output_name": [
+    "hq_mastering"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Mastering",
+   "display_name": "HQ Mastering & Cover Art"
+  },
+  "PlenioHQRegenerateHighs": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The song (every item of a batch)."
+      }
+     ],
+     "model": [
+      "PLENIO_AUDIO_MODEL",
+      {
+       "tooltip": "Load Audio Model (super-resolution).",
+       "lazy": true
+      }
+     ],
+     "preset": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "auto: the profile that fits the song's genre (from the connected brief; standard without one). standard, gentle, strong and wide are the same four profiles in HQ 1, 2 and 3; custom shows the fields.",
+       "options": [
+        {
+         "key": "auto - from the song's genre",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "standard - pop, hip-hop, soul, world",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "gentle - classical, jazz, folk",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "strong - rock, metal, punk",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "wide - electronic, dance, ambient",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "custom - the fields below",
+         "inputs": {
+          "required": {
+           "from_hz": [
+            "FLOAT",
+            {
+             "tooltip": "New highs from (Hz): the crossover. The model sees the song up to its nearest input edge below it (UniverSR: 4, 6, 8 or 12 kHz).",
+             "default": 8200.0,
+             "min": 4500.0,
+             "max": 20000.0,
+             "step": 100.0
+            }
+           ],
+           "new_share": [
+            "FLOAT",
+            {
+             "tooltip": "Share of the new highs above the crossover; the rest stays the original's.",
+             "default": 0.85,
+             "min": 0.0,
+             "max": 1.0,
+             "step": 0.05
+            }
+           ],
+           "level_match": [
+            "FLOAT",
+            {
+             "tooltip": "The new highs follow the original's level (40 ms envelope) times this.",
+             "default": 0.9,
+             "min": 0.3,
+             "max": 1.5,
+             "step": 0.05
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "hq_mastering": [
+      "BOOLEAN",
+      {
+       "display_name": "HQ mastering",
+       "tooltip": "Off: skipped, the model is not even loaded. In the templates the HQ Mastering switch at the start sets it (off by default, on in Enhance & Master): on, fewer AI shimmer and artifacts, about twice the time.",
+       "default": true,
+       "label_on": "on - UniverSR regenerates the highs",
+       "label_off": "off - the song passes unchanged"
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Optional: Song Brief or Cover Brief - its genre chooses the profile for 'auto'."
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "tooltip": "Seed of the model: the same seed gives the same highs.",
+       "default": 0,
+       "min": 0,
+       "max": 4294967295,
+       "control_after_generate": "fixed"
+      }
+     ],
+     "model_steps": [
+      "INT",
+      {
+       "tooltip": "UniverSR's flow steps: 4 (default) about 1.5 s per second of music on an RTX 5060 Ti, 3 about 1.1 s, 2 about 0.75 s - fewer steps, other and quieter highs.",
+       "advanced": true,
+       "default": 4,
+       "min": 2,
+       "max": 8
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "model",
+     "preset"
+    ],
+    "optional": [
+     "hq_mastering",
+     "brief",
+     "seed",
+     "model_steps"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Mastering",
+   "display_name": "HQ 2 · Regenerate Highs"
+  },
+  "PlenioHQStereoCleanup": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The song (every item of a batch)."
+      }
+     ],
+     "preset": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "auto: the profile that fits the song's genre (from the connected brief; standard without one). standard, gentle, strong and wide are the same four profiles in HQ 1, 2 and 3; custom shows the fields.",
+       "options": [
+        {
+         "key": "auto - from the song's genre",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "standard - pop, hip-hop, soul, world",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "gentle - classical, jazz, folk",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "strong - rock, metal, punk",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "wide - electronic, dance, ambient",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "custom - the fields below",
+         "inputs": {
+          "required": {
+           "side_highcut_hz": [
+            "FLOAT",
+            {
+             "tooltip": "Above this the side signal is cut (Hz, zero-phase).",
+             "default": 10500.0,
+             "min": 4000.0,
+             "max": 20000.0,
+             "step": 250.0
+            }
+           ],
+           "side_cleanup": [
+            "FLOAT",
+            {
+             "tooltip": "0 off ... 1 strongest: the high-cut's share and the cleanup of the side's diffuse highs.",
+             "default": 0.65,
+             "min": 0.0,
+             "max": 1.0,
+             "step": 0.05
+            }
+           ],
+           "warmth": [
+            "FLOAT",
+            {
+             "tooltip": "0 off ... 0.8: saturation above 400 Hz (2nd and 3rd harmonics).",
+             "default": 0.18,
+             "min": 0.0,
+             "max": 0.8,
+             "step": 0.02
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Optional: Song Brief or Cover Brief - its genre chooses the profile for 'auto'."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "preset"
+    ],
+    "optional": [
+     "brief"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Mastering",
+   "display_name": "HQ 1 · Stereo Cleanup"
+  },
+  "PlenioLocalLLM": {
+   "input": {
+    "required": {
+     "prompt": [
+      "STRING",
+      {
+       "tooltip": "The request (connect Compose Writing Prompt, or type).",
+       "default": "",
+       "multiline": true
+      }
+     ],
+     "model": [
+      "COMBO",
+      {
+       "tooltip": "'models/LLM · file.gguf' and other '... files' / 'HF cache' entries are GGUF files, run by llama.cpp for the call; 'LM Studio · ...', 'Ollama · ...' are models of a running app.",
+       "multiselect": false,
+       "options": [
+        "(choose a model)"
+       ]
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "tooltip": "Same seed, same prompt, same settings: the same answer - taken from Plenio's answer cache without asking the model again (see reuse_answers). Change it for a new answer.",
+       "default": 0,
+       "min": 0,
+       "max": 18446744073709551615,
+       "control_after_generate": "fixed"
+      }
+     ],
+     "max_tokens": [
+      "INT",
+      {
+       "tooltip": "Longest answer in tokens; a cut-off answer stops the run with a message.",
+       "advanced": true,
+       "default": 16384,
+       "min": 16,
+       "max": 131072
+      }
+     ],
+     "temperature": [
+      "FLOAT",
+      {
+       "tooltip": "0 = always the most likely words; higher = more varied.",
+       "advanced": true,
+       "default": 0.8,
+       "min": 0.0,
+       "max": 2.0,
+       "step": 0.05
+      }
+     ],
+     "thinking": [
+      "BOOLEAN",
+      {
+       "tooltip": "Let a reasoning model think first (Qwen, Gemma, DeepSeek ...); the thoughts come out separately. Slower; needs more max tokens.",
+       "advanced": true,
+       "default": false
+      }
+     ],
+     "context": [
+      "INT",
+      {
+       "tooltip": "Context length in tokens (prompt + answer) for GGUF files and Ollama. Other apps use the length set in the app.",
+       "advanced": true,
+       "default": 24576,
+       "min": 1024,
+       "max": 262144,
+       "step": 1024
+      }
+     ],
+     "keep_loaded": [
+      "BOOLEAN",
+      {
+       "tooltip": "Off: the model's memory is freed after the answer, so ComfyUI's models have the GPU. On: the model stays loaded for the next run (faster, needs the memory for both).",
+       "advanced": true,
+       "default": false
+      }
+     ],
+     "system_prompt": [
+      "STRING",
+      {
+       "tooltip": "Optional standing instructions sent before the prompt.",
+       "advanced": true,
+       "default": "",
+       "multiline": true
+      }
+     ]
+    },
+    "optional": {
+     "reuse_answers": [
+      "BOOLEAN",
+      {
+       "tooltip": "On: a request answered before (same model, prompt, seed and settings) is answered from Plenio's cache (user/plenio/cache/llm), also after a restart. Off: always ask the model.",
+       "advanced": true,
+       "default": true
+      }
+     ],
+     "schema": [
+      "STRING",
+      {
+       "tooltip": "Optional JSON schema of the answer (Compose Arrangement provides one): GGUF files, LM Studio, Ollama and vLLM keep to it while they write; other apps answer freely.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "prompt",
+     "model",
+     "seed",
+     "max_tokens",
+     "temperature",
+     "thinking",
+     "context",
+     "keep_loaded",
+     "system_prompt"
+    ],
+    "optional": [
+     "reuse_answers",
+     "schema"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING"
+   ],
+   "output_name": [
+    "text",
+    "thinking"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Text",
+   "display_name": "Local LLM"
+  },
+  "PlenioLoras": {
+   "input": {
+    "required": {
+     "model": [
+      "MODEL",
+      {
+       "tooltip": "YuE2's MODEL (the acoustic model)."
+      }
+     ],
+     "clip": [
+      "CLIP",
+      {
+       "tooltip": "YuE2's CLIP (the planner)."
+      }
+     ]
+    },
+    "optional": {
+     "lora_1": [
+      "COMBO",
+      {
+       "display_name": "LoRA 1",
+       "tooltip": "A YuE2 LoRA from models/loras - for the plan (AR, the CLIP half) or the sound (NAR, the MODEL half): the node reads which from its weights. ComfyUI's layout and m-a-p's original one.",
+       "default": "none",
+       "multiselect": false,
+       "options": [
+        "none"
+       ]
+      }
+     ],
+     "strength_1": [
+      "FLOAT",
+      {
+       "display_name": "strength 1",
+       "tooltip": "How strongly it acts: 1 as trained, 0 off. A plan LoRA often sounds best near 0.5, a sound LoRA near 1 - its card says. Far above its trained strength it sounds broken.",
+       "default": 1.0,
+       "min": -4.0,
+       "max": 4.0,
+       "step": 0.05
+      }
+     ],
+     "lora_2": [
+      "COMBO",
+      {
+       "display_name": "LoRA 2",
+       "tooltip": "A YuE2 LoRA from models/loras - for the plan (AR, the CLIP half) or the sound (NAR, the MODEL half): the node reads which from its weights. ComfyUI's layout and m-a-p's original one.",
+       "default": "none",
+       "multiselect": false,
+       "options": [
+        "none"
+       ]
+      }
+     ],
+     "strength_2": [
+      "FLOAT",
+      {
+       "display_name": "strength 2",
+       "tooltip": "How strongly it acts: 1 as trained, 0 off. A plan LoRA often sounds best near 0.5, a sound LoRA near 1 - its card says. Far above its trained strength it sounds broken.",
+       "default": 1.0,
+       "min": -4.0,
+       "max": 4.0,
+       "step": 0.05
+      }
+     ],
+     "lora_3": [
+      "COMBO",
+      {
+       "display_name": "LoRA 3",
+       "tooltip": "A YuE2 LoRA from models/loras - for the plan (AR, the CLIP half) or the sound (NAR, the MODEL half): the node reads which from its weights. ComfyUI's layout and m-a-p's original one.",
+       "default": "none",
+       "multiselect": false,
+       "options": [
+        "none"
+       ]
+      }
+     ],
+     "strength_3": [
+      "FLOAT",
+      {
+       "display_name": "strength 3",
+       "tooltip": "How strongly it acts: 1 as trained, 0 off. A plan LoRA often sounds best near 0.5, a sound LoRA near 1 - its card says. Far above its trained strength it sounds broken.",
+       "default": 1.0,
+       "min": -4.0,
+       "max": 4.0,
+       "step": 0.05
+      }
+     ],
+     "lora_4": [
+      "COMBO",
+      {
+       "display_name": "LoRA 4",
+       "tooltip": "A YuE2 LoRA from models/loras - for the plan (AR, the CLIP half) or the sound (NAR, the MODEL half): the node reads which from its weights. ComfyUI's layout and m-a-p's original one.",
+       "default": "none",
+       "multiselect": false,
+       "options": [
+        "none"
+       ]
+      }
+     ],
+     "strength_4": [
+      "FLOAT",
+      {
+       "display_name": "strength 4",
+       "tooltip": "How strongly it acts: 1 as trained, 0 off. A plan LoRA often sounds best near 0.5, a sound LoRA near 1 - its card says. Far above its trained strength it sounds broken.",
+       "default": 1.0,
+       "min": -4.0,
+       "max": 4.0,
+       "step": 0.05
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "model",
+     "clip"
+    ],
+    "optional": [
+     "lora_1",
+     "strength_1",
+     "lora_2",
+     "strength_2",
+     "lora_3",
+     "strength_3",
+     "lora_4",
+     "strength_4"
+    ]
+   },
+   "output": [
+    "MODEL",
+    "CLIP"
+   ],
+   "output_name": [
+    "MODEL",
+    "CLIP"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Model",
+   "display_name": "YuE2 LoRAs"
+  },
+  "PlenioLoudness": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The audio to master (every item of a batch)."
+      }
+     ],
+     "target": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "Loudness target and true-peak ceiling.",
+       "options": [
+        {
+         "key": "streaming (-14 LUFS, -1 dBTP)",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Apple Music / podcasts (-16 LUFS, -1 dBTP)",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "dynamic (-18 LUFS, -1 dBTP)",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "broadcast EBU R128 (-23 LUFS, -1 dBTP)",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "loud (-9 LUFS, -0.5 dBTP)",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "custom",
+         "inputs": {
+          "required": {
+           "lufs": [
+            "FLOAT",
+            {
+             "tooltip": "Integrated loudness (LUFS).",
+             "default": -14.0,
+             "min": -30.0,
+             "max": -5.0,
+             "step": 0.5
+            }
+           ],
+           "ceiling_dbtp": [
+            "FLOAT",
+            {
+             "tooltip": "True-peak ceiling (dBTP).",
+             "default": -1.0,
+             "min": -12.0,
+             "max": -0.1,
+             "step": 0.1
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ],
+     "compression": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "off: limiter only; a style: gentle genre presets; custom: your settings.",
+       "options": [
+        {
+         "key": "off",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Balanced - gentle glue",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Acoustic - gentle",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Classical - preserve dynamics",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Jazz - natural",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Vocal pop - smooth",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Pop - punchy",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Rock - bus glue",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Electronic - tight",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Club - loud",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Hip-hop - low-end punch",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Ambient - spacious",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "Limiter only - transparent",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "custom",
+         "inputs": {
+          "required": {
+           "threshold_db": [
+            "FLOAT",
+            {
+             "tooltip": "Level above which the compressor works (dB).",
+             "default": -18.0,
+             "min": -60.0,
+             "max": 0.0,
+             "step": 0.5
+            }
+           ],
+           "ratio": [
+            "FLOAT",
+            {
+             "tooltip": "Compression ratio above the threshold.",
+             "default": 1.5,
+             "min": 1.0,
+             "max": 10.0,
+             "step": 0.1
+            }
+           ],
+           "knee_db": [
+            "FLOAT",
+            {
+             "tooltip": "Width of the soft knee around the threshold (dB); 0 is a hard knee.",
+             "advanced": true,
+             "default": 6.0,
+             "min": 0.0,
+             "max": 24.0,
+             "step": 0.5
+            }
+           ],
+           "attack_ms": [
+            "FLOAT",
+            {
+             "tooltip": "How fast the compressor reacts (ms).",
+             "default": 20.0,
+             "min": 1.0,
+             "max": 200.0,
+             "step": 1.0
+            }
+           ],
+           "release_ms": [
+            "FLOAT",
+            {
+             "tooltip": "How fast it lets go (ms).",
+             "default": 150.0,
+             "min": 10.0,
+             "max": 2000.0,
+             "step": 5.0
+            }
+           ],
+           "sidechain_hz": [
+            "FLOAT",
+            {
+             "tooltip": "High-pass on what the compressor listens to (Hz), so the bass does not pump it; 0 is off.",
+             "advanced": true,
+             "default": 80.0,
+             "min": 0.0,
+             "max": 500.0,
+             "step": 5.0
+            }
+           ],
+           "detector": [
+            "COMBO",
+            {
+             "tooltip": "RMS follows the average level (smooth); Peak reacts to single peaks.",
+             "advanced": true,
+             "default": "RMS",
+             "multiselect": false,
+             "options": [
+              "RMS",
+              "Peak"
+             ]
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ],
+     "sample_rate": [
+      "COMBO",
+      {
+       "tooltip": "Output sample rate (converted before limiting).",
+       "default": "keep",
+       "multiselect": false,
+       "options": [
+        "keep",
+        "44100",
+        "48000"
+       ]
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "target",
+     "compression",
+     "sample_rate"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Mastering",
+   "display_name": "Loudness & Dynamics"
+  },
+  "PlenioMatchSongForm": {
+   "input": {
+    "required": {
+     "score": [
+      "STRING",
+      {
+       "tooltip": "YuE2's plan (empty when planning is off).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "The lyrics the plan was made from (Song Sheet · Text's plan_lyrics).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "alternative": [
+      "STRING",
+      {
+       "tooltip": "A second plan with the next seed; requested only when the first does not fit.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "score",
+     "lyrics"
+    ],
+    "optional": [
+     "alternative"
+    ]
+   },
+   "output": [
+    "STRING",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "score",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Score",
+   "display_name": "Match Song Form"
+  },
+  "PlenioParseDraft": {
+   "input": {
+    "required": {
+     "text": [
+      "STRING",
+      {
+       "tooltip": "The writing model's answer (Generate Text or Local LLM).",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "request": [
+      "PLENIO_REQUEST",
+      {
+       "tooltip": "From Compose Writing Prompt: what was asked, so the answer is checked against it."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "text",
+     "request"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "title",
+    "style",
+    "lyrics",
+    "artwork_prompt",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Writing",
+   "display_name": "Parse Song Draft"
+  },
+  "PlenioRefine": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The rendered song (any sample rate)."
+      }
+     ],
+     "engine": [
+      "COMBO",
+      {
+       "tooltip": "model: the connected Load Audio Model (super-resolution); resample only: no model.",
+       "default": "resample only",
+       "multiselect": false,
+       "options": [
+        "resample only",
+        "model"
+       ]
+      }
+     ],
+     "crossover_hz": [
+      "FLOAT",
+      {
+       "tooltip": "Where the model takes over; 0: 500 Hz below the measured bandwidth.",
+       "advanced": true,
+       "default": 0.0,
+       "min": 0.0,
+       "max": 23000.0,
+       "step": 100.0
+      }
+     ],
+     "sr_gain": [
+      "FLOAT",
+      {
+       "tooltip": "Level of what the model adds above the crossover: 1 as the model made it, 0 none (the original only), up to 2.",
+       "advanced": true,
+       "default": 1.0,
+       "min": 0.0,
+       "max": 2.0,
+       "step": 0.05
+      }
+     ]
+    },
+    "optional": {
+     "model": [
+      "PLENIO_AUDIO_MODEL",
+      {
+       "tooltip": "Load Audio Model (super-resolution); only for 'model'.",
+       "lazy": true
+      }
+     ],
+     "preset": [
+      "COMBO",
+      {
+       "tooltip": "A prepared stage template: one choice sets PRE, POST and the crossover (500 Hz below PRE); template 3 suits MiniMax renders. *custom* uses the three fields below, which stay editable.",
+       "default": "custom - the three fields below",
+       "multiselect": false,
+       "options": [
+        "custom - the three fields below",
+        "1 - pre 6 kHz / post 16 kHz",
+        "2 - pre 8 kHz / post 19 kHz",
+        "3 - MiniMax: pre 10 kHz / post 19 kHz",
+        "4 - pre 12 kHz / post 19 kHz",
+        "5 - pre 14 kHz / post 21 kHz"
+       ]
+      }
+     ],
+     "pre_hz": [
+      "FLOAT",
+      {
+       "tooltip": "Low-pass before the model (it shapes only what the model sees): 0 = the model's training condition, -1 = no PRE, else Hz (6000, 8000, 10000, 12000, 14000).",
+       "advanced": true,
+       "default": 0.0,
+       "min": -1.0,
+       "max": 23000.0,
+       "step": 100.0
+      }
+     ],
+     "post_hz": [
+      "FLOAT",
+      {
+       "tooltip": "Linear-phase roll-off of the result: 0 = off, else Hz (16000, 19000, 21000 tame added air that sounds harsh).",
+       "advanced": true,
+       "default": 0.0,
+       "min": 0.0,
+       "max": 23900.0,
+       "step": 100.0
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "tooltip": "Seed of the model: the same seed gives the same result.",
+       "default": 0,
+       "min": 0,
+       "max": 4294967295,
+       "control_after_generate": "fixed"
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "engine",
+     "crossover_hz",
+     "sr_gain"
+    ],
+    "optional": [
+     "model",
+     "preset",
+     "pre_hz",
+     "post_hz",
+     "seed"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio",
+   "display_name": "Refine (48 kHz)"
+  },
+  "PlenioScoreTools": {
+   "input": {
+    "required": {
+     "operation": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "prepare from brief: what the brief asks for (instrumentals: a silent Vocal). new score from brief: an empty score to compose in. Also: strip chords, fit length, voices, transpose, tempo (the help page explains them).",
+       "options": [
+        {
+         "key": "prepare from brief",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "new score from brief",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "strip chords",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "fit length",
+         "inputs": {
+          "required": {
+           "seconds": [
+            "FLOAT",
+            {
+             "tooltip": "Target length. Longer scores lose whole sections, or bars inside a section at a phrase; shorter ones repeat their middle. The beginning and the ending stay.",
+             "default": 90.0,
+             "min": 20.0,
+             "max": 900.0,
+             "step": 5.0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "voices",
+         "inputs": {
+          "required": {
+           "vocal": [
+            "COMBO",
+            {
+             "tooltip": "What happens to the Vocal voice.",
+             "default": "keep",
+             "multiselect": false,
+             "options": [
+              "keep",
+              "silence Vocal",
+              "move Vocal melody to Ins"
+             ]
+            }
+           ],
+           "conflict": [
+            "COMBO",
+            {
+             "tooltip": "When moving: what wins where Ins already plays.",
+             "default": "replace Ins",
+             "multiselect": false,
+             "options": [
+              "replace Ins",
+              "keep Ins"
+             ]
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "transpose",
+         "inputs": {
+          "required": {
+           "semitones": [
+            "INT",
+            {
+             "tooltip": "Semitones up (+) or down (-).",
+             "default": 0,
+             "min": -12,
+             "max": 12
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "tempo",
+         "inputs": {
+          "required": {
+           "bpm": [
+            "INT",
+            {
+             "tooltip": "New quarter-note tempo.",
+             "default": 100,
+             "min": 20,
+             "max": 300
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "score": [
+      "STRING",
+      {
+       "tooltip": "Score in the native two-voice ABC dialect; not needed by 'new score from brief'.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Needed by 'prepare from brief' and 'new score from brief'."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "operation"
+    ],
+    "optional": [
+     "score",
+     "brief"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "score",
+    "section_tags",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Score",
+   "display_name": "Score Tools"
+  },
+  "PlenioSeed": {
+   "input": {
+    "required": {
+     "seed": [
+      "INT",
+      {
+       "tooltip": "The number behind this part's random choices: the same number gives the same result.",
+       "default": 0,
+       "min": 0,
+       "max": 9223372036854775807,
+       "control_after_generate": false
+      }
+     ],
+     "keep_seed": [
+      "BOOLEAN",
+      {
+       "display_name": "each run",
+       "tooltip": "🎲 new seed: every run draws a new number before it starts - something new each time. 🔒 same seed: every run uses this number again - the same result while you change other things.",
+       "default": false,
+       "label_on": "🔒 same seed",
+       "label_off": "🎲 new seed"
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "seed",
+     "keep_seed"
+    ]
+   },
+   "output": [
+    "INT"
+   ],
+   "output_name": [
+    "seed"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Utilities",
+   "display_name": "Seed"
+  },
+  "PlenioSeparateStems": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The song to split, before mastering (the residual keeps what the stems miss)."
+      }
+     ],
+     "model": [
+      "PLENIO_AUDIO_MODEL",
+      {
+       "tooltip": "Load Audio Model (separation)."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "model"
+    ]
+   },
+   "output": [
+    "PLENIO_STEMS",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "stems",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio",
+   "display_name": "Separate Stems"
+  },
+  "PlenioSongBrief": {
+   "input": {
+    "required": {
+     "mode": [
+      "COMBO",
+      {
+       "tooltip": "new song every run: each run writes and renders another song from this brief (the batch count next to Run makes a series). one song, stop to review: the Song Sheets stop for checking; later runs render new takes.",
+       "default": "new song every run",
+       "multiselect": false,
+       "options": [
+        "new song every run",
+        "one song, stop to review"
+       ]
+      }
+     ],
+     "template": [
+      "COMBO",
+      {
+       "tooltip": "Optional starting point. Text fields you leave empty are taken from the template.",
+       "default": "none",
+       "multiselect": false,
+       "options": [
+        "none",
+        "african/afrobeat-classic-instrumental",
+        "african/afrobeats-vocal",
+        "african/amapiano-instrumental",
+        "african/desert-blues-vocal",
+        "african/ethio-jazz-instrumental",
+        "african/gqom-instrumental",
+        "african/highlife-instrumental",
+        "african/soukous-instrumental",
+        "alternative/alternative-rock-vocal",
+        "alternative/britpop-vocal",
+        "alternative/new-wave-vocal",
+        "alternative/uk-garage-vocal",
+        "ambient/ambient-choir-vocalise",
+        "ambient/ambient-guitar",
+        "ambient/chillout-pads-strings",
+        "ambient/dark-ambient-drone",
+        "asian/anime-opening-vocal",
+        "asian/bollywood-vocal",
+        "asian/chinese-traditional-instrumental",
+        "asian/city-pop-vocal",
+        "asian/enka-vocal",
+        "asian/game-jrpg-orchestral",
+        "asian/indian-classical-instrumental",
+        "asian/j-rock-vocal",
+        "asian/kpop-vocal",
+        "asian/mandopop-ballad-vocal",
+        "blues/blues-ballad-vocal",
+        "blues/boogie-woogie-instrumental",
+        "blues/chicago-blues-vocal",
+        "blues/delta-blues-vocal",
+        "blues/electric-blues-instrumental",
+        "cinematic/corporate-uplifting-instrumental",
+        "cinematic/documentary-underscore-instrumental",
+        "cinematic/emotional-piano-underscore",
+        "cinematic/epic-trailer-instrumental",
+        "cinematic/fantasy-adventure-orchestral",
+        "cinematic/horror-suspense-instrumental",
+        "cinematic/orchestral-action-instrumental",
+        "cinematic/sports-stadium-anthem",
+        "classical/baroque-concerto-instrumental",
+        "classical/cello-and-piano",
+        "classical/choral-sacred-vocal",
+        "classical/cinematic-romance",
+        "classical/gregorian-chant-vocal",
+        "classical/impressionist-piano-instrumental",
+        "classical/minimalism-instrumental",
+        "classical/mystical-neoclassical",
+        "classical/neoclassical-piano",
+        "classical/opera-aria-vocal",
+        "classical/piano-and-strings",
+        "classical/romantic-string-ensemble",
+        "classical/string-quartet-instrumental",
+        "classical/symphonic-orchestral-instrumental",
+        "comedy/comedy-rap-vocal",
+        "comedy/english-parody-pop-vocal",
+        "comedy/german-absurd-novelty",
+        "country/americana-vocal",
+        "country/bluegrass-instrumental",
+        "country/country-ballad-vocal",
+        "country/honky-tonk-vocal",
+        "country/modern-country-pop-vocal",
+        "country/outlaw-country-vocal",
+        "disco/classic-disco-vocal",
+        "disco/italo-disco-vocal",
+        "edm/big-room-festival-instrumental",
+        "edm/breakbeat-instrumental",
+        "edm/dance-anthem-instrumental",
+        "edm/drum-and-bass-instrumental",
+        "edm/dubstep-instrumental",
+        "edm/eurodance-vocal",
+        "edm/future-bass-vocal",
+        "edm/future-rave-sparse-vocals",
+        "edm/goa-trance-instrumental",
+        "edm/hardgroove-techno-instrumental",
+        "edm/hardstyle-instrumental",
+        "edm/jungle-instrumental",
+        "edm/liquid-drum-and-bass-sparse-vocals",
+        "edm/melodic-techno-instrumental",
+        "edm/neurofunk-dnb-instrumental",
+        "edm/progressive-trance-instrumental",
+        "edm/psytrance-instrumental",
+        "edm/uplifting-trance-instrumental",
+        "electronic/analog-space-electronic",
+        "electronic/berlin-school-sequencer",
+        "electronic/chiptune-instrumental",
+        "electronic/cinematic-electronica",
+        "electronic/downtempo-electronica",
+        "electronic/ebm-darkwave-vocal",
+        "electronic/electro-swing-vocal",
+        "electronic/idm-experimental-instrumental",
+        "electronic/lofi-hiphop-instrumental",
+        "electronic/minimal-electronic-german-vocals",
+        "electronic/peak-time-techno-sparse-vocals",
+        "electronic/synth-pop-vocal",
+        "electronic/synthwave",
+        "electronic/trip-hop",
+        "electronic/vaporwave-instrumental",
+        "european/alpine-volksmusik-instrumental",
+        "european/balkan-brass-instrumental",
+        "european/chanson-vocal",
+        "european/fado-vocal",
+        "european/flamenco-instrumental",
+        "european/carnival-song-vocal",
+        "european/irish-pub-session-instrumental",
+        "european/italian-pop-vocal",
+        "european/klezmer-instrumental",
+        "european/party-schlager-vocal",
+        "european/polka-instrumental",
+        "european/russian-folk-vocal",
+        "european/schlager-vocal",
+        "european/viennese-waltz-instrumental",
+        "folk/appalachian-folk-instrumental",
+        "folk/celtic-folk-vocal",
+        "folk/dark-fairytale-folk-vocal",
+        "folk/folk-punk-vocal",
+        "folk/german-liedermacher-vocal",
+        "folk/melancholic-folk-ballad-vocal",
+        "folk/mystical-medieval-folk-vocal",
+        "folk/nordic-folk-vocal",
+        "folk/romantic-solo-guitar",
+        "folk/sea-shanty-vocal",
+        "funk/classic-funk-instrumental",
+        "funk/nu-disco-funk",
+        "gospel/contemporary-worship-vocal",
+        "gospel/german-worship-vocal",
+        "gospel/gospel-choir-vocal",
+        "gospel/hymn-choir-vocal",
+        "hiphop/boom-bap-hiphop-vocal",
+        "hiphop/cloud-rap-vocal",
+        "hiphop/drill-instrumental",
+        "hiphop/german-rap-vocal",
+        "hiphop/melodic-trap-vocal",
+        "hiphop/old-school-hiphop-vocal",
+        "hiphop/phonk-instrumental",
+        "hiphop/rnb-vocal",
+        "hiphop/trap-instrumental",
+        "house/acid-house-instrumental",
+        "house/afro-house-vocal",
+        "house/bass-house-instrumental",
+        "house/deep-house",
+        "house/disco-house-vocal",
+        "house/electro-house-instrumental",
+        "house/french-house-instrumental",
+        "house/melodic-house",
+        "house/organic-house",
+        "house/progressive-house-dreamy-bittersweet",
+        "house/progressive-house-melodic-trance",
+        "house/progressive-house-sparse-vocals",
+        "house/tech-house-instrumental",
+        "jazz/bebop-instrumental",
+        "jazz/cool-jazz-instrumental",
+        "jazz/dixieland-instrumental",
+        "jazz/gypsy-jazz-instrumental",
+        "jazz/jazz-funk",
+        "jazz/smooth-jazz-instrumental",
+        "jazz/smooth-jazz-vocal-late-night",
+        "jazz/smooth-jazz-vocal-positive-resolution",
+        "jazz/swing-big-band-instrumental",
+        "jazz/vocal-jazz-crooner",
+        "kids/birthday-song-vocal",
+        "kids/children-song-vocal",
+        "kids/german-birthday-song-vocal",
+        "kids/kids-adventure-song-vocal",
+        "kids/lullaby-vocal",
+        "kids/nursery-rhyme-german-vocal",
+        "latin/bachata-vocal",
+        "latin/bossa-nova-vocal",
+        "latin/cumbia-instrumental",
+        "latin/latin-pop-vocal",
+        "latin/merengue-instrumental",
+        "latin/norteno-corrido-vocal",
+        "latin/reggaeton-vocal",
+        "latin/salsa-vocal",
+        "latin/samba-instrumental",
+        "latin/son-cubano-vocal",
+        "latin/tango-instrumental",
+        "meditation/focus-study-instrumental",
+        "meditation/meditation-healing-instrumental",
+        "meditation/nature-soundscape-instrumental",
+        "meditation/sleep-music-instrumental",
+        "metal/black-metal-instrumental",
+        "metal/death-metal-vocal",
+        "metal/doom-metal-instrumental",
+        "metal/folk-metal-vocal",
+        "metal/grunge-vocal",
+        "metal/heavy-metal-vocal",
+        "metal/industrial-metal-vocal",
+        "metal/melodic-metal-instrumental",
+        "metal/metalcore-vocal",
+        "metal/nu-metal-vocal",
+        "metal/power-metal-vocal",
+        "metal/progressive-djent-instrumental",
+        "metal/sludge-post-metal-instrumental",
+        "metal/symphonic-metal-vocal",
+        "metal/thrash-metal-vocal",
+        "musical/broadway-ballad-vocal",
+        "musical/german-musical-vocal",
+        "musical/musical-theatre-ensemble-vocal",
+        "pop/art-pop-vocal",
+        "pop/bedroom-pop-vocal",
+        "pop/dance-pop-vocal",
+        "pop/dream-pop-electronic-vocal",
+        "pop/german-pop-vocal",
+        "pop/hyperpop-vocal",
+        "pop/indie-pop-vocal",
+        "pop/power-ballad-vocal",
+        "pop/singer-songwriter-acoustic-vocal",
+        "punk/pop-punk-vocal",
+        "punk/post-punk-vocal",
+        "punk/punk-rock-vocal",
+        "punk/ska-punk-vocal",
+        "reggae/dancehall-vocal",
+        "reggae/dub-instrumental",
+        "reggae/rocksteady-vocal",
+        "reggae/roots-reggae-vocal",
+        "reggae/ska-jamaican-instrumental",
+        "rock/blues-rock-instrumental",
+        "rock/classic-rock-vocal",
+        "rock/garage-rock-vocal",
+        "rock/hard-rock-vocal",
+        "rock/indie-rock-vocal",
+        "rock/pop-rock-vocal",
+        "rock/post-rock-instrumental",
+        "rock/progressive-rock-instrumental",
+        "rock/psychedelic-rock-instrumental",
+        "rock/rockabilly-vocal",
+        "rock/shoegaze-vocal",
+        "rock/southern-rock-vocal",
+        "rock/stoner-rock-instrumental",
+        "rock/surf-rock-instrumental",
+        "seasonal/christmas-carol-vocal",
+        "seasonal/christmas-pop-vocal",
+        "seasonal/german-christmas-vocal",
+        "seasonal/wedding-ceremony-instrumental",
+        "seasonal/wedding-first-dance-vocal",
+        "soul/doo-wop-vocal",
+        "soul/motown-soul-vocal",
+        "soul/neo-soul-vocal",
+        "soul/soul-ballad-vocal",
+        "world/andean-folk-instrumental",
+        "world/arabic-pop-vocal",
+        "world/bhangra-instrumental",
+        "world/calypso-soca-vocal",
+        "world/gamelan-instrumental",
+        "world/gnawa-instrumental",
+        "world/hawaiian-slack-key-instrumental",
+        "world/mariachi-vocal",
+        "world/mongolian-throat-singing-instrumental",
+        "world/qawwali-vocal",
+        "world/turkish-folk-instrumental"
+       ]
+      }
+     ],
+     "description": [
+      "STRING",
+      {
+       "tooltip": "How the song should sound - its character, instruments and arrangement (the lyrics have a field of their own). Sent to the writing model.",
+       "default": "",
+       "multiline": true
+      }
+     ],
+     "genre": [
+      "STRING",
+      {
+       "tooltip": "Genre and sub-genre, e.g. 'indie pop'.",
+       "default": "",
+       "multiline": false
+      }
+     ],
+     "mood": [
+      "STRING",
+      {
+       "tooltip": "Mood words, e.g. 'warm, hopeful'.",
+       "default": "",
+       "multiline": false
+      }
+     ],
+     "tempo": [
+      "STRING",
+      {
+       "tooltip": "Tempo, e.g. '88 BPM' or 'midtempo'.",
+       "default": "",
+       "multiline": false
+      }
+     ],
+     "length": [
+      "COMBO",
+      {
+       "tooltip": "Target length. Guides the writing and, without a score, the render ceiling.",
+       "default": "standard (about 3:00)",
+       "multiselect": false,
+       "options": [
+        "very short (about 1:00)",
+        "short (about 1:30)",
+        "about 2:00",
+        "about 2:30",
+        "standard (about 3:00)",
+        "about 3:30",
+        "about 4:00",
+        "long (about 4:30)",
+        "about 5:00",
+        "very long (about 6:00)"
+       ]
+      }
+     ],
+     "vocals": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "sung: a song with lyrics. sparse vocals: mostly instrumental, the voice sings only a few short phrases (a hook, a call, wordless sounds like 'ooh'). instrumental: no singing; hides all vocal settings.",
+       "options": [
+        {
+         "key": "sung",
+         "inputs": {
+          "required": {
+           "language": [
+            "STRING",
+            {
+             "tooltip": "Language of the lyrics, e.g. 'English'.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "voice": [
+            "STRING",
+            {
+             "tooltip": "Vocal character, e.g. 'warm female voice'.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "theme": [
+            "STRING",
+            {
+             "tooltip": "What the lyrics are about, in a few words.",
+             "default": "",
+             "multiline": false
+            }
+           ]
+          },
+          "optional": {
+           "lyrics_from": [
+            "COMBO",
+            {
+             "display_name": "lyrics",
+             "tooltip": "written from the idea below: the writer writes the lyrics; the field says what they should be about (a template gives an idea). my own: the field holds your lyrics, sung exactly as written.",
+             "default": "written from the idea below",
+             "multiselect": false,
+             "options": [
+              "written from the idea below",
+              "my own, sung as written below"
+             ]
+            }
+           ],
+           "lyrics": [
+            "STRING",
+            {
+             "display_name": "lyrics idea or text",
+             "tooltip": "The idea for the lyrics - a story, an image, a message - or, with 'my own', the lyrics themselves: sections as [Verse], [Chorus] ... (without them Plenio adds them).",
+             "default": "",
+             "multiline": true
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "sparse vocals",
+         "inputs": {
+          "required": {
+           "language": [
+            "STRING",
+            {
+             "tooltip": "Language of the lyrics, e.g. 'English'.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "voice": [
+            "STRING",
+            {
+             "tooltip": "Vocal character, e.g. 'warm female voice'.",
+             "default": "",
+             "multiline": false
+            }
+           ],
+           "theme": [
+            "STRING",
+            {
+             "tooltip": "What the lyrics are about, in a few words.",
+             "default": "",
+             "multiline": false
+            }
+           ]
+          },
+          "optional": {
+           "lyrics_from": [
+            "COMBO",
+            {
+             "display_name": "lyrics",
+             "tooltip": "written from the idea below: the writer writes the lyrics; the field says what they should be about (a template gives an idea). my own: the field holds your lyrics, sung exactly as written.",
+             "default": "written from the idea below",
+             "multiselect": false,
+             "options": [
+              "written from the idea below",
+              "my own, sung as written below"
+             ]
+            }
+           ],
+           "lyrics": [
+            "STRING",
+            {
+             "display_name": "lyrics idea or text",
+             "tooltip": "The idea for the lyrics - a story, an image, a message - or, with 'my own', the lyrics themselves: sections as [Verse], [Chorus] ... (without them Plenio adds them).",
+             "default": "",
+             "multiline": true
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "instrumental",
+         "inputs": {
+          "required": {
+           "melody": [
+            "COMBO",
+            {
+             "tooltip": "Whether an instrument carries a lead melody or the song is accompaniment only.",
+             "default": "instrument plays the lead",
+             "multiselect": false,
+             "options": [
+              "instrument plays the lead",
+              "accompaniment only"
+             ]
+            }
+           ],
+           "lead_instrument": [
+            "STRING",
+            {
+             "tooltip": "Optional lead instrument, e.g. 'saxophone'.",
+             "default": "",
+             "multiline": false
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ],
+     "key": [
+      "STRING",
+      {
+       "tooltip": "Optional key, e.g. 'G major'. Music models that use a score take the key from the score; the DAW template's empty score is built in it.",
+       "default": "",
+       "multiline": false
+      }
+     ],
+     "meter": [
+      "STRING",
+      {
+       "tooltip": "Optional meter, e.g. '3/4' or '6/8'. Music models that use a score take the meter from the score; the DAW template's empty score is built in it.",
+       "default": "",
+       "multiline": false
+      }
+     ]
+    },
+    "optional": {
+     "arrangement": [
+      "COMBO",
+      {
+       "display_name": "arrangement (experimental)",
+       "tooltip": "off (default): the music model plans the music by itself. A creative mode (experimental) lets the writer plan chords, lines and energy per section; the line under the brief says what the chosen mode does.",
+       "default": "off",
+       "multiselect": false,
+       "options": [
+        "off",
+        "standard",
+        "sterile",
+        "unplugged",
+        "varied",
+        "call and response",
+        "signature motif",
+        "hypnotic",
+        "breakdown",
+        "dramatic",
+        "many instruments",
+        "jazz colours",
+        "fantasy",
+        "key change"
+       ]
+      }
+     ],
+     "genre_closeness": [
+      "INT",
+      {
+       "display_name": "genre closeness",
+       "tooltip": "Creative modes only (experimental): how close the song stays to its genre - 100 strictly typical, 70 typical with personal touches, 40 free within the genre, 0 any style.",
+       "default": 70,
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "display": "slider"
+      }
+     ],
+     "lines_under_singing": [
+      "BOOLEAN",
+      {
+       "display_name": "lines under the singing (experimental)",
+       "tooltip": "Creative modes only (experimental): off - the instrument line plays where the voice rests, as in YuE2's own scores; on - it also sounds under the singing, calm and below the voice.",
+       "default": false
+      }
+     ],
+     "creativity": [
+      "INT",
+      {
+       "tooltip": "0 steady ... 50 the reference (as before the slider) ... 100 experimental (the default) ... 200 adventurous: how much the writer and YuE2 dare. More surprises also means more misses - try a few seeds.",
+       "default": 100,
+       "min": 0,
+       "max": 200,
+       "step": 1,
+       "display": "slider"
+      }
+     ],
+     "lyrics_fidelity": [
+      "COMBO",
+      {
+       "display_name": "lyrics fidelity",
+       "tooltip": "standard: one take. high: a second take when the first sang under 96 % of the words as written; the better is kept. highest: a third when neither reached 96 %. Takes longer (up to 2x or 3x).",
+       "default": "standard",
+       "multiselect": false,
+       "options": [
+        "standard",
+        "high - best of 2 takes",
+        "highest - best of 3 takes"
+       ]
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "mode",
+     "template",
+     "description",
+     "genre",
+     "mood",
+     "tempo",
+     "length",
+     "vocals",
+     "key",
+     "meter"
+    ],
+    "optional": [
+     "arrangement",
+     "genre_closeness",
+     "lines_under_singing",
+     "creativity",
+     "lyrics_fidelity"
+    ]
+   },
+   "output": [
+    "PLENIO_BRIEF",
+    "STRING",
+    "FLOAT",
+    "BOOLEAN",
+    "INT",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "INT",
+    "BOOLEAN",
+    "INT"
+   ],
+   "output_name": [
+    "brief",
+    "brief_text",
+    "max_seconds",
+    "instrumental",
+    "song_seed",
+    "template",
+    "genre",
+    "mood",
+    "tempo",
+    "length",
+    "vocals",
+    "language",
+    "voice",
+    "theme",
+    "key",
+    "meter",
+    "arrangement",
+    "genre_closeness",
+    "lines_under_singing",
+    "creativity"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Song",
+   "display_name": "Song Brief"
+  },
+  "PlenioSongSheet": {
+   "input": {
+    "required": {
+     "review": [
+      "COMBO",
+      {
+       "tooltip": "as the brief says: stop in the brief's mode 'one song/cover, stop to review'. stop for review: the documents go on only after Approve in the editor (in a series: every song). continue: never stop.",
+       "default": "as the brief says",
+       "multiselect": false,
+       "options": [
+        "as the brief says",
+        "continue",
+        "stop for review"
+       ]
+      }
+     ],
+     "sheet_state": [
+      "PLENIO_SHEET_STATE",
+      {
+       "tooltip": "Your edits and manual documents (edit them with the Song Sheet editor).",
+       "default": "",
+       "socketless": true
+      }
+     ]
+    },
+    "optional": {
+     "title": [
+      "STRING",
+      {
+       "tooltip": "The title draft (Parse Song Draft); shown and editable in the sheet.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "style": [
+      "STRING",
+      {
+       "tooltip": "Style / caption draft for the music model.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "tooltip": "Lyrics draft with [Tag] sections.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "score": [
+      "STRING",
+      {
+       "tooltip": "Score draft (native two-voice ABC).",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "artwork_prompt": [
+      "STRING",
+      {
+       "tooltip": "The cover art prompt draft (for the optional Cover Art block); shown and editable in the sheet.",
+       "lazy": true,
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "context_style": [
+      "STRING",
+      {
+       "tooltip": "Style owned by another sheet; shown and used for the token budget.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "context_lyrics": [
+      "STRING",
+      {
+       "tooltip": "Lyrics owned by another sheet; shown and used for the token budget.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "context_score": [
+      "STRING",
+      {
+       "tooltip": "Score owned by another sheet; shown, used for the budget and to check the lyrics' sections.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "timeline": [
+      "PLENIO_TIMELINE",
+      {
+       "tooltip": "From Transcribe Score: shows bar and section times of the source in the editor."
+      }
+     ],
+     "reference_audio": [
+      "AUDIO",
+      {
+       "tooltip": "The recording the score was transcribed from: the editor plays it from the selected bar (A/B with the notes). Display only; it never reaches the model."
+      }
+     ],
+     "sung_pitch": [
+      "PLENIO_PITCH",
+      {
+       "tooltip": "From Sung Pitch: the source's vocal line, drawn as a curve over the notes in the piano roll. Display only; it never reaches the model."
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Vocal mode and length for validation."
+      }
+     ],
+     "engine": [
+      "PLENIO_ENGINE",
+      {
+       "tooltip": "Rules and exact token counts of the loaded music model."
+      }
+     ],
+     "arrangement": [
+      "PLENIO_REPORT",
+      {
+       "tooltip": "From Apply Arrangement: what the creative mode changed in the score - or why the score stayed as planned. Shown here and in the editor; requested only while the score comes from upstream.",
+       "lazy": true
+      }
+     ],
+     "song_form": [
+      "PLENIO_REPORT",
+      {
+       "tooltip": "From YuE2 Plan (Match Song Form): how the plan was made to fit the lyrics' song form. Shown here and kept in the release record; requested only while the score comes from upstream.",
+       "lazy": true
+      }
+     ]
+    },
+    "hidden": {
+     "unique_id": [
+      "UNIQUE_ID"
+     ],
+     "prompt": [
+      "PROMPT"
+     ],
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "review",
+     "sheet_state"
+    ],
+    "optional": [
+     "title",
+     "style",
+     "lyrics",
+     "score",
+     "artwork_prompt",
+     "context_style",
+     "context_lyrics",
+     "context_score",
+     "timeline",
+     "reference_audio",
+     "sung_pitch",
+     "brief",
+     "engine",
+     "arrangement",
+     "song_form"
+    ],
+    "hidden": [
+     "unique_id",
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "STRING",
+    "COMBO",
+    "FLOAT",
+    "PLENIO_REPORT",
+    "STRING",
+    "STRING"
+   ],
+   "output_name": [
+    "title",
+    "style",
+    "lyrics",
+    "score",
+    "artwork_prompt",
+    "planning_mode",
+    "score_seconds",
+    "report",
+    "section_tags",
+    "plan_lyrics"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": true,
+   "category": "Plenio/Song",
+   "display_name": "Song Sheet"
+  },
+  "PlenioStemMixer": {
+   "input": {
+    "required": {
+     "stems": [
+      "PLENIO_STEMS",
+      {
+       "tooltip": "The stems and the residual 'rest' from Separate Stems."
+      }
+     ],
+     "mix": [
+      "STRING",
+      {
+       "tooltip": "The mixer settings (plenio.stem_mix/1 JSON); empty: neutral.  The widget under the node writes the same value (a 'save' flag per strip included).",
+       "default": "",
+       "multiline": true
+      }
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "unique_id": [
+      "UNIQUE_ID"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "stems",
+     "mix"
+    ],
+    "hidden": [
+     "prompt",
+     "unique_id"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "audio",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio",
+   "display_name": "Stem Mixer"
+  },
+  "PlenioSungPitch": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The source recording (the cover's original)."
+      }
+     ],
+     "separation": [
+      "COMBO",
+      {
+       "tooltip": "A separation model in models/audio_separation (the one of Separate Stems) for the vocal stem; 'whole mix' tracks the loudest pitch of the mix, which is often an instrument.",
+       "multiselect": false,
+       "options": [
+        "whole mix (no separation - less reliable)"
+       ]
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "separation"
+    ]
+   },
+   "output": [
+    "PLENIO_PITCH",
+    "AUDIO"
+   ],
+   "output_name": [
+    "sung_pitch",
+    "vocals"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio analysis",
+   "display_name": "Sung Pitch"
+  },
+  "PlenioSystemCheck": {
+   "input": {
+    "required": {
+     "detail": [
+      "COMBO",
+      {
+       "tooltip": "summary: readable overview. full: also the raw facts as JSON.",
+       "default": "summary",
+       "multiselect": false,
+       "options": [
+        "summary",
+        "full"
+       ]
+      }
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "detail"
+    ],
+    "hidden": [
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "report"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": true,
+   "category": "Plenio/Utilities",
+   "display_name": "System Check"
+  },
+  "PlenioTranscribeLyrics": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The source recording, or a rendered take for the lyrics check."
+      }
+     ],
+     "engine": [
+      "COMBO",
+      {
+       "tooltip": "Qwen3-ASR 1.7B: its aligner times the words; faster-whisper takes over a language it cannot time (the summary says so). faster-whisper large-v3: always Whisper. Separate process.",
+       "default": "Qwen3-ASR 1.7B",
+       "multiselect": false,
+       "options": [
+        "Qwen3-ASR 1.7B",
+        "faster-whisper large-v3"
+       ]
+      }
+     ],
+     "language": [
+      "STRING",
+      {
+       "tooltip": "Language of the singing in this recording: 'auto' detects it, or name it (e.g. English, de). An original-lyrics Cover Brief overrides it.",
+       "default": "auto",
+       "multiline": false
+      }
+     ],
+     "device": [
+      "COMBO",
+      {
+       "tooltip": "auto: the GPU, else the CPU with a warning (Qwen3 there takes several times the audio length, Whisper about 0.6 x).",
+       "advanced": true,
+       "default": "auto",
+       "multiselect": false,
+       "options": [
+        "auto",
+        "cuda",
+        "cpu"
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "vocals": [
+      "AUDIO",
+      {
+       "tooltip": "The source's vocal stem (Sung Pitch): heard too, and the more confident hearing of the two is kept. Empty or unconnected: the recording alone."
+      }
+     ],
+     "score": [
+      "STRING",
+      {
+       "tooltip": "The final score: its sections become the tags.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ],
+     "timeline": [
+      "PLENIO_TIMELINE",
+      {
+       "tooltip": "From Transcribe Score: bar times and where somebody sings."
+      }
+     ],
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Cover Brief: for original-lyrics covers its language is used (the language widget is then ignored); for new lyrics the widget names the source's language."
+      }
+     ],
+     "expected_lyrics": [
+      "STRING",
+      {
+       "tooltip": "Lyrics a take was given: turns the node into the sung-lyrics check.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    },
+    "hidden": {
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "engine",
+     "language",
+     "device"
+    ],
+    "optional": [
+     "vocals",
+     "score",
+     "timeline",
+     "brief",
+     "expected_lyrics"
+    ],
+    "hidden": [
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING",
+    "STRING",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "lyrics",
+    "transcript",
+    "language",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio analysis",
+   "display_name": "Transcribe Lyrics"
+  },
+  "PlenioTranscribeScore": {
+   "input": {
+    "required": {
+     "audio_encoder": [
+      "AUDIO_ENCODER",
+      {
+       "tooltip": "SheetSage2 from Audio Encoder Loader."
+      }
+     ],
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The source recording (trim it first for a part of the song)."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio_encoder",
+     "audio"
+    ]
+   },
+   "output": [
+    "STRING",
+    "PLENIO_TIMELINE",
+    "PLENIO_REPORT"
+   ],
+   "output_name": [
+    "score",
+    "timeline",
+    "report"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio analysis",
+   "display_name": "Transcribe Score"
+  },
+  "PlenioVocalCheck": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "One take, or the list of takes from a loop (End Loop, accumulate)."
+      }
+     ],
+     "audio_encoder": [
+      "AUDIO_ENCODER",
+      {
+       "tooltip": "SheetSage2 (the cover path's loader can be reused)."
+      }
+     ],
+     "tolerance_seconds": [
+      "FLOAT",
+      {
+       "tooltip": "Seconds of vocal-like notes still accepted. 0 = any vocal note fails (calibrated against the owner's listening, Phase 4A).",
+       "advanced": true,
+       "default": 0.0,
+       "min": 0.0,
+       "max": 60.0,
+       "step": 0.5
+      }
+     ]
+    },
+    "optional": {
+     "brief": [
+      "PLENIO_BRIEF",
+      {
+       "tooltip": "Song Brief or Cover Brief: only instrumental takes are checked; for a sung song the first take passes unchecked."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "audio_encoder",
+     "tolerance_seconds"
+    ],
+    "optional": [
+     "brief"
+    ]
+   },
+   "output": [
+    "AUDIO",
+    "BOOLEAN",
+    "PLENIO_REPORT",
+    "AUDIO"
+   ],
+   "output_name": [
+    "audio",
+    "passed",
+    "report",
+    "takes"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    true
+   ],
+   "output_node": false,
+   "category": "Plenio/Audio analysis",
+   "display_name": "Check Vocals"
+  },
+  "PlenioWriterChoice": {
+   "input": {
+    "required": {
+     "model": [
+      "COMBO",
+      {
+       "tooltip": "Gemma 4 12B (auto): the one on this machine, else downloaded for its card. A bare file name: a text model for ComfyUI's Generate Text. '… · …': a GGUF file ('models/LLM', 'HF cache' ...) or a running app's model.",
+       "multiselect": false,
+       "options": [
+        "Gemma 4 12B (auto)"
+       ]
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "model"
+    ]
+   },
+   "output": [
+    "*",
+    "*",
+    "BOOLEAN",
+    "*"
+   ],
+   "output_name": [
+    "text_encoder",
+    "local_model",
+    "use_local",
+    "model"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "Plenio/Writing",
+   "display_name": "Writer Choice"
+  },
+  "PreviewAny": {
+   "input": {
+    "required": {
+     "source": [
+      "*",
+      {}
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "source"
+    ]
+   },
+   "output": [
+    "STRING"
+   ],
+   "output_name": [
+    "STRING"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": true,
+   "category": "utilities",
+   "display_name": "Preview as Text"
+  },
+  "PreviewAudio": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {}
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio"
+    ],
+    "hidden": [
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "AUDIO"
+   ],
+   "output_name": [
+    "audio"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": true,
+   "category": "audio",
+   "display_name": "Preview Audio"
+  },
+  "PreviewImage": {
+   "input": {
+    "required": {
+     "images": [
+      "IMAGE"
+     ]
+    },
+    "hidden": {
+     "prompt": "PROMPT",
+     "extra_pnginfo": "EXTRA_PNGINFO"
+    }
+   },
+   "input_order": {
+    "required": [
+     "images"
+    ],
+    "hidden": [
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "IMAGE"
+   ],
+   "output_name": [
+    "images"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": true,
+   "category": "image",
+   "display_name": "Preview Image"
+  },
+  "PrimitiveBoolean": {
+   "input": {
+    "required": {
+     "value": [
+      "BOOLEAN",
+      {}
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "value"
+    ]
+   },
+   "output": [
+    "BOOLEAN"
+   ],
+   "output_name": [
+    "BOOLEAN"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "utilities/primitive",
+   "display_name": "Boolean"
+  },
+  "PrimitiveFloat": {
+   "input": {
+    "required": {
+     "value": [
+      "FLOAT",
+      {
+       "min": -9223372036854775807,
+       "max": 9223372036854775807,
+       "step": 0.1
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "value"
+    ]
+   },
+   "output": [
+    "FLOAT"
+   ],
+   "output_name": [
+    "FLOAT"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "utilities/primitive",
+   "display_name": "Float"
+  },
+  "PrimitiveInt": {
+   "input": {
+    "required": {
+     "value": [
+      "INT",
+      {
+       "min": -9223372036854775807,
+       "max": 9223372036854775807,
+       "control_after_generate": "fixed"
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "value"
+    ]
+   },
+   "output": [
+    "INT"
+   ],
+   "output_name": [
+    "INT"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "utilities/primitive",
+   "display_name": "Int"
+  },
+  "PrimitiveString": {
+   "input": {
+    "required": {
+     "value": [
+      "STRING",
+      {
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "value"
+    ]
+   },
+   "output": [
+    "STRING"
+   ],
+   "output_name": [
+    "STRING"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "utilities/primitive",
+   "display_name": "Text"
+  },
+  "PrimitiveStringMultiline": {
+   "input": {
+    "required": {
+     "value": [
+      "STRING",
+      {
+       "multiline": true
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "value"
+    ]
+   },
+   "output": [
+    "STRING"
+   ],
+   "output_name": [
+    "STRING"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "utilities/primitive",
+   "display_name": "Text (Multiline)"
+  },
+  "RandomNoise": {
+   "input": {
+    "required": {
+     "noise_seed": [
+      "INT",
+      {
+       "default": 0,
+       "min": 0,
+       "max": 18446744073709551615,
+       "control_after_generate": true
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "noise_seed"
+    ]
+   },
+   "output": [
+    "NOISE"
+   ],
+   "output_name": [
+    "NOISE"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/sampling/noise",
+   "display_name": null
+  },
+  "SamplerCustomAdvanced": {
+   "input": {
+    "required": {
+     "noise": [
+      "NOISE",
+      {}
+     ],
+     "guider": [
+      "GUIDER",
+      {}
+     ],
+     "sampler": [
+      "SAMPLER",
+      {}
+     ],
+     "sigmas": [
+      "SIGMAS",
+      {}
+     ],
+     "latent_image": [
+      "LATENT",
+      {}
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "noise",
+     "guider",
+     "sampler",
+     "sigmas",
+     "latent_image"
+    ]
+   },
+   "output": [
+    "LATENT",
+    "LATENT"
+   ],
+   "output_name": [
+    "output",
+    "denoised_output"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "model/sampling/custom",
+   "display_name": null
+  },
+  "SaveAudio": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {}
+     ],
+     "filename_prefix": [
+      "STRING",
+      {
+       "default": "audio/ComfyUI",
+       "multiline": false
+      }
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "filename_prefix"
+    ],
+    "hidden": [
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "AUDIO"
+   ],
+   "output_name": [
+    "audio"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": true,
+   "category": "audio",
+   "display_name": "Save Audio (FLAC) (DEPRECATED)"
+  },
+  "SaveAudioAdvanced": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {
+       "tooltip": "The audio to save."
+      }
+     ],
+     "filename_prefix": [
+      "STRING",
+      {
+       "tooltip": "The prefix for the file to save. May include formatting tokens such as %date:yyyy-MM-dd%.",
+       "default": "audio/ComfyUI",
+       "multiline": false
+      }
+     ],
+     "format": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "The file format in which to save the audio.",
+       "options": [
+        {
+         "key": "flac",
+         "inputs": {
+          "required": {}
+         }
+        },
+        {
+         "key": "mp3",
+         "inputs": {
+          "required": {
+           "quality": [
+            "COMBO",
+            {
+             "default": "V0",
+             "multiselect": false,
+             "options": [
+              "V0",
+              "128k",
+              "320k"
+             ]
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "opus",
+         "inputs": {
+          "required": {
+           "quality": [
+            "COMBO",
+            {
+             "default": "128k",
+             "multiselect": false,
+             "options": [
+              "64k",
+              "96k",
+              "128k",
+              "192k",
+              "320k"
+             ]
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ]
+    },
+    "hidden": {
+     "prompt": [
+      "PROMPT"
+     ],
+     "extra_pnginfo": [
+      "EXTRA_PNGINFO"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "filename_prefix",
+     "format"
+    ],
+    "hidden": [
+     "prompt",
+     "extra_pnginfo"
+    ]
+   },
+   "output": [
+    "AUDIO"
+   ],
+   "output_name": [
+    "audio"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": true,
+   "category": "audio",
+   "display_name": "Save Audio (Advanced)"
+  },
+  "SeedNode": {
+   "input": {
+    "required": {
+     "seed": [
+      "INT",
+      {
+       "min": 0,
+       "max": 9223372036854775807,
+       "control_after_generate": "fixed"
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "seed"
+    ]
+   },
+   "output": [
+    "INT"
+   ],
+   "output_name": [
+    "seed"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "utilities",
+   "display_name": "Seed"
+  },
+  "SheetSage2AudioToABC": {
+   "input": {
+    "required": {
+     "audio_encoder": [
+      "AUDIO_ENCODER",
+      {}
+     ],
+     "audio": [
+      "AUDIO",
+      {}
+     ],
+     "mode": [
+      "COMBO",
+      {
+       "tooltip": "full: generates melody and chords; melody: generates melody only, recommended for covers.",
+       "multiselect": false,
+       "options": [
+        "melody",
+        "full"
+       ]
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio_encoder",
+     "audio",
+     "mode"
+    ]
+   },
+   "output": [
+    "STRING"
+   ],
+   "output_name": [
+    "abc"
+   ],
+   "output_is_list": [
+    true
+   ],
+   "output_node": false,
+   "category": "model/conditioning/yue2",
+   "display_name": "SheetSage2 Audio to ABC"
+  },
+  "StartLoop": {
+   "input": {
+    "required": {
+     "mode": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "tooltip": "The loop iteration mode.",
+       "options": [
+        {
+         "key": "simple",
+         "inputs": {
+          "required": {
+           "num_iterations": [
+            "INT",
+            {
+             "tooltip": "Number of times to execute the loop body.",
+             "default": 4,
+             "min": 0
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "For",
+         "inputs": {
+          "required": {
+           "start_iteration_index": [
+            "INT",
+            {
+             "tooltip": "Index of the first iteration when using For loop mode.",
+             "default": 0
+            }
+           ],
+           "max_iteration": [
+            "INT",
+            {
+             "tooltip": "The exclusive stopping value for iteration_index in For mode.",
+             "default": 4,
+             "max": 18446744073709551615
+            }
+           ],
+           "step": [
+            "INT",
+            {
+             "tooltip": "The index step size between each iteration when using For loop mode.",
+             "default": 1,
+             "min": 1
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "List",
+         "inputs": {
+          "required": {
+           "list": [
+            "COMFY_MATCHTYPE_V3",
+            {
+             "tooltip": "List of items the loop iterates on. The loop body executes once per item.",
+             "template": {
+              "template_id": "list_item",
+              "allowed_types": "*"
+             }
+            }
+           ]
+          }
+         }
+        }
+       ]
+      }
+     ],
+     "cache_iterations": [
+      "BOOLEAN",
+      {
+       "tooltip": "Reuse unchanged iteration results from previous executions. Disable to execute every iteration again.",
+       "advanced": true,
+       "default": false
+      }
+     ]
+    },
+    "optional": {
+     "parent_iteration": [
+      "INT",
+      {
+       "tooltip": "Connect iteration_index from an outer Start Loop to nest this loop.",
+       "forceInput": true
+      }
+     ],
+     "initial_iteration_value": [
+      "COMFY_MATCHTYPE_V3",
+      {
+       "tooltip": "Value exposed as current_iteration_value on the first iteration.",
+       "template": {
+        "template_id": "carried_value",
+        "allowed_types": "*"
+       }
+      }
+     ]
+    },
+    "hidden": {
+     "dynprompt": [
+      "DYNPROMPT"
+     ],
+     "execution_list": [
+      "EXECUTION_LIST"
+     ],
+     "unique_id": [
+      "UNIQUE_ID"
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "mode",
+     "cache_iterations"
+    ],
+    "optional": [
+     "parent_iteration",
+     "initial_iteration_value"
+    ],
+    "hidden": [
+     "dynprompt",
+     "execution_list",
+     "unique_id"
+    ]
+   },
+   "output": [
+    "INT",
+    "BOOLEAN",
+    "BOOLEAN",
+    "COMFY_MATCHTYPE_V3",
+    "COMFY_MATCHTYPE_V3"
+   ],
+   "output_name": [
+    "iteration_index",
+    "is_first",
+    "is_last",
+    "list_item",
+    "current_iteration_value"
+   ],
+   "output_is_list": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "utilities/looping",
+   "display_name": "Start Loop"
+  },
+  "TextGenerate": {
+   "input": {
+    "required": {
+     "clip": [
+      "CLIP",
+      {}
+     ],
+     "prompt": [
+      "STRING",
+      {
+       "default": "",
+       "multiline": true,
+       "dynamicPrompts": true
+      }
+     ],
+     "max_length": [
+      "INT",
+      {
+       "default": 512,
+       "min": 1,
+       "max": 32768
+      }
+     ],
+     "sampling_mode": [
+      "COMFY_DYNAMICCOMBO_V3",
+      {
+       "display_name": "Sampling Mode",
+       "options": [
+        {
+         "key": "on",
+         "inputs": {
+          "required": {
+           "temperature": [
+            "FLOAT",
+            {
+             "default": 0.7,
+             "min": 0.01,
+             "max": 2.0,
+             "step": 1e-06
+            }
+           ],
+           "top_k": [
+            "INT",
+            {
+             "default": 64,
+             "min": 0,
+             "max": 1000
+            }
+           ],
+           "top_p": [
+            "FLOAT",
+            {
+             "default": 0.95,
+             "min": 0.0,
+             "max": 1.0,
+             "step": 0.01
+            }
+           ],
+           "min_p": [
+            "FLOAT",
+            {
+             "default": 0.05,
+             "min": 0.0,
+             "max": 1.0,
+             "step": 0.01
+            }
+           ],
+           "repetition_penalty": [
+            "FLOAT",
+            {
+             "default": 1.05,
+             "min": 0.0,
+             "max": 5.0,
+             "step": 0.01
+            }
+           ],
+           "seed": [
+            "INT",
+            {
+             "default": 0,
+             "min": 0,
+             "max": 18446744073709551615
+            }
+           ]
+          },
+          "optional": {
+           "presence_penalty": [
+            "FLOAT",
+            {
+             "default": 0.0,
+             "min": 0.0,
+             "max": 5.0,
+             "step": 0.01
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "off",
+         "inputs": {
+          "required": {}
+         }
+        }
+       ]
+      }
+     ]
+    },
+    "optional": {
+     "image": [
+      "IMAGE",
+      {}
+     ],
+     "video": [
+      "IMAGE",
+      {
+       "tooltip": "Video frames as image batch. Assumed to be 24 FPS; subsampled to 1 FPS internally."
+      }
+     ],
+     "audio": [
+      "AUDIO",
+      {}
+     ],
+     "thinking": [
+      "BOOLEAN",
+      {
+       "tooltip": "Operate in thinking mode if the model supports it.",
+       "default": false
+      }
+     ],
+     "use_default_template": [
+      "BOOLEAN",
+      {
+       "tooltip": "Use the built in system prompt/template if the model has one.",
+       "advanced": true,
+       "default": true
+      }
+     ],
+     "mtp": [
+      "COMBO",
+      {
+       "tooltip": "Speculative decoding with the checkpoint's multi-token-prediction head. No effect without MTP weights. auto adapts the draft depth; 2-5 pins it. Sampled output stays correctly distributed but differs from non-MTP output for the same seed.",
+       "default": "auto",
+       "multiselect": false,
+       "options": [
+        "auto",
+        "off",
+        "2",
+        "3",
+        "4",
+        "5"
+       ]
+      }
+     ],
+     "system_prompt": [
+      "STRING",
+      {
+       "tooltip": "Replaces the system prompt in the model's chat template. Ignored when the default template is not used.",
+       "forceInput": true,
+       "multiline": false
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "clip",
+     "prompt",
+     "max_length",
+     "sampling_mode"
+    ],
+    "optional": [
+     "image",
+     "video",
+     "audio",
+     "thinking",
+     "use_default_template",
+     "mtp",
+     "system_prompt"
+    ]
+   },
+   "output": [
+    "STRING",
+    "STRING"
+   ],
+   "output_name": [
+    "generated_text",
+    "thinking"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "text",
+   "display_name": "Generate Text"
+  },
+  "TrimAudioDuration": {
+   "input": {
+    "required": {
+     "audio": [
+      "AUDIO",
+      {}
+     ],
+     "start_index": [
+      "FLOAT",
+      {
+       "tooltip": "Start time in seconds, can be negative to count from the end (supports sub-seconds).",
+       "default": 0.0,
+       "min": -18446744073709551615,
+       "max": 18446744073709551615,
+       "step": 0.01
+      }
+     ],
+     "duration": [
+      "FLOAT",
+      {
+       "tooltip": "Duration in seconds",
+       "default": 60.0,
+       "min": 0.0,
+       "step": 0.01
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "audio",
+     "start_index",
+     "duration"
+    ]
+   },
+   "output": [
+    "AUDIO"
+   ],
+   "output_name": [
+    "AUDIO"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "audio",
+   "display_name": "Trim Audio Duration"
+  },
+  "UNETLoader": {
+   "input": {
+    "required": {
+     "unet_name": [
+      []
+     ],
+     "weight_dtype": [
+      [
+       "default",
+       "fp8_e4m3fn",
+       "fp8_e4m3fn_fast",
+       "fp8_e5m2"
+      ],
+      {
+       "advanced": true
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "unet_name",
+     "weight_dtype"
+    ]
+   },
+   "output": [
+    "MODEL"
+   ],
+   "output_name": [
+    "MODEL"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/loaders",
+   "display_name": "Load Diffusion Model"
+  },
+  "VAEDecode": {
+   "input": {
+    "required": {
+     "samples": [
+      "LATENT",
+      {
+       "tooltip": "The latent to be decoded."
+      }
+     ],
+     "vae": [
+      "VAE",
+      {
+       "tooltip": "The VAE model used for decoding the latent."
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "samples",
+     "vae"
+    ]
+   },
+   "output": [
+    "IMAGE"
+   ],
+   "output_name": [
+    "IMAGE"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/latent",
+   "display_name": "VAE Decode"
+  },
+  "VAEDecodeAudio": {
+   "input": {
+    "required": {
+     "samples": [
+      "LATENT",
+      {}
+     ],
+     "vae": [
+      "VAE",
+      {}
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "samples",
+     "vae"
+    ]
+   },
+   "output": [
+    "AUDIO"
+   ],
+   "output_name": [
+    "AUDIO"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/latent",
+   "display_name": "VAE Decode Audio"
+  },
+  "VAEDecodeAudioTiled": {
+   "input": {
+    "required": {
+     "samples": [
+      "LATENT",
+      {}
+     ],
+     "vae": [
+      "VAE",
+      {}
+     ],
+     "tile_size": [
+      "INT",
+      {
+       "default": 512,
+       "min": 32,
+       "max": 8192,
+       "step": 8
+      }
+     ],
+     "overlap": [
+      "INT",
+      {
+       "default": 64,
+       "min": 0,
+       "max": 1024,
+       "step": 8
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "samples",
+     "vae",
+     "tile_size",
+     "overlap"
+    ]
+   },
+   "output": [
+    "AUDIO"
+   ],
+   "output_name": [
+    "AUDIO"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/latent",
+   "display_name": "VAE Decode Audio (Tiled)"
+  },
+  "VAELoader": {
+   "input": {
+    "required": {
+     "vae_name": [
+      [
+       "pixel_space"
+      ]
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "vae_name"
+    ]
+   },
+   "output": [
+    "VAE"
+   ],
+   "output_name": [
+    "VAE"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/loaders",
+   "display_name": "Load VAE"
+  },
+  "YuE2GenerateABC": {
+   "input": {
+    "required": {
+     "clip": [
+      "CLIP",
+      {}
+     ],
+     "style": [
+      "STRING",
+      {
+       "multiline": true,
+       "dynamicPrompts": true
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "multiline": true,
+       "dynamicPrompts": true
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "default": 0,
+       "min": 0,
+       "max": 18446744073709551615,
+       "control_after_generate": true
+      }
+     ],
+     "mode": [
+      "COMBO",
+      {
+       "tooltip": "full: generates melody and chords; melody: generates melody only, recommended for covers.",
+       "multiselect": false,
+       "options": [
+        "full",
+        "melody"
+       ]
+      }
+     ],
+     "max_abc_tokens": [
+      "INT",
+      {
+       "advanced": true,
+       "default": 8192,
+       "min": 1,
+       "max": 20000
+      }
+     ],
+     "temperature": [
+      "FLOAT",
+      {
+       "advanced": true,
+       "default": 0.7,
+       "min": 0.0,
+       "max": 5.0,
+       "step": 0.05
+      }
+     ],
+     "top_p": [
+      "FLOAT",
+      {
+       "advanced": true,
+       "default": 0.9,
+       "min": 0.01,
+       "max": 1.0,
+       "step": 0.01
+      }
+     ],
+     "top_k": [
+      "INT",
+      {
+       "advanced": true,
+       "default": 30,
+       "min": 1,
+       "max": 32768
+      }
+     ],
+     "repetition_penalty": [
+      "FLOAT",
+      {
+       "advanced": true,
+       "default": 1.005,
+       "min": 0.01,
+       "max": 10.0,
+       "step": 0.005
+      }
+     ],
+     "penalty_window": [
+      "INT",
+      {
+       "tooltip": "Number of recent ABC tokens used to penalize repetition.",
+       "advanced": true,
+       "default": 100,
+       "min": 1,
+       "max": 20000
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "clip",
+     "style",
+     "lyrics",
+     "seed",
+     "mode",
+     "max_abc_tokens",
+     "temperature",
+     "top_p",
+     "top_k",
+     "repetition_penalty",
+     "penalty_window"
+    ]
+   },
+   "output": [
+    "STRING"
+   ],
+   "output_name": [
+    "abc"
+   ],
+   "output_is_list": [
+    false
+   ],
+   "output_node": false,
+   "category": "model/conditioning/yue2",
+   "display_name": "YuE2 Generate ABC"
+  },
+  "YuE2GenerateMusic": {
+   "input": {
+    "required": {
+     "clip": [
+      "CLIP",
+      {}
+     ],
+     "style": [
+      "STRING",
+      {
+       "multiline": true,
+       "dynamicPrompts": true
+      }
+     ],
+     "lyrics": [
+      "STRING",
+      {
+       "multiline": true,
+       "dynamicPrompts": true
+      }
+     ],
+     "abc": [
+      "STRING",
+      {
+       "tooltip": "Connect the ABC generator or supply an edited score. Leave empty to use off mode automatically.",
+       "default": "",
+       "multiline": true
+      }
+     ],
+     "seed": [
+      "INT",
+      {
+       "default": 0,
+       "min": 0,
+       "max": 18446744073709551615,
+       "control_after_generate": true
+      }
+     ],
+     "mode": [
+      "COMBO",
+      {
+       "tooltip": "full: generates melody and chords; melody: generates melody only, recommended for covers.",
+       "multiselect": false,
+       "options": [
+        "full",
+        "melody"
+       ]
+      }
+     ],
+     "max_duration": [
+      "FLOAT",
+      {
+       "tooltip": "Maximum duration in seconds. Automatically reduced for long prompts; generation can stop earlier.",
+       "default": 360.0,
+       "min": 0.04,
+       "max": 900.0,
+       "step": 0.04
+      }
+     ],
+     "temperature": [
+      "FLOAT",
+      {
+       "advanced": true,
+       "default": 1.0,
+       "min": 0.0,
+       "max": 5.0,
+       "step": 0.05
+      }
+     ],
+     "top_p": [
+      "FLOAT",
+      {
+       "advanced": true,
+       "default": 0.95,
+       "min": 0.01,
+       "max": 1.0,
+       "step": 0.01
+      }
+     ],
+     "top_k": [
+      "INT",
+      {
+       "advanced": true,
+       "default": 100,
+       "min": 1,
+       "max": 32768
+      }
+     ],
+     "repetition_penalty": [
+      "FLOAT",
+      {
+       "advanced": true,
+       "default": 1.2,
+       "min": 0.01,
+       "max": 10.0,
+       "step": 0.01
+      }
+     ]
+    },
+    "optional": {
+     "cfg_scale": [
+      "FLOAT",
+      {
+       "tooltip": "Autoregressive guidance for style and lyrics. 1.0 disables CFG, matching the ABC workflow. Use 1.01 to match the original off-mode guidance.",
+       "advanced": true,
+       "default": 1.0,
+       "min": 0.0,
+       "max": 100.0,
+       "step": 0.01
+      }
+     ]
+    }
+   },
+   "input_order": {
+    "required": [
+     "clip",
+     "style",
+     "lyrics",
+     "abc",
+     "seed",
+     "mode",
+     "max_duration",
+     "temperature",
+     "top_p",
+     "top_k",
+     "repetition_penalty"
+    ],
+    "optional": [
+     "cfg_scale"
+    ]
+   },
+   "output": [
+    "CONDITIONING",
+    "FLOAT"
+   ],
+   "output_name": [
+    "CONDITIONING",
+    "seconds"
+   ],
+   "output_is_list": [
+    false,
+    false
+   ],
+   "output_node": false,
+   "category": "model/conditioning/yue2",
+   "display_name": "YuE2 Generate Music"
+  }
+ }
+}

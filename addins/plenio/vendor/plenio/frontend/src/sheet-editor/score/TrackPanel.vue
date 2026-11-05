@@ -1,0 +1,129 @@
+<script setup lang="ts">
+/**
+ * The DAW layout's track headers (M2/D4-D5): the four tracks - Vocal, Instrument, Chords and the
+ * Guide track - with what YuE2 reads each as, how many notes it holds and a playback switch.
+ * The Guide track says "not sent to YuE2" in plain words: it is playback and MIDI only.
+ *
+ * The panel decides nothing musically: what YuE2 receives is the ABC text, and the assignments of
+ * the tracks are the ones the renderer reads (V: Vocal, V: Ins, chord symbols).
+ */
+import { computed } from 'vue'
+
+import type { VoiceSwitches } from '../../shared/playback'
+import type { ScoreView } from '../../shared/scoreView'
+import { INSTRUMENTS, INSTRUMENT_IDS, type InstrumentId, type Sounds } from './instruments'
+import { SHIFTABLE, notesLabel, shiftBlock, trackRows } from './tracks'
+import type { TrackLocks } from './trackLock'
+
+const props = defineProps<{
+  view: ScoreView | null
+  /** How many Guide notes this sheet keeps (node properties). */
+  guideCount: number
+  /** Whether this sheet has a Guide track at all (a template's choice). */
+  keepsGuide: boolean
+  readonly: boolean
+  /** The Guide notes are shown when the track is the active one in the roll. */
+  guideActive?: boolean
+}>()
+const voices = defineModel<VoiceSwitches>('voices', { required: true })
+/** The melody tracks locked against editing. */
+const locks = defineModel<TrackLocks>('locks', { default: () => ({ vocal: false, ins: false }) })
+/** Each track's sound, as in a DAW's instrument slot. */
+const sounds = defineModel<Sounds>('sounds')
+const SOUND_OF: Record<string, keyof Sounds> = { Vocal: 'Vocal', Ins: 'Ins', chords: 'chord', guide: 'guide' }
+
+function setSound(voice: string, id: InstrumentId): void {
+  const key = SOUND_OF[voice]
+  if (sounds.value && key) sounds.value = { ...sounds.value, [key]: id }
+}
+const emit = defineEmits<{ clearGuide: []; shiftTrack: [track: 'vocal' | 'ins', semitones: number] }>()
+
+const visible = computed(() =>
+  trackRows(props.view, props.guideCount).filter((row) => props.keepsGuide || row.voice !== 'guide')
+)
+
+function plays(voice: string): boolean {
+  return voice === 'guide' ? voices.value.guide !== false : voices.value[voice as 'Vocal'] !== false
+}
+
+function toggle(voice: string, on: boolean): void {
+  if (voice === 'guide') voices.value = { ...voices.value, guide: on }
+  else voices.value = { ...voices.value, [voice]: on }
+}
+</script>
+
+<template>
+  <div class="track-panel" role="group" aria-label="Tracks">
+    <h4>Tracks</h4>
+    <ul>
+      <li
+        v-for="row in visible"
+        :key="row.voice"
+        :class="{ guide: row.voice === 'guide', active: row.voice === 'guide' && guideActive }"
+      >
+        <span class="dot" :style="{ background: row.color }" aria-hidden="true" />
+        <span class="track-name">{{ row.name }}</span>
+        <span class="destination" :class="{ unsent: !row.sent }">{{ row.destination }}</span>
+        <span class="count">{{ notesLabel(row.notes) }}</span>
+        <select
+          v-if="sounds && SOUND_OF[row.voice]"
+          class="sound"
+          :value="sounds[SOUND_OF[row.voice]]"
+          :aria-label="`Sound of the ${row.name} track`"
+          :title="`The ${row.name} track’s sound in the playback`"
+          @change="setSound(row.voice, ($event.target as HTMLSelectElement).value as InstrumentId)"
+        >
+          <option v-for="id in INSTRUMENT_IDS" :key="id" :value="id" :title="INSTRUMENTS[id].hint">{{ INSTRUMENTS[id].label }}</option>
+        </select>
+        <label class="play" :title="`Play the ${row.name} track`">
+          <input
+            type="checkbox"
+            :checked="plays(row.voice)"
+            :aria-label="`Play the ${row.name} track`"
+            @change="toggle(row.voice, ($event.target as HTMLInputElement).checked)"
+          />
+        </label>
+        <label v-if="SHIFTABLE[row.voice] && !readonly" class="lock" :title="`Lock the ${row.name} notes: they stay as they are (bars added or removed still apply to both tracks)`">
+          <input
+            type="checkbox"
+            :checked="locks[SHIFTABLE[row.voice].track]"
+            :aria-label="`Lock the ${row.name} track`"
+            @change="locks = { ...locks, [SHIFTABLE[row.voice].track]: ($event.target as HTMLInputElement).checked }"
+          />
+          lock
+        </label>
+        <span v-if="SHIFTABLE[row.voice] && !readonly" class="octave" role="group" :aria-label="`${row.name} track octave`">
+          <button
+            class="shift"
+            :disabled="locks[SHIFTABLE[row.voice].track] || !!shiftBlock(view, SHIFTABLE[row.voice].track, -12)"
+            :title="shiftBlock(view, SHIFTABLE[row.voice].track, -12) ?? `Every ${row.name} note an octave down`"
+            @click="emit('shiftTrack', SHIFTABLE[row.voice].track, -12)"
+          >
+            −8va
+          </button>
+          <button
+            class="shift"
+            :disabled="locks[SHIFTABLE[row.voice].track] || !!shiftBlock(view, SHIFTABLE[row.voice].track, 12)"
+            :title="shiftBlock(view, SHIFTABLE[row.voice].track, 12) ?? `Every ${row.name} note an octave up`"
+            @click="emit('shiftTrack', SHIFTABLE[row.voice].track, 12)"
+          >
+            +8va
+          </button>
+        </span>
+        <button
+          v-if="row.voice === 'guide' && row.notes > 0 && !readonly"
+          class="link"
+          title="Remove every Guide note from this sheet"
+          @click="emit('clearGuide')"
+        >
+          clear
+        </button>
+      </li>
+    </ul>
+    <p v-if="keepsGuide" class="hint">
+      The Guide track is yours alone: it is played here and written into exported MIDI files, and it is
+      <strong>never sent to YuE2</strong>. *Import MIDI…* fills it from a file's Guide track.
+    </p>
+    <p v-else class="hint">This sheet keeps no Guide track; the three tracks above are what YuE2 reads.</p>
+  </div>
+</template>

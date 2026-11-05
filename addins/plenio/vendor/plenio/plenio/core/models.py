@@ -1,0 +1,298 @@
+"""The model catalogue (``resources/models.toml``, schema ``plenio.models/1``).
+
+ComfyUI-format model files the templates load: where each file lives, where it comes from, its
+licence and which templates need it. Plenio never downloads these files (ComfyUI's missing-model
+dialog or the user does); the catalogue feeds the templates' download entries, the System Check
+inventory and the model guide. ``yue2_checkpoint_problem`` reads a YuE2 file's own table of contents: a finetune
+loads as a ComfyUI checkpoint only in ComfyUI's format.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import struct
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+from .errors import PlenioUserError
+from .files import read_toml
+
+SCHEMA = "plenio.models/1"
+AUDIO_MODEL_FOLDERS = {"super-resolution": "audio_sr", "separation": "audio_separation"}
+"""Plenio's own model folders (registered with ComfyUI) for Load Audio Model, by model kind."""
+FILE_SUFFIXES = (".safetensors", ".bin", ".ckpt")
+"""Allowed catalogued file names. ``.bin``/``.ckpt`` cover released PyTorch state dicts (UniverSR,
+BS-RoFormer); the adapters read them with ``weights_only=True`` only (``comfy.audio_models.read_weights``)."""
+FOLDERS = frozenset(
+    {
+        "checkpoints",
+        "loras",
+        "audio_encoders",
+        "text_encoders",
+        "diffusion_models",
+        "vae",
+        *AUDIO_MODEL_FOLDERS.values(),
+    }
+)
+_ID = re.compile(r"[a-z0-9][a-z0-9.-]*")
+_URL = re.compile(
+    r"https://huggingface\.co/[\w.-]+/[\w.-]+/resolve/[\w.-]+/[\w./-]+"
+    r"|https://github\.com/[\w.-]+/[\w.-]+/releases/download/[\w.-]+/[\w./-]+"
+)
+"""A direct file URL: a Hugging Face ``resolve`` path or a GitHub release asset (both download the
+file itself; the MSST checkpoints are published as GitHub release assets)."""
+
+
+@dataclass(frozen=True)
+class ModelFile:
+    id: str
+    file: str
+    folder: str
+    url: str
+    bytes: int
+    licence: str
+    role: str
+    default: bool
+    templates: tuple[str, ...]
+    optional_templates: tuple[str, ...] = ()
+
+    @property
+    def non_commercial(self) -> bool:
+        return re.search(r"(?<![A-Za-z])NC(?![A-Za-z])", self.licence) is not None  # CC BY-NC, BY-NC-SA ...
+
+    def download_entry(self) -> dict[str, str]:
+        """The ``properties.models`` entry ComfyUI's missing-model dialog reads."""
+        return {"name": self.file, "url": self.url, "directory": self.folder}
+
+
+def parse_catalogue(data: Mapping[str, Any], source: str) -> dict[str, ModelFile]:
+    if data.get("schema") != SCHEMA:
+        raise PlenioUserError(f"{source}: expected schema {SCHEMA!r}, got {data.get('schema')!r}.")
+    models: dict[str, ModelFile] = {}
+    files: set[str] = set()
+    for index, raw in enumerate(data.get("model", [])):
+        where = f"{source} model #{index + 1}"
+        try:
+            model = ModelFile(
+                id=str(raw["id"]),
+                file=str(raw["file"]),
+                folder=str(raw["folder"]),
+                url=str(raw["url"]),
+                bytes=int(raw.get("bytes", 0)),
+                licence=str(raw["licence"]),
+                role=str(raw["role"]),
+                default=bool(raw["default"]),
+                templates=tuple(str(t) for t in raw.get("templates", [])),
+                optional_templates=tuple(str(t) for t in raw.get("optional_templates", [])),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise PlenioUserError(f"{where} is incomplete or malformed: {error!r}.") from error
+        if not _ID.fullmatch(model.id) or model.id in models:
+            raise PlenioUserError(f"{where}: id {model.id!r} must be a unique lower-case identifier.")
+        pure = PurePosixPath(model.file)
+        if len(pure.parts) != 1 or model.file in files or not model.file.endswith(FILE_SUFFIXES):
+            raise PlenioUserError(
+                f"{where}: file {model.file!r} must be a unique {' or '.join(FILE_SUFFIXES)} file name."
+            )
+        if model.folder not in FOLDERS:
+            raise PlenioUserError(f"{where}: unknown model folder {model.folder!r}.")
+        if not _URL.fullmatch(model.url) or not model.url.endswith("/" + model.file):
+            raise PlenioUserError(
+                f"{where}: the URL must be a Hugging Face or GitHub release file URL ending in the file name."
+            )
+        if model.bytes < 0:
+            raise PlenioUserError(f"{where}: bytes must not be negative.")
+        if not model.default and (model.templates or model.optional_templates):
+            raise PlenioUserError(f"{where}: an alternative (default = false) is not used by templates.")
+        if set(model.templates) & set(model.optional_templates):
+            raise PlenioUserError(f"{where}: a template needs the file either always or optionally.")
+        models[model.id] = model
+        files.add(model.file)
+    return models
+
+
+def load_catalogue(path: Path) -> dict[str, ModelFile]:
+    return parse_catalogue(read_toml(path), str(path))
+
+
+def by_file(catalogue: Mapping[str, ModelFile]) -> dict[str, ModelFile]:
+    return {model.file: model for model in catalogue.values()}
+
+
+def template_names(catalogue: Mapping[str, ModelFile]) -> list[str]:
+    names = {t for model in catalogue.values() for t in (*model.templates, *model.optional_templates)}
+    return sorted(names)
+
+
+@dataclass(frozen=True)
+class Inventory:
+    """Which catalogued files are installed. ``found`` maps file name -> size on disk."""
+
+    found: Mapping[str, int]
+
+    def status(self, model: ModelFile) -> str:
+        size = self.found.get(model.file)
+        if size is None:
+            return "missing"
+        if model.bytes and size != model.bytes:
+            return "size differs"
+        return "installed"
+
+
+def take_inventory(
+    catalogue: Mapping[str, ModelFile], locate: Callable[[str, str], Path | None]
+) -> Inventory:
+    """``locate(folder, file)`` returns the installed path (ComfyUI's ``folder_paths``) or None."""
+    found: dict[str, int] = {}
+    for model in catalogue.values():
+        path = locate(model.folder, model.file)
+        if path is not None:
+            try:
+                found[model.file] = path.stat().st_size
+            except OSError:
+                continue
+    return Inventory(found)
+
+
+@dataclass(frozen=True)
+class Readiness:
+    template: str
+    missing: tuple[ModelFile, ...]
+    optional_missing: tuple[ModelFile, ...]
+    incomplete: tuple[ModelFile, ...] = ()
+    """Needed files whose size differs from the published one (an interrupted download?)."""
+
+    @property
+    def ready(self) -> bool:
+        return not self.missing and not self.incomplete
+
+    @property
+    def missing_bytes(self) -> int:
+        return sum(model.bytes for model in self.missing)
+
+
+def readiness(
+    catalogue: Mapping[str, ModelFile], inventory: Inventory, templates: Iterable[str]
+) -> list[Readiness]:
+    result = []
+    for name in templates:
+        needed = [m for m in catalogue.values() if name in m.templates]
+        optional = [m for m in catalogue.values() if name in m.optional_templates]
+        result.append(
+            Readiness(
+                name,
+                tuple(m for m in needed if inventory.status(m) == "missing"),
+                tuple(m for m in optional if inventory.status(m) == "missing"),
+                tuple(m for m in needed if inventory.status(m) == "size differs"),
+            )
+        )
+    return result
+
+
+_MAX_HEADER = 64 * 1024 * 1024
+"""A safetensors header larger than this is no model's table of contents."""
+
+
+def yue2_checkpoint_problem(path: Path) -> str | None:
+    """What keeps a YuE2 ``.safetensors`` file from loading as a ComfyUI checkpoint, from its header alone - or
+    ``None`` when nothing does (one file with the music model, the text side with its tokenizer and the audio
+    decoder, as Comfy-Org's own files and the finetunes made for ComfyUI have them). An empty file (an interrupted
+    download) is the inventory's business."""
+    try:
+        with path.open("rb") as file:
+            prefix = file.read(8)
+            if not prefix:
+                return None
+            size = struct.unpack("<Q", prefix)[0] if len(prefix) == 8 else _MAX_HEADER + 1
+            if size > _MAX_HEADER:
+                return "not a safetensors file"
+            header = json.loads(file.read(size))
+    except (OSError, ValueError):
+        return "not readable as a safetensors file"
+    keys = [str(key) for key in header] if isinstance(header, dict) else []
+    music = any(key.startswith("model.diffusion_model.") for key in keys)
+    decoder = any(key.startswith("vae.") for key in keys)
+    tokenizer = any(key.endswith("yue2_tokenizer_json") for key in keys)
+    if music and decoder and tokenizer:
+        return None
+    if not music and any(key.startswith("model.layers.") or key == "lm_head.weight" for key in keys):
+        return (
+            "in m-a-p's Transformers layout, which ComfyUI does not load: take the file made for ComfyUI (a "
+            "repository's comfyui folder) or convert it"
+        )
+    missing = [
+        part
+        for part, there in (
+            ("the music model", music),
+            ("the audio decoder", decoder),
+            ("the tokenizer of the text side", tokenizer),
+        )
+        if not there
+    ]
+    return f"without {', '.join(missing)}: Load Checkpoint needs them all in one file"
+
+
+def size_text(size: int) -> str:
+    """Decimal gigabytes as on model cards and download dialogs (``0`` = unknown)."""
+    if size <= 0:
+        return "size not recorded"
+    if size >= 10**9:
+        return f"{size / 10**9:.1f} GB"
+    return f"{size / 10**6:.0f} MB"
+
+
+# --- model folders beside the ones ComfyUI knows -----------------------------------------
+
+NOT_MODEL_FOLDERS = frozenset({"custom_nodes", "datasets"})
+"""Keys of ComfyUI's ``folder_names_and_paths`` that hold no models (their parent is no model root)."""
+
+
+def _key(path: Path) -> str:
+    return os.path.normcase(os.path.abspath(str(path)))
+
+
+def model_roots(registered: Mapping[str, Iterable[str]]) -> list[Path]:
+    """The folders that hold ComfyUI's model folders: the parent of every registered model folder -
+    ``models`` itself and every location of ``extra_model_paths.yaml`` (``registered``: folder name ->
+    its paths, as ``folder_paths.folder_names_and_paths`` has them)."""
+    roots: list[Path] = []
+    seen: set[str] = set()
+    for name, paths in registered.items():
+        if name in NOT_MODEL_FOLDERS:
+            continue
+        for path in paths:
+            root = Path(path).parent
+            if _key(root) not in seen:
+                seen.add(_key(root))
+                roots.append(root)
+    return roots
+
+
+def sibling_folders(folder: str, registered: Mapping[str, Iterable[str]]) -> list[Path]:
+    """Existing folders named ``folder`` beside the model folders ComfyUI knows that it does not search for
+    ``folder`` - an ``audio_separation`` folder created next to the ``checkpoints`` of an
+    ``extra_model_paths.yaml`` location, which ComfyUI reads only with its own line in that file (a user's
+    report 2026-10-10: the stem model was found only in ComfyUI's own ``models`` folder)."""
+    known = {_key(Path(path)) for path in registered.get(folder, ())}
+    found: list[Path] = []
+    for root in model_roots(registered):
+        candidate = root / folder
+        if _key(candidate) not in known and candidate.is_dir():
+            known.add(_key(candidate))
+            found.append(candidate)
+    return found
+
+
+def misplaced_file(folder: str, file: str, registered: Mapping[str, Iterable[str]]) -> Path | None:
+    """A copy of ``file`` in a folder named ``folder`` beside the known model folders that ComfyUI does not
+    search for ``folder`` (``extra_model_paths.yaml`` lacks its line): where the System Check sends the user."""
+    known = {_key(Path(path)) for path in registered.get(folder, ())}
+    for root in model_roots(registered):
+        candidate = root / folder
+        if _key(candidate) not in known and (candidate / file).is_file():
+            return candidate / file
+    return None

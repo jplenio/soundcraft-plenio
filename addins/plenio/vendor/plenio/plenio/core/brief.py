@@ -1,0 +1,854 @@
+"""Song briefs and the brief template library.
+
+A brief is the structured intent of a song. It is model independent: engines
+and the writing prompt interpret it. Templates are Markdown files with a small
+front matter block; a template fills only the brief fields the user left empty
+(one rule, the same in the editor and headless).
+
+Precedence (next-release plan §8), stateless and deterministic:
+
+- text fields: **typed value** if non-empty, else the **template value** if the template
+  defines it, else **empty** (the writer decides). A template never writes into a widget, so
+  changing it cannot destroy an edit, and clearing a field returns it to the template value.
+- choice fields (length, vocals, melody): always the widget value; the template's differing
+  choice is only a hint (``template_choice_hints``).
+- the predecessor toolkit's placeholder ``custom`` ("let the model decide", arriving through
+  *Reuse parameters* of old jobs) counts as empty and is reported in ``notes``; the writer never
+  sees the word.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+from .creativity import CREATIVITY_DEFAULT, creativity_value
+from .creativity import REFERENCE as CREATIVITY_REFERENCE
+from .errors import PlenioUserError
+from .fidelity import STANDARD, fidelity_level
+from .files import atomic_write_text
+from .hashing import sha256_json
+from .score.thin import kept_share
+
+log = logging.getLogger("plenio")
+
+BRIEF_SCHEMA = "plenio.brief/1"
+LEGACY_PLACEHOLDER = "custom"
+LEGACY_NOTE = "'custom' is the predecessor toolkit's placeholder; treated as empty"
+LENGTHS: dict[str, float] = {
+    "very short (about 1:00)": 60.0,
+    "short (about 1:30)": 90.0,
+    "about 2:00": 120.0,
+    "about 2:30": 150.0,
+    "standard (about 3:00)": 180.0,
+    "about 3:30": 210.0,
+    "about 4:00": 240.0,
+    "long (about 4:30)": 270.0,
+    "about 5:00": 300.0,
+    "very long (about 6:00)": 360.0,
+}
+"""Target lengths of a song (seconds). The three named ones are also used by the template library;
+the writer's section plan and line count, the render headroom and the engines' ceilings follow the
+seconds (MiniMax Music 3 renders at most 6:00; the Song Sheet checks YuE2's context budget)."""
+DEFAULT_LENGTH = "standard (about 3:00)"
+
+_DURATION = re.compile(
+    r"(?P<a>\d+(?:[.,]\d+)?)(?::(?P<a_sec>\d{2}))?"
+    r"(?:\s*(?:-|–|to|bis)\s*(?P<b>\d+(?:[.,]\d+)?)(?::(?P<b_sec>\d{2}))?)?"
+    r"\s*(?P<unit>s\b|sec|second|sekunde|m\b|min|minute)?",
+    re.IGNORECASE,
+)
+
+
+def resolve_length(value: str) -> tuple[str, str | None]:
+    """The length option for ``value`` and a note when it was not one of the options.
+
+    Free-form durations (``"2-3 minutes"`` from the predecessor toolkit's parameters, ``"90 s"``,
+    ``"3:30"``) take the option nearest to their middle; anything else raises.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return DEFAULT_LENGTH, None
+    if text in LENGTHS:
+        return text, None
+    match = _DURATION.search(text)
+    if match is None:
+        raise PlenioUserError(f"Unknown length {text!r}.", hint=f"Choose one of {list(LENGTHS)}.")
+
+    def seconds(number: str, sec: str | None) -> float:
+        amount = float(number.replace(",", "."))
+        if sec is not None:
+            return amount * 60 + int(sec)
+        unit = (match.group("unit") or "").lower()
+        return amount if unit.startswith("s") else amount * 60
+
+    low = seconds(match.group("a"), match.group("a_sec"))
+    high = seconds(match.group("b"), match.group("b_sec")) if match.group("b") else low
+    target = (low + high) / 2
+    chosen = min(LENGTHS, key=lambda option: abs(LENGTHS[option] - target))
+    return chosen, f"length {text!r} is not one of the options; used {chosen!r}"
+
+
+SPARSE = "sparse vocals"
+VOCALS = ("sung", SPARSE, "instrumental")
+"""A song's vocals: sung, *sparse vocals* (mostly instrumental - the voice sings only a few short phrases, a hook,
+a call, wordless sounds) or instrumental."""
+SONG_MODES = {"new song every run": "batch", "one song, stop to review": "careful"}
+COVER_MODES = {"new cover every run": "batch", "one cover, stop to review": "careful"}
+"""The work mode, the first choice of a brief. *batch*: every run writes and renders a new song
+(the brief draws a new variation, the Song Sheets do not stop). *careful*: one song - the Song
+Sheets stop for review, and later runs keep the approved documents and render new takes."""
+
+
+def resolve_mode(value: str | None, modes: Mapping[str, str] = SONG_MODES) -> str:
+    """``batch`` or ``careful`` for a mode option (either brief's wording); empty means careful."""
+    text = str(value or "").strip()
+    if not text:
+        return "careful"
+    found = {**SONG_MODES, **COVER_MODES}.get(text, text if text in ("batch", "careful") else None)
+    if found is None:
+        raise PlenioUserError(f"Unknown mode {text!r}.", hint=f"Choose one of {list(modes)}.")
+    return found
+
+
+MELODY_OPTIONS = {"instrument plays the lead": "lead", "accompaniment only": "accompaniment"}
+ARRANGEMENT_DEFAULT = "off"
+"""The creative mode of a new brief: no arrangement, the music model plans the music by itself
+(``core.arrangement``; ``simple`` in a pre-release)."""
+CLOSENESS_DEFAULT = 70
+"""Genre closeness of a song, song flow closeness of a cover (0 free ... 100 strict / the original)."""
+LYRICS_CLOSENESS_DEFAULT = 0
+"""A new-lyrics cover's closeness to the source's lyrics; 0 writes them without the source's text."""
+ORIGINAL_NOTES_DEFAULT = 100
+"""How many of the source's notes a cover's score keeps (``core.score.thin``): 100 every one, 0 about a quarter."""
+
+
+def closeness_value(value: Any, default: int = CLOSENESS_DEFAULT) -> int:
+    """A closeness slider's value: a whole number from 0 to 100 (an empty value takes ``default``)."""
+    if value is None or str(value).strip() == "":
+        return default
+    try:
+        number = round(float(value))
+    except (TypeError, ValueError):
+        raise PlenioUserError(f"Closeness {value!r} is not a number.", hint="Use 0 to 100.") from None
+    return max(0, min(100, number))
+
+
+TEXT_FIELDS = (
+    "description",
+    "genre",
+    "mood",
+    "tempo",
+    "key",
+    "meter",
+    "language",
+    "voice",
+    "theme",
+    "lead_instrument",
+    "lyrics",
+)
+LYRICS_FROM = {"written from the idea below": "idea", "my own, sung as written below": "own"}
+"""What a Song Brief's *lyrics* field holds (owner's request 2026-10-31): an idea the writer writes the lyrics from
+(what a template gives), or the user's own lyrics, sung as written."""
+LYRICS_IDEA, OWN_LYRICS = LYRICS_FROM
+TEMPLATE_FIELDS = (*TEXT_FIELDS, "length", "vocals", "melody")
+_FRONT_MATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?(.*)\Z", re.DOTALL)
+_ID = re.compile(r"[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)?")
+
+
+def _fingerprint(data: dict[str, Any]) -> str:
+    """A brief's content as a hash. The creativity counts only away from the reference, so a brief at 50 has
+    the fingerprint it had before the slider existed - and the lyrics fidelity only away from standard."""
+    data.pop("from_template")
+    data.pop("notes")
+    if data.get("creativity") == CREATIVITY_REFERENCE:
+        data.pop("creativity")
+    # a cover that keeps every note has the fingerprint it had before the slider (1.5.0)
+    if data.get("original_notes") == ORIGINAL_NOTES_DEFAULT:
+        data.pop("original_notes")
+    if data.get("fidelity") == STANDARD:
+        data.pop("fidelity")
+    return sha256_json(data)
+
+
+@dataclass(frozen=True)
+class SongBrief:
+    description: str = ""
+    genre: str = ""
+    mood: str = ""
+    tempo: str = ""
+    length: str = DEFAULT_LENGTH
+    key: str = ""
+    meter: str = ""
+    vocals: str = "sung"
+    language: str = ""
+    voice: str = ""
+    theme: str = ""
+    melody: str = "lead"
+    lead_instrument: str = ""
+    lyrics: str = ""
+    """What the lyrics should say (an idea for the writer: a story, an image, a message) - or, with
+    ``own_lyrics``, the lyrics themselves, sung as written."""
+    own_lyrics: bool = False
+    arrangement: str = ARRANGEMENT_DEFAULT
+    """The creative mode (``core.arrangement``): ``off`` or the name of a mode file."""
+    closeness: int = CLOSENESS_DEFAULT
+    """How close the song stays to its genre (creative modes only): 0 free ... 100 strictly typical."""
+    lines_under_singing: bool = False
+    """Creative modes: instrument lines may also sound while the voice sings (default: only in its rests)."""
+    creativity: int = CREATIVITY_DEFAULT
+    """0 steady ... 50 the reference ... 100 experimental: the writer's rules and YuE2's sampling
+    (``core.creativity``)."""
+    fidelity: str = STANDARD
+    """The lyrics fidelity (``core.fidelity``): one take, or the best of two or three; standard for an
+    instrumental."""
+    template: str = ""
+    from_template: tuple[str, ...] = field(default=(), compare=False)
+    notes: tuple[str, ...] = field(default=(), compare=False)
+    """Presentation: what the brief normalised (e.g. the legacy ``custom`` placeholder)."""
+    kind: str = "song"
+    mode: str = "careful"
+    variation: int | None = None
+    """batch mode: drawn anew for every song of the series, so the writer is asked for a new song."""
+    series: str = field(default="", compare=False)
+    """batch mode: the series this song belongs to (``core.series``; not part of the brief's content)."""
+
+    @property
+    def song_seed(self) -> int:
+        """Added to the draft and plan seeds: the song's own seeds in a series, 0 for one song."""
+        return self.variation or 0
+
+    @property
+    def instrumental(self) -> bool:
+        return self.vocals == "instrumental"
+
+    @property
+    def sparse(self) -> bool:
+        """Sparse vocals: sung, but only a few short phrases (``core.lyrics.sparse_line_limit``)."""
+        return self.vocals == SPARSE
+
+    @property
+    def target_seconds(self) -> float:
+        return LENGTHS[self.length]
+
+    @property
+    def max_seconds(self) -> float:
+        """Generic render headroom for the target length (engines clamp it to their limits)."""
+        return round(self.target_seconds * 1.15 + 10.0, 1)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["from_template"] = list(self.from_template)
+        data["notes"] = list(self.notes)
+        data.pop("series")
+        data["schema"] = BRIEF_SCHEMA
+        data["target_seconds"] = self.target_seconds
+        return data
+
+    @property
+    def fingerprint(self) -> str:
+        return _fingerprint(self.to_dict())
+
+    def to_text(self) -> str:
+        """Readable summary (used in the writing prompt and the release record)."""
+        lines = []
+        if self.description:
+            lines.append(f"Description: {self.description}")
+        for label, value in (
+            ("Genre", self.genre),
+            ("Mood", self.mood),
+            ("Tempo", self.tempo),
+            ("Key", self.key),
+            ("Meter", self.meter),
+        ):
+            if value:
+                lines.append(f"{label}: {value}")
+        lines.append(f"Length: {self.length}")
+        if self.instrumental:
+            lines.append("Vocals: none (instrumental)")
+            lines.append(
+                "Melody: "
+                + (
+                    "an instrument plays the lead melody"
+                    if self.melody == "lead"
+                    else "accompaniment only, no lead melody"
+                )
+            )
+            if self.lead_instrument:
+                lines.append(f"Lead instrument: {self.lead_instrument}")
+        else:
+            lines.append(
+                "Vocals: sparse - mostly instrumental; the voice sings only a few short phrases now and then"
+                if self.sparse
+                else "Vocals: sung"
+            )
+            for label, value in (
+                ("Language", self.language),
+                ("Voice", self.voice),
+                ("Lyrics theme", self.theme),
+            ):
+                if value:
+                    lines.append(f"{label}: {value}")
+            if self.own_lyrics:
+                lines.append("Lyrics: given (below) - they are sung exactly as written")
+            elif self.lyrics:
+                lines.append(f"Lyrics idea: {' '.join(self.lyrics.split())}")
+        return "\n".join(lines)
+
+
+COVER_VOCALS = {
+    "original lyrics": "original",
+    "new lyrics": "new",
+    "instrumental": "instrumental",
+}
+HARMONY_OPTIONS = {"new accompaniment": "new", "keep original chords": "keep"}
+COVER_DEFAULT_MAX_SECONDS = 360.0
+
+
+@dataclass(frozen=True)
+class CoverBrief:
+    """The intent of a cover: the target style and how the vocals and the harmony are treated.
+
+    Melody, form, key and tempo come from the source's transcription (the score), so the brief has
+    no length, tempo, key or meter. ``vocals`` decides where the lyrics draft comes from; which
+    lyrics text is finally used is a state of the lyrics document in the Song Sheet.
+    """
+
+    description: str = ""
+    genre: str = ""
+    mood: str = ""
+    vocals: str = "instrumental"
+    language: str = ""
+    voice: str = ""
+    theme: str = ""
+    phrasing_reference: bool = False
+    melody: str = "lead"
+    lead_instrument: str = ""
+    harmony: str = "new"
+    title: str = ""
+    arrangement: str = ARRANGEMENT_DEFAULT
+    """The creative mode (``core.arrangement``): ``off`` keeps the transcribed score as it is."""
+    closeness: int = CLOSENESS_DEFAULT
+    """Song flow closeness (creative modes only): 0 only a hint of the original ... 100 exactly the original."""
+    lyrics_closeness: int = LYRICS_CLOSENESS_DEFAULT
+    """New lyrics only: 0 without the source's text, 1 only a hint of it ... 100 its meaning line by line."""
+    lines_under_singing: bool = False
+    """Creative modes: instrument lines may also sound while the voice sings (default: only in its rests)."""
+    creativity: int = CREATIVITY_DEFAULT
+    """0 steady ... 50 experimental (the default) ... 100 adventurous: the writer's rules and YuE2's sampling
+    (``core.creativity``)."""
+    fidelity: str = STANDARD
+    """The lyrics fidelity (``core.fidelity``); standard for an instrumental cover."""
+    original_notes: int = ORIGINAL_NOTES_DEFAULT
+    """How many of the source's notes the score keeps for YuE2 (``core.score.thin``): 100 every one; less leaves
+    out the least important of the melody, the instrument line and the chords - nothing new is added - so that YuE2
+    interprets more freely; 0 keeps about a quarter (owner's request 2026-10-31)."""
+    template: str = ""
+    from_template: tuple[str, ...] = field(default=(), compare=False)
+    notes: tuple[str, ...] = field(default=(), compare=False)
+    kind: str = "cover"
+    mode: str = "careful"
+    variation: int | None = None
+    series: str = field(default="", compare=False)
+    """batch mode: the series this cover belongs to (``core.series``; not part of the brief's content)."""
+
+    @property
+    def song_seed(self) -> int:
+        """Added to the draft seed: the cover's own seed in a series, 0 for one cover."""
+        return self.variation or 0
+
+    @property
+    def instrumental(self) -> bool:
+        return self.vocals == "instrumental"
+
+    @property
+    def use_source_lyrics(self) -> bool:
+        return self.vocals == "original"
+
+    @property
+    def writes_lyrics(self) -> bool:
+        return self.vocals == "new"
+
+    @property
+    def target_seconds(self) -> float | None:
+        """Covers have no target length: the source defines it."""
+        return None
+
+    @property
+    def uses_source_lyrics_text(self) -> bool:
+        """New lyrics that follow the source's text (lyrics closeness above 0): its transcription is needed."""
+        return self.writes_lyrics and self.lyrics_closeness > 0
+
+    @property
+    def max_seconds(self) -> float:
+        return COVER_DEFAULT_MAX_SECONDS
+
+    @property
+    def length(self) -> str:
+        return "as the source"
+
+    def warnings(self) -> list[str]:
+        notes = []
+        if self.instrumental and self.melody == "accompaniment" and self.harmony == "new":
+            notes.append(
+                "Accompaniment only with a new harmony keeps neither the melody nor the chords: only the form, "
+                "the tempo and the instrumental line remain, and YuE2 tends to invent a melody (in the Phase 4A "
+                "study it sounded like gibberish singing). Keep the original chords or let an instrument play "
+                "the melody."
+            )
+        return notes
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["from_template"] = list(self.from_template)
+        data["notes"] = list(self.notes)
+        data.pop("series")
+        data["schema"] = BRIEF_SCHEMA
+        return data
+
+    @property
+    def fingerprint(self) -> str:
+        return _fingerprint(self.to_dict())
+
+    def to_text(self) -> str:
+        lines = ["Kind: cover of a recorded song (melody, form and tempo come from the source)"]
+        if self.description:
+            lines.append(f"Target style: {self.description}")
+        for label, value in (("Genre", self.genre), ("Mood", self.mood)):
+            if value:
+                lines.append(f"{label}: {value}")
+        if self.vocals == "original":
+            lines.append("Vocals: sung, with the original lyrics of the source")
+            lines.append(f"Language: {self.language or 'as the source (detected)'}")
+            if self.voice:
+                lines.append(f"Voice: {self.voice}")
+        elif self.vocals == "new":
+            lines.append("Vocals: sung, with new lyrics on the source's melody")
+            for label, value in (
+                ("Language", self.language),
+                ("Voice", self.voice),
+                ("Lyrics theme", self.theme),
+            ):
+                if value:
+                    lines.append(f"{label}: {value}")
+        else:
+            lines.append("Vocals: none (instrumental)")
+            lines.append(
+                "Melody: "
+                + (
+                    "an instrument plays the vocal melody"
+                    if self.melody == "lead"
+                    else "accompaniment only, no lead melody"
+                )
+            )
+            if self.lead_instrument:
+                lines.append(f"Lead instrument: {self.lead_instrument}")
+        lines.append(
+            "Harmony: "
+            + (
+                "new accompaniment (the original chords are not used)"
+                if self.harmony == "new"
+                else "original chords"
+            )
+        )
+        if self.title:
+            lines.append(f"Title: {self.title}")
+        if self.original_notes < ORIGINAL_NOTES_DEFAULT:
+            lines.append(
+                f"Original notes: {self.original_notes} - the score keeps about "
+                f"{round(kept_share(self.original_notes) * 100)} % of the source's notes; YuE2 interprets the rest"
+            )
+        return "\n".join(lines)
+
+
+def typed_value(values: Mapping[str, Any], name: str) -> tuple[str, bool]:
+    """The user's value of a text field and whether it was the legacy ``custom`` placeholder."""
+    value = str(values.get(name, "") or "").strip()
+    if value.lower() == LEGACY_PLACEHOLDER:
+        return "", True
+    return value, False
+
+
+def resolve_text_fields(
+    values: Mapping[str, Any],
+    template: Template | None,
+    names: tuple[str, ...],
+    *,
+    no_template: tuple[str, ...] = (),
+) -> tuple[dict[str, str], list[str], list[str]]:
+    """``(effective values, fields taken from the template, notes)`` by the precedence rule."""
+    merged: dict[str, str] = {}
+    from_template: list[str] = []
+    legacy: list[str] = []
+    for name in names:
+        value, was_placeholder = typed_value(values, name)
+        if was_placeholder:
+            legacy.append(name)
+        if not value and template is not None and template.fields.get(name) and name not in no_template:
+            value = template.fields[name]
+            from_template.append(name)
+        merged[name] = value
+    notes = [f"{', '.join(legacy)}: {LEGACY_NOTE}"] if legacy else []
+    return merged, from_template, notes
+
+
+def field_sources(
+    values: Mapping[str, Any], template: Template | None, names: tuple[str, ...] = TEXT_FIELDS
+) -> dict[str, str]:
+    """Where the effective value of every text field (``names``; a Song Brief's by default) comes from:
+    ``typed``, ``template`` or ``empty`` (the editor shows template values as ghost text in empty fields)."""
+    merged, from_template, _notes = resolve_text_fields(values, template, names)
+    return {
+        name: "template" if name in from_template else "typed" if merged[name] else "empty" for name in names
+    }
+
+
+def template_choice_hints(values: Mapping[str, Any], template: Template | None) -> dict[str, str]:
+    """Choice fields whose template value differs from the widget value (``use template choices``)."""
+    if template is None:
+        return {}
+    hints = {}
+    for name in ("length", "vocals", "melody"):
+        suggested = template.fields.get(name, "")
+        if suggested and str(values.get(name, "") or "").strip() != suggested:
+            hints[name] = suggested
+    return hints
+
+
+def cover_text_fields(vocals: str) -> tuple[str, ...]:
+    """The text fields a Cover Brief takes from a template, for its *vocals* choice (the language never:
+    the original's is detected, new lyrics have their own)."""
+    mode = COVER_VOCALS.get(vocals, vocals)
+    extra = {"instrumental": ("lead_instrument",), "original": ("voice",), "new": ("voice", "theme")}
+    return ("description", "genre", "mood", *extra.get(mode, ()))
+
+
+def cover_choice_hints(values: Mapping[str, Any], template: Template | None) -> dict[str, str]:
+    """The template's choices in a Cover Brief's words (``use template choices``).
+
+    A style template speaks of songs: *sung* or *instrumental*, a length. A cover has no length, and
+    *sung* means *original lyrics* or *new lyrics* - so a sung template only turns an instrumental
+    cover into one with the original lyrics, and the melody counts only for an instrumental cover.
+    """
+    if template is None:
+        return {}
+    hints: dict[str, str] = {}
+    current = str(values.get("vocals", "") or "").strip()
+    suggested = template.fields.get("vocals", "")
+    if suggested == "instrumental" and current != "instrumental":
+        hints["vocals"] = "instrumental"
+    elif suggested == "sung" and current == "instrumental":
+        hints["vocals"] = "original lyrics"
+    melody = template.fields.get("melody", "")
+    if (
+        hints.get("vocals", current) == "instrumental"
+        and melody in MELODY_OPTIONS
+        and str(values.get("melody", "") or "").strip() != melody
+    ):
+        hints["melody"] = melody
+    return hints
+
+
+COVER_TITLE_SUFFIX = "-cover"
+
+
+def source_cover_title(tag_title: str | None, file_stem: str) -> str:
+    """A cover's title by default (owner's request 2026-10-08, so a cover is easy to match with its source):
+    the source recording's title tag, else its file name, with ``-cover``."""
+    base = " ".join(str(tag_title or "").split()) or " ".join(file_stem.split())
+    if not base:
+        return ""
+    return base if base.lower().endswith(COVER_TITLE_SUFFIX) else base + COVER_TITLE_SUFFIX
+
+
+def build_cover_brief(
+    values: Mapping[str, Any],
+    template: Template | None = None,
+    *,
+    mode: str = "careful",
+    variation: int | None = None,
+) -> CoverBrief:
+    """Create a cover brief; the template fills only empty style fields. Invalid choices raise."""
+    merged, from_template, notes = resolve_text_fields(
+        values,
+        template,
+        ("description", "genre", "mood", "language", "voice", "theme", "lead_instrument"),
+        no_template=("language",),
+    )
+    vocals = COVER_VOCALS.get(str(values.get("vocals", "")), str(values.get("vocals", "") or "instrumental"))
+    if vocals not in COVER_VOCALS.values():
+        raise PlenioUserError(
+            f"Unknown cover vocal mode {vocals!r}.", hint=f"Choose one of {list(COVER_VOCALS)}."
+        )
+    harmony = HARMONY_OPTIONS.get(str(values.get("harmony", "")), str(values.get("harmony", "") or "new"))
+    if harmony not in HARMONY_OPTIONS.values():
+        raise PlenioUserError(
+            f"Unknown harmony option {harmony!r}.", hint=f"Choose one of {list(HARMONY_OPTIONS)}."
+        )
+    melody_value = str(values.get("melody", "") or "")
+    melody = MELODY_OPTIONS.get(melody_value, melody_value or "lead")
+    if melody not in MELODY_OPTIONS.values():
+        raise PlenioUserError(
+            f"Unknown melody option {melody_value!r}.", hint=f"Choose one of {list(MELODY_OPTIONS)}."
+        )
+    language = merged["language"]
+    if language.lower() == "auto":
+        language = ""
+    brief = CoverBrief(
+        description=merged["description"],
+        genre=merged["genre"],
+        mood=merged["mood"],
+        vocals=vocals,
+        language=language if vocals != "instrumental" else "",
+        voice=merged["voice"] if vocals != "instrumental" else "",
+        theme=merged["theme"] if vocals == "new" else "",
+        phrasing_reference=bool(values.get("phrasing_reference", False)) and vocals == "new",
+        melody=melody if vocals == "instrumental" else "lead",
+        lead_instrument=merged["lead_instrument"] if vocals == "instrumental" else "",
+        harmony=harmony,
+        title=str(values.get("title", "") or "").strip(),
+        arrangement=str(values.get("arrangement", "") or ARRANGEMENT_DEFAULT).strip(),
+        closeness=closeness_value(values.get("closeness")),
+        lines_under_singing=bool(values.get("lines_under_singing", False)),
+        creativity=creativity_value(values.get("creativity")),
+        fidelity=fidelity_level(values.get("fidelity")) if vocals != "instrumental" else STANDARD,
+        lyrics_closeness=(
+            closeness_value(values.get("lyrics_closeness"), LYRICS_CLOSENESS_DEFAULT)
+            if vocals == "new"
+            else 0
+        ),
+        original_notes=closeness_value(values.get("original_notes"), ORIGINAL_NOTES_DEFAULT),
+        template=template.id if template else "",
+        from_template=tuple(from_template),
+        notes=tuple(notes),
+        mode=resolve_mode(mode, COVER_MODES),
+        variation=variation if resolve_mode(mode, COVER_MODES) == "batch" else None,
+    )
+    if not (brief.description or brief.genre):
+        raise PlenioUserError(
+            "The cover brief has no target style.",
+            hint="Choose a template or describe the target style (at least a genre or a description).",
+        )
+    return brief
+
+
+@dataclass(frozen=True)
+class Template:
+    id: str
+    name: str
+    group: str
+    fields: Mapping[str, str]
+    source: str = "package"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "group": self.group,
+            "fields": dict(self.fields),
+            "source": self.source,
+        }
+
+
+def build_song_brief(
+    values: Mapping[str, Any],
+    template: Template | None = None,
+    *,
+    mode: str = "careful",
+    variation: int | None = None,
+) -> SongBrief:
+    """Create a brief; fields left empty take the template's value. Invalid choices raise."""
+    lyrics_from = str(values.get("lyrics_from", "") or LYRICS_IDEA)
+    own = LYRICS_FROM.get(lyrics_from, lyrics_from) == "own"
+    if LYRICS_FROM.get(lyrics_from, lyrics_from) not in LYRICS_FROM.values():
+        raise PlenioUserError(
+            f"Unknown lyrics choice {lyrics_from!r}.", hint=f"Choose one of {list(LYRICS_FROM)}."
+        )
+    # own lyrics are the user's: a template's idea never takes their place
+    merged, from_template, notes = resolve_text_fields(
+        values, template, TEMPLATE_FIELDS, no_template=("lyrics",) if own else ()
+    )
+    length, _note = resolve_length(merged["length"])
+    vocals = merged["vocals"] or "sung"
+    if vocals not in VOCALS:
+        raise PlenioUserError(f"Unknown vocal mode {vocals!r}.", hint=f"Choose one of {list(VOCALS)}.")
+    melody = MELODY_OPTIONS.get(merged["melody"], merged["melody"] or "lead")
+    if melody not in MELODY_OPTIONS.values():
+        raise PlenioUserError(
+            f"Unknown melody option {merged['melody']!r}.", hint=f"Choose one of {list(MELODY_OPTIONS)}."
+        )
+    sung = vocals != "instrumental"
+    if own and sung and not merged["lyrics"].strip():
+        raise PlenioUserError(
+            "The brief says 'my own lyrics', but the lyrics field is empty.",
+            hint="Write the lyrics into the field, or choose 'written from the idea below'.",
+        )
+    brief = SongBrief(
+        **{name: merged[name] for name in TEXT_FIELDS if name != "lyrics"},
+        lyrics=merged["lyrics"].strip() if sung else "",
+        own_lyrics=own and sung,
+        length=length,
+        vocals=vocals,
+        melody=melody,
+        arrangement=str(values.get("arrangement", "") or ARRANGEMENT_DEFAULT).strip(),
+        closeness=closeness_value(values.get("closeness")),
+        lines_under_singing=bool(values.get("lines_under_singing", False)),
+        creativity=creativity_value(values.get("creativity")),
+        fidelity=fidelity_level(values.get("fidelity")) if vocals != "instrumental" else STANDARD,
+        template=template.id if template else "",
+        from_template=tuple(from_template),
+        notes=tuple(notes),
+        mode=resolve_mode(mode),
+        variation=variation if resolve_mode(mode) == "batch" else None,
+    )
+    if not (brief.description or brief.genre):
+        raise PlenioUserError(
+            "The brief is empty.",
+            hint="Choose a template or describe the song (at least a genre or a description).",
+        )
+    return brief
+
+
+# --- template files ------------------------------------------------------------------------
+
+
+def parse_template(text: str, template_id: str, source: str = "package") -> Template:
+    match = _FRONT_MATTER.match(text.replace("\r\n", "\n"))
+    if match is None:
+        raise PlenioUserError(f"Template {template_id!r} has no front matter block (--- ... ---).")
+    fields: dict[str, str] = {}
+    name = template_id.rsplit("/", 1)[-1].replace("-", " ").capitalize()
+    group = (
+        template_id.split("/", 1)[0].replace("-", " ").capitalize() if "/" in template_id else "My templates"
+    )
+    for line in match.group(1).splitlines():
+        if not line.strip():
+            continue
+        key, sep, value = line.partition(":")
+        if not sep:
+            raise PlenioUserError(f"Template {template_id!r}: malformed front matter line {line!r}.")
+        key, value = key.strip().lower(), value.strip()
+        if key == "name":
+            name = value
+        elif key == "group":
+            group = value
+        elif key in TEMPLATE_FIELDS:
+            fields[key] = value
+        else:
+            raise PlenioUserError(
+                f"Template {template_id!r}: unknown field {key!r}.", hint=f"Known fields: {TEMPLATE_FIELDS}."
+            )
+    body = match.group(2).strip()
+    if body:
+        fields["description"] = body
+    if fields.get("length") and fields["length"] not in LENGTHS:
+        raise PlenioUserError(f"Template {template_id!r}: unknown length {fields['length']!r}.")
+    if fields.get("vocals") and fields["vocals"] not in VOCALS:
+        raise PlenioUserError(f"Template {template_id!r}: unknown vocal mode {fields['vocals']!r}.")
+    return Template(template_id, name, group, fields, source)
+
+
+def render_template(template: Template) -> str:
+    lines = ["---", f"name: {template.name}", f"group: {template.group}"]
+    lines += [f"{key}: {value}" for key, value in template.fields.items() if key != "description" and value]
+    lines += ["---", "", template.fields.get("description", "").strip(), ""]
+    return "\n".join(lines)
+
+
+class TemplateLibrary:
+    """Package templates (read-only) plus user templates (ComfyUI user directory)."""
+
+    def __init__(self, package_dir: Path, user_dir: Path | None = None):
+        self.package_dir = package_dir
+        self.user_dir = user_dir
+        self._templates: dict[str, Template] | None = None
+        self.problems: dict[str, str] = {}
+        """User template files that could not be read (id -> reason); they are skipped."""
+
+    def _load(self) -> dict[str, Template]:
+        templates: dict[str, Template] = {}
+        self.problems = {}
+        for folder, source in ((self.package_dir, "package"), (self.user_dir, "user")):
+            if folder is None or not folder.is_dir():
+                continue
+            for path in sorted(folder.rglob("*.md")):
+                if path.name.lower() == "readme.md":
+                    continue
+                relative = path.relative_to(folder).with_suffix("").as_posix()
+                template_id = relative if source == "package" else f"user/{relative}"
+                try:
+                    templates[template_id] = parse_template(
+                        path.read_text(encoding="utf-8"), template_id, source
+                    )
+                except (PlenioUserError, OSError, UnicodeDecodeError) as error:
+                    if source == "package":
+                        raise  # shipped templates are tested; a broken one is a packaging bug
+                    # A hand-edited user file must not stop Plenio from loading (the brief nodes list
+                    # the templates when ComfyUI registers them): skip it and say why.
+                    reason = str(error).splitlines()[0]
+                    self.problems[template_id] = reason
+                    log.warning("Plenio: skipped the user template %s: %s", path, reason)
+        return templates
+
+    def templates(self) -> dict[str, Template]:
+        if self._templates is None:
+            self._templates = self._load()
+        return self._templates
+
+    def reload(self) -> None:
+        self._templates = None
+
+    def ids(self) -> list[str]:
+        return sorted(self.templates(), key=lambda i: (self.templates()[i].group, self.templates()[i].name))
+
+    def get(self, template_id: str) -> Template:
+        try:
+            return self.templates()[template_id]
+        except KeyError as error:
+            raise PlenioUserError(
+                f"Unknown brief template {template_id!r}.",
+                hint="Choose 'none' or a template from the list (user templates appear after a refresh).",
+            ) from error
+
+    def listing(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": i,
+                "name": self.templates()[i].name,
+                "group": self.templates()[i].group,
+                "source": self.templates()[i].source,
+            }
+            for i in self.ids()
+        ]
+
+    def save_user_template(self, name: str, fields: Mapping[str, str]) -> Template:
+        if self.user_dir is None:
+            raise PlenioUserError("User templates need the ComfyUI user directory.")
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:60]
+        if not slug or not _ID.fullmatch(slug):
+            raise PlenioUserError(
+                f"Template name {name!r} gives no usable file name.", hint="Use letters or digits."
+            )
+        values: dict[str, str] = {}
+        for key, value in fields.items():
+            if key not in TEMPLATE_FIELDS:
+                continue
+            text = str(value).strip()
+            if key != "description":  # front matter holds one line per field
+                text = " ".join(text.split())
+            if text:
+                values[key] = text
+        template = Template(f"user/{slug}", " ".join(name.split()), "My templates", values, "user")
+        rendered = render_template(template)
+        parse_template(rendered, template.id, "user")  # refuse (before writing) what could not be read back
+        atomic_write_text(self.user_dir / f"{slug}.md", rendered)
+        self.reload()
+        return template
+
+
+def options(library: TemplateLibrary) -> list[str]:
+    return ["none", *library.ids()]

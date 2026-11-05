@@ -1,0 +1,18 @@
+# The copy of Plenio keeps Plenio's own line endings on every platform: its tests compare files
+# byte for byte, and SoundCraft's Windows checkouts would otherwise get CRLF (core.autocrlf).
+* text=auto eol=lf
+
+*.jpg binary
+*.png binary
+*.npz binary
+*.flac binary
+*.mp3 binary
+*.wav binary
+*.mp4 binary
+*.webp binary
+*.gif binary
+*.pdf binary
+*.gz binary
+
+*.bat text eol=crlf
+*.sh text eol=lf

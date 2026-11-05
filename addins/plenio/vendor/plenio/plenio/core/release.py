@@ -1,0 +1,865 @@
+"""Release export: file naming, encoding (FLAC, MP3, WAV via PyAV), tags and cover art, the release record
+and secret redaction.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import time
+import unicodedata
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from . import variables
+from .dependencies import require
+from .errors import PlenioUserError
+from .files import atomic_write_bytes
+from .hashing import canonical_json, sha256_text
+
+RECORD_SCHEMA = "plenio.record/1"
+RECORD_SUFFIX = ".plenio.json"
+_RESERVED = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+_INVALID = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_SECRET_KEY = re.compile(
+    # whole words of the key only: 'max_abc_tokens' and 'author' are settings, not secrets (AUD-07)
+    r"(?i)(?:^|[_\-.\s])(api[_-]?key|token|secret|password|passwd|authorization|auth|credentials?|cookie)(?:$|[_\-.\s])"
+)
+_SECRET_VALUE = re.compile(
+    r"\b(hf_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{30,}|ghp_[A-Za-z0-9]{30,})\b"
+)
+PATTERN_TOKENS = ("title", "date", "time", "seed")
+"""The pattern's first variables; since 1.0.0 every ``core.variables`` name works."""
+
+
+def safe_filename(name: str, fallback: str = "Untitled") -> str:
+    """A file-name-safe version of ``name`` that keeps Unicode letters (Windows rules applied everywhere)."""
+    text = unicodedata.normalize("NFC", name)
+    text = _INVALID.sub("", text)
+    text = re.sub(r"\s+", " ", text).strip().rstrip(". ")
+    if not text:
+        text = fallback
+    if text.split(".")[0].upper() in _RESERVED:
+        text = f"{text}_"
+    return text[:120].rstrip(". ") or fallback
+
+
+def expand_pattern(pattern: str, values: Mapping[str, str]) -> str:
+    """The file name pattern with its variables (``core.variables``: ``{title}``, ``{date}``, ``{genre}`` ...,
+    ``[optional {parts}]``); a name that is no variable is an error. A value's own slashes make no folders."""
+    unknown = variables.unknown_names(pattern)
+    if unknown:
+        raise PlenioUserError(variables.unknown_message("The file name pattern", unknown))
+    safe = {key: re.sub(r"[\\/\r\n\t]+", "-", str(value)).strip() for key, value in values.items()}
+    return variables.expand(pattern, safe)[0]
+
+
+def naming_values(title: str, seed: int | None, now: time.struct_time | None = None) -> dict[str, str]:
+    moment = now or time.localtime()
+    return {
+        "title": safe_filename(title),
+        "date": time.strftime("%Y-%m-%d", moment),
+        "year": time.strftime("%Y", moment),
+        "time": time.strftime("%H%M%S", moment),
+        "seed": "" if seed is None else str(seed),
+    }
+
+
+_NUMBERED = re.compile(r"^(.*\S) \((\d+)\)$")
+_TITLE_FIELD = re.compile(r'"title":\s*("(?:[^"\\]|\\.)*")')
+TITLE_HEAD_BYTES = 4096
+"""A record starts with its schema, its time and its title (``build_record``): this much of it holds the title."""
+
+
+def base_title(title: str) -> str:
+    """A title without the number a repeated title got (``Yesterday (2)`` -> ``Yesterday``)."""
+    match = _NUMBERED.match(title.strip())
+    return match.group(1) if match else title.strip()
+
+
+def numbered_title(title: str, taken: Iterable[str]) -> str:
+    """``title``, or ``title (2)``, ``title (3)`` ... - the first no song of ``taken`` has (case does not count),
+    as file names are numbered (owner's request 2026-10-22: covers of one song all had the same title)."""
+    return numbered_title_in(title, {t.strip().casefold() for t in taken})
+
+
+def numbered_title_in(title: str, used: set[str]) -> str:
+    """:func:`numbered_title` with the titles taken already folded (``t.strip().casefold()``) - for numbering many
+    titles in a row, where folding every title again for each made it quadratic (thousands of songs)."""
+    if title.strip().casefold() not in used:
+        return title
+    for number in range(2, 10000):
+        candidate = f"{title} ({number})"
+        if candidate.casefold() not in used:
+            return candidate
+    raise PlenioUserError(f"Too many songs titled {title!r}.")
+
+
+def release_titles(folder: Path, *, recursive: bool = True) -> set[str]:
+    """The titles of the release records in ``folder`` (and below it with ``recursive``), read from the start
+    of each record - a library of thousands of songs takes a fraction of a second."""
+    if not folder.is_dir():
+        return set()
+    found: set[str] = set()
+    paths = folder.rglob(f"*{RECORD_SUFFIX}") if recursive else folder.glob(f"*{RECORD_SUFFIX}")
+    for path in paths:
+        try:
+            with path.open("rb") as handle:
+                head = handle.read(TITLE_HEAD_BYTES).decode("utf-8", "ignore")
+            match = _TITLE_FIELD.search(head)
+            if match:
+                found.add(str(json.loads(match.group(1))))
+        except (OSError, ValueError):
+            continue
+    return found
+
+
+def plan_release(folder: Path, relative: str, suffixes: Sequence[str], *, collision: str = "number") -> Path:
+    """The base path (without extension) of a release whose files are ``base.name + suffix``.
+
+    All files of one export share one base name: with ``number`` the base gets `` (2)``, `` (3)``...
+    until *none* of its files exists, so no file of an earlier export - its record or cover
+    included - is overwritten and the files of one export never end up with different numbers
+    (audit AUD-04). ``overwrite`` replaces; ``error`` refuses when any of the files exists.
+    """
+    parts = [safe_filename(part) for part in re.split(r"[\\/]+", relative) if part.strip()]
+    if not parts:
+        raise PlenioUserError("The file name pattern produced an empty name.")
+    base = folder.joinpath(*parts)
+    if folder.resolve() not in base.resolve().parents:
+        raise PlenioUserError(f"The file name {relative!r} leaves the output folder.")
+
+    def taken(candidate: Path) -> list[Path]:
+        return [p for p in (candidate.with_name(candidate.name + s) for s in suffixes) if p.exists()]
+
+    if collision == "overwrite" or not taken(base):
+        return base
+    if collision == "error":
+        raise PlenioUserError(
+            f"{taken(base)[0].name} already exists.",
+            hint="Change the naming pattern or the collision policy.",
+        )
+    for number in range(2, 10000):
+        candidate = base.with_name(f"{parts[-1]} ({number})")
+        if not taken(candidate):
+            return candidate
+    raise PlenioUserError(f"Too many files named {parts[-1]!r}.")
+
+
+FORMATS: dict[str, dict[str, Any]] = {
+    "flac": {
+        "extension": ".flac",
+        "container": "flac",
+        "codec": "flac",
+        "sample_format": "s32",
+        "bits": 24,
+        "options": {},
+    },
+    "mp3": {
+        "extension": ".mp3",
+        "container": "mp3",
+        "codec": "libmp3lame",
+        "sample_format": "s32p",
+        "bits": None,
+        "options": {"flags": "+qscale", "global_quality": "0"},  # LAME VBR V0 (ffmpeg -q:a 0)
+        # ID3v2.3: Windows Explorer, Windows Media Player and many car radios and phones do not read
+        # ffmpeg's default ID3v2.4 (UTF-8) tags - neither the title nor the cover (0.2.2 owner report)
+        "container_options": {"id3v2_version": "3"},
+    },
+    "wav": {
+        "extension": ".wav",
+        "container": "wav",
+        "codec": "pcm_f32le",
+        "sample_format": "flt",
+        "bits": 32,
+        "options": {},
+    },
+}
+"""Export formats: FLAC 24-bit, MP3 VBR V0 (LAME), WAV 32-bit float. MP3 and 24-bit FLAC clip at full scale."""
+MP3_RATES = (8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000)
+"""The sample rates MPEG audio (LAME) can encode; other rates are converted for MP3 only (AUD-03)."""
+TAG_FIELDS = (
+    "title",
+    "artist",
+    "album",
+    "date",
+    "track",
+    "genre",
+    "comment",
+    "album_artist",
+    "composer",
+    "lyrics",
+)
+"""Generic tag names; the muxer maps them (FLAC: Vorbis comments, MP3: ID3v2 - ``lyrics`` as a USLT frame -,
+WAV: RIFF INFO, which has no lyrics)."""
+
+
+def _frames(data: Any, sample_format: str) -> Any:
+    import numpy as np
+
+    if sample_format == "flt":
+        return np.ascontiguousarray(data.T.reshape(1, -1).astype(np.float32))
+    # Full scale is 2**(bits-1), as in decoders, so a 24-bit source is written back sample-exact.
+    if sample_format == "s32":  # 24-bit samples in the upper bits of s32 (the FLAC encoder writes 24 bits)
+        ints = np.clip(np.round(data * 2**23), -(2**23), 2**23 - 1).astype(np.int32) << 8
+        return np.ascontiguousarray(ints.T.reshape(1, -1))
+    ints = np.clip(np.round(data * 2**31), -(2**31), 2**31 - 1).astype(np.int32)  # planar s32 for LAME
+    return np.ascontiguousarray(ints)
+
+
+def mp3_rate(sample_rate: int) -> int:
+    """The rate an MP3 of ``sample_rate`` audio is written at (the same rate when LAME supports it)."""
+    if sample_rate in MP3_RATES:
+        return sample_rate
+    if sample_rate > MP3_RATES[-1]:
+        return 44100 if sample_rate % 44100 == 0 else 48000
+    return next(rate for rate in MP3_RATES if rate >= sample_rate)
+
+
+def write_audio(
+    path: Path, samples: Any, sample_rate: int, kind: str = "flac", tags: Mapping[str, str] | None = None
+) -> dict[str, Any]:
+    """Encode ``samples`` (float ``[channels, frames]``, full scale 1.0) as ``kind`` with ``tags``; atomic.
+
+    MP3 at a rate LAME cannot encode (for example 96 kHz) is converted to the nearest MP3 rate first;
+    the facts say so.
+    """
+    av = require("av")
+    import numpy as np
+
+    if kind not in FORMATS:
+        raise PlenioUserError(f"Unknown export format {kind!r}; use one of {sorted(FORMATS)}.")
+    spec = FORMATS[kind]
+    data = np.asarray(samples, dtype=np.float64)
+    if data.ndim != 2 or data.shape[0] not in (1, 2) or data.shape[1] == 0:
+        raise PlenioUserError(
+            f"Expected mono or stereo audio as [channels, frames], got shape {tuple(data.shape)}."
+        )
+    if not np.all(np.isfinite(data)):
+        raise PlenioUserError(
+            "The audio contains NaN or infinite samples and cannot be exported.",
+            hint="The render or a processing step failed numerically; render the take again.",
+        )
+    source_rate = int(sample_rate)
+    if kind == "mp3" and mp3_rate(source_rate) != source_rate:
+        from .audio.resample import resample
+
+        sample_rate = mp3_rate(source_rate)
+        data = resample(data, source_rate, sample_rate)
+    peak = float(np.max(np.abs(data)))
+    clipped = int(np.count_nonzero(np.abs(data) > 1.0)) if kind != "wav" else 0
+    layout = "mono" if data.shape[0] == 1 else "stereo"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_name(path.name + ".part")
+    container = av.open(
+        str(partial), mode="w", format=spec["container"], options=dict(spec.get("container_options", {}))
+    )
+    completed = False
+    try:
+        for key, value in (tags or {}).items():
+            if key in TAG_FIELDS and str(value).strip():
+                container.metadata[key] = str(value).strip()
+        stream = container.add_stream(
+            spec["codec"], rate=sample_rate, layout=layout, options=dict(spec["options"])
+        )
+        stream.codec_context.format = spec["sample_format"]
+        block = 1 << 16
+        for start in range(0, data.shape[1], block):
+            chunk = _frames(data[:, start : start + block], spec["sample_format"])
+            frame = av.AudioFrame.from_ndarray(chunk, format=spec["sample_format"], layout=layout)
+            frame.sample_rate = sample_rate
+            frame.pts = start  # monotonic timestamps, one tick per sample
+            for packet in stream.encode(frame):
+                container.mux(packet)
+        for packet in stream.encode(None):
+            container.mux(packet)
+        completed = True
+    finally:
+        container.close()
+        if not completed:
+            partial.unlink(missing_ok=True)  # no half-written file is left behind
+    partial.replace(path)
+    facts: dict[str, Any] = {
+        "format": kind,
+        "bits": spec["bits"],
+        "sample_rate": sample_rate,
+        "channels": int(data.shape[0]),
+        "seconds": round(data.shape[1] / sample_rate, 3),
+        "peak": round(peak, 4),
+        "clipped_samples": clipped,
+    }
+    if sample_rate != source_rate:
+        facts["converted_from_rate"] = source_rate
+    return facts
+
+
+def read_tags(path: Path) -> tuple[dict[str, str], bytes | None]:
+    """Tags (generic names) and embedded cover image bytes of an audio file (PyAV; no extra package)."""
+    av = require("av")
+    tags: dict[str, str] = {}
+    cover: bytes | None = None
+    with av.open(str(path)) as container:
+        found = {
+            **dict(container.metadata),
+            **(dict(container.streams.audio[0].metadata) if container.streams.audio else {}),
+        }
+        lowered = {k.lower(): v for k, v in found.items()}
+        aliases = {
+            "album_artist": ("album_artist", "albumartist", "album artist"),
+            "track": ("track", "tracknumber"),
+        }
+        for field in TAG_FIELDS:
+            for key in aliases.get(field, (field,)):
+                if lowered.get(key):
+                    tags[field] = str(lowered[key])
+                    break
+        for stream in container.streams.video:
+            if stream.disposition & av.stream.Disposition.attached_pic:
+                for packet in container.demux(stream):
+                    if packet.size:
+                        cover = bytes(packet)
+                        break
+                break
+    return tags, cover
+
+
+def cover_jpeg(image: Any, size: int = 1400) -> bytes:
+    """A square JPEG (at most ``size`` pixels) of an RGB image array ``[height, width, 3]`` in 0..1."""
+    import io
+
+    import numpy as np
+
+    pil = require("PIL.Image")
+    data = np.clip(np.asarray(image, dtype=np.float32) * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    picture = pil.fromarray(data[..., :3])
+    side = min(picture.size)
+    left, top = (picture.width - side) // 2, (picture.height - side) // 2
+    picture = picture.crop((left, top, left + side, top + side))
+    if side > size:
+        picture = picture.resize((size, size), pil.Resampling.LANCZOS)
+    buffer = io.BytesIO()
+    picture.convert("RGB").save(buffer, format="JPEG", quality=92)
+    return buffer.getvalue()
+
+
+def embed_cover(path: Path, jpeg: bytes) -> bool:
+    """Embed ``jpeg`` as the front cover of a FLAC (PICTURE block) or MP3 (ID3v2 APIC frame); atomic.
+
+    Written by Plenio itself (no extra package). Returns False for formats without cover art (WAV).
+    """
+    if path.suffix.lower() == ".flac":
+        data = _flac_with_picture(path.read_bytes(), jpeg)
+    elif path.suffix.lower() == ".mp3":
+        data = _mp3_with_picture(path.read_bytes(), jpeg)
+    else:
+        return False
+    atomic_write_bytes(path, data)
+    return True
+
+
+def _jpeg_size(jpeg: bytes) -> tuple[int, int]:
+    """Width and height from the JPEG's start-of-frame marker (0, 0 when it has none)."""
+    index = 2
+    while index + 9 < len(jpeg):
+        if jpeg[index] != 0xFF:
+            index += 1
+            continue
+        marker = jpeg[index + 1]
+        length = int.from_bytes(jpeg[index + 2 : index + 4], "big")
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+            height = int.from_bytes(jpeg[index + 5 : index + 7], "big")
+            width = int.from_bytes(jpeg[index + 7 : index + 9], "big")
+            return width, height
+        index += 2 + length
+    return 0, 0
+
+
+def _flac_with_picture(flac: bytes, jpeg: bytes) -> bytes:
+    """The FLAC stream with its PICTURE blocks replaced by one front cover (FLAC format, METADATA_BLOCK_PICTURE)."""
+    if flac[:4] != b"fLaC":
+        raise PlenioUserError("Not a FLAC file: the cover cannot be embedded.")
+    blocks: list[tuple[int, bytes]] = []
+    index = 4
+    while True:
+        header = flac[index]
+        kind, length = header & 0x7F, int.from_bytes(flac[index + 1 : index + 4], "big")
+        if kind != 6:  # 6 = PICTURE: replaced below
+            blocks.append((kind, flac[index + 4 : index + 4 + length]))
+        index += 4 + length
+        if header & 0x80:
+            break
+    width, height = _jpeg_size(jpeg)
+    mime, description = b"image/jpeg", b"Cover"
+    picture = b"".join(
+        [
+            (3).to_bytes(4, "big"),  # front cover
+            len(mime).to_bytes(4, "big"),
+            mime,
+            len(description).to_bytes(4, "big"),
+            description,
+            width.to_bytes(4, "big"),
+            height.to_bytes(4, "big"),
+            (24).to_bytes(4, "big"),  # colour depth
+            (0).to_bytes(4, "big"),  # not an indexed-colour image
+            len(jpeg).to_bytes(4, "big"),
+            jpeg,
+        ]
+    )
+    if len(picture) >= 1 << 24:
+        raise PlenioUserError("The cover image is too large to embed (16 MB limit of a FLAC block).")
+    streaminfo, others = blocks[:1], blocks[1:]
+    return _flac_from_blocks([*streaminfo, (6, picture), *others], flac[index:])
+
+
+def _flac_from_blocks(blocks: Sequence[tuple[int, bytes]], frames: bytes) -> bytes:
+    """A FLAC stream of these metadata blocks (``(type, body)``, STREAMINFO first) and audio frames."""
+    out = [b"fLaC"]
+    for position, (kind, body) in enumerate(blocks):
+        last = 0x80 if position == len(blocks) - 1 else 0
+        out.append(bytes([last | kind]) + len(body).to_bytes(3, "big") + body)
+    out.append(frames)
+    return b"".join(out)
+
+
+def _flac_blocks(flac: bytes) -> tuple[list[tuple[int, bytes]], int]:
+    """The metadata blocks (``(type, body)``) of a FLAC stream and where its audio frames start."""
+    if flac[:4] != b"fLaC":
+        raise PlenioUserError("Not a FLAC file.")
+    blocks: list[tuple[int, bytes]] = []
+    index = 4
+    while True:
+        if index + 4 > len(flac):
+            raise PlenioUserError("The FLAC file ends inside its metadata.")
+        header = flac[index]
+        length = int.from_bytes(flac[index + 1 : index + 4], "big")
+        if index + 4 + length > len(flac):
+            raise PlenioUserError("The FLAC file ends inside its metadata.")
+        blocks.append((header & 0x7F, flac[index + 4 : index + 4 + length]))
+        index += 4 + length
+        if header & 0x80:
+            return blocks, index
+
+
+# --- the Plenio project inside a FLAC (GitHub issue #9) ----------------------------------------------------
+
+PROJECT_ID = b"PLNO"
+"""The application id of the FLAC APPLICATION block that holds a song's release record (a block type every FLAC
+reader skips; the id is not registered with Xiph - the registered ones are listed at xiph.org/flac/id.html, and
+``PLNO`` is none of them)."""
+PROJECT_SCHEMA = "plenio.project/1"
+"""The block's layout: the id, this schema name and a NUL, then the record as gzip-compressed UTF-8 JSON."""
+PROJECT_EMBEDDED = "embedded"
+"""``role``-like marker of a file entry whose FLAC carries the record: its ``bytes`` and ``sha256`` are those of
+the file without the project block (the record cannot hold the hash of the file it is written into)."""
+MAX_PROJECT_BYTES = 32 * 2**20
+"""The largest record a project block may unpack to (as large as a release record file may be)."""
+_APPLICATION = 2
+_PADDING = 1
+
+
+def _is_project(kind: int, body: bytes) -> bool:
+    return kind == _APPLICATION and body[:4] == PROJECT_ID
+
+
+def project_block(record: Mapping[str, Any]) -> bytes:
+    """The body of the APPLICATION block holding ``record`` (deterministic: the same record, the same bytes)."""
+    import gzip
+    import json
+
+    data = json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    body = (
+        PROJECT_ID + PROJECT_SCHEMA.encode("ascii") + b"\x00" + gzip.compress(data, compresslevel=9, mtime=0)
+    )
+    if len(body) >= 1 << 24:
+        raise PlenioUserError(
+            "The release record is too large to embed in the FLAC (16 MB limit of a FLAC block).",
+            hint="It is written next to the song as <name>.plenio.json all the same.",
+        )
+    return body
+
+
+def with_project(flac: bytes, record: Mapping[str, Any]) -> bytes:
+    """The FLAC stream with ``record`` in its project block (an earlier one replaced), placed before the first
+    padding block (at the end without one) - so removing it gives back exactly the stream without it."""
+    blocks, start = _flac_blocks(flac)
+    kept = [(kind, body) for kind, body in blocks if not _is_project(kind, body)]
+    at = next((i for i, (kind, _body) in enumerate(kept) if kind == _PADDING), len(kept))
+    project = (_APPLICATION, project_block(record))
+    return _flac_from_blocks([*kept[:at], project, *kept[at:]], flac[start:])
+
+
+def without_project(flac: bytes) -> bytes:
+    """The FLAC stream without its project block: the file whose ``bytes`` and ``sha256`` the record lists."""
+    blocks, start = _flac_blocks(flac)
+    if not any(_is_project(kind, body) for kind, body in blocks):
+        return flac
+    return _flac_from_blocks([(k, b) for k, b in blocks if not _is_project(k, b)], flac[start:])
+
+
+def embed_project(path: Path, record: Mapping[str, Any]) -> None:
+    """Write ``record`` into the FLAC at ``path`` (atomic)."""
+    atomic_write_bytes(path, with_project(path.read_bytes(), record))
+
+
+def _project_record(body: bytes, source: str) -> dict[str, Any]:
+    import json
+    import zlib
+
+    prefix = PROJECT_ID + PROJECT_SCHEMA.encode("ascii") + b"\x00"
+    if not body.startswith(prefix):
+        raise PlenioUserError(
+            f"{source} holds a Plenio project of an unknown layout.",
+            hint="A newer Plenio wrote it: update Plenio, or open the <name>.plenio.json next to the song.",
+        )
+    unpacker = zlib.decompressobj(16 + zlib.MAX_WBITS)  # gzip
+    try:
+        data = unpacker.decompress(body[len(prefix) :], MAX_PROJECT_BYTES + 1)
+        record = json.loads(data.decode("utf-8")) if len(data) <= MAX_PROJECT_BYTES else None
+    except (zlib.error, UnicodeDecodeError, ValueError) as error:
+        raise PlenioUserError(f"The Plenio project in {source} is damaged: {error}") from error
+    if not isinstance(record, dict) or record.get("schema") != RECORD_SCHEMA:
+        raise PlenioUserError(f"The Plenio project in {source} is no release record ({RECORD_SCHEMA}).")
+    return record
+
+
+def project_of(flac: bytes, source: str = "the FLAC file") -> dict[str, Any] | None:
+    """The release record a FLAC stream carries (``None``: none - exported before 0.8.0, or without it)."""
+    blocks, _start = _flac_blocks(flac)
+    body = next((body for kind, body in blocks if _is_project(kind, body)), None)
+    return None if body is None else _project_record(body, source)
+
+
+def read_project(path: Path) -> dict[str, Any] | None:
+    """The release record the FLAC file at ``path`` carries, reading its metadata only (not the audio)."""
+    with path.open("rb") as handle:
+        if handle.read(4) != b"fLaC":
+            raise PlenioUserError(f"{path.name} is not a FLAC file.")
+        while True:
+            header = handle.read(4)
+            if len(header) < 4:
+                raise PlenioUserError(f"{path.name} ends inside its metadata.")
+            length = int.from_bytes(header[1:4], "big")
+            if header[0] & 0x7F == _APPLICATION and length >= 4:
+                body = handle.read(length)
+                if _is_project(_APPLICATION, body):
+                    return _project_record(body, path.name)
+            else:
+                handle.seek(length, 1)
+            if header[0] & 0x80:
+                return None
+
+
+def audio_md5(flac: bytes) -> str | None:
+    """The MD5 of the decoded audio that the encoder wrote into STREAMINFO (hex; ``None`` when it wrote none): it
+    stays the same whatever metadata - tags, cover, project - the file carries."""
+    blocks, _start = _flac_blocks(flac)
+    if not blocks or blocks[0][0] != 0 or len(blocks[0][1]) < 34:
+        return None
+    digest = blocks[0][1][18:34]
+    return digest.hex() if any(digest) else None
+
+
+def _syncsafe(value: int) -> bytes:
+    return bytes([(value >> 21) & 0x7F, (value >> 14) & 0x7F, (value >> 7) & 0x7F, value & 0x7F])
+
+
+def _unsyncsafe(data: bytes) -> int:
+    return (data[0] << 21) | (data[1] << 14) | (data[2] << 7) | data[3]
+
+
+def _mp3_with_picture(mp3: bytes, jpeg: bytes) -> bytes:
+    """The MP3 with an ID3v2.3 tag whose APIC frames are replaced by one front cover.
+
+    ID3v2.3 because many players (Windows Explorer, Windows Media Player, car radios) read no 2.4 tags.
+    The frames of an existing 2.3 tag are kept as they are; those of a 2.4 tag (ffmpeg's default) are
+    converted (see :func:`_id3v24_frame_to_v23`). A tag with unsynchronisation or an extended header is
+    replaced by a tag with the cover only.
+    """
+    frames: list[bytes] = []
+    audio = mp3
+    if mp3[:3] == b"ID3" and mp3[3] in (3, 4) and not mp3[5] & 0xC0:
+        major = mp3[3]
+        size = _unsyncsafe(mp3[6:10])
+        tag, audio = mp3[10 : 10 + size], mp3[10 + size + (10 if mp3[5] & 0x10 else 0) :]
+        index = 0
+        while index + 10 <= len(tag) and tag[index] != 0:
+            frame_id = tag[index : index + 4]
+            length = (
+                _unsyncsafe(tag[index + 4 : index + 8])
+                if major == 4
+                else int.from_bytes(tag[index + 4 : index + 8], "big")
+            )
+            frame = tag[index : index + 10 + length]
+            index += 10 + length
+            if frame_id == b"APIC":
+                continue
+            converted = frame if major == 3 else _id3v24_frame_to_v23(frame)
+            if converted is not None and converted[:4] == b"TXXX":
+                converted = _comment_frame(converted)
+            if converted is not None:
+                frames.append(converted)
+    elif mp3[:3] == b"ID3":
+        size = _unsyncsafe(mp3[6:10])
+        audio = mp3[10 + size + (10 if mp3[5] & 0x10 else 0) :]
+    body = b"\x00image/jpeg\x00" + bytes([3]) + b"Cover\x00" + jpeg  # ISO-8859-1, front cover
+    frames.append(b"APIC" + len(body).to_bytes(4, "big") + b"\x00\x00" + body)
+    content = b"".join(frames)
+    return b"ID3" + bytes([3, 0, 0]) + _syncsafe(len(content)) + content + audio
+
+
+def _comment_frame(frame: bytes) -> bytes:
+    """ffmpeg writes the comment as ``TXXX:comment``, which players do not show; as a COMM frame they do."""
+    description, value = _split_encoded(frame[10], frame[11:])
+    if description.lower() != "comment":
+        return frame
+    encoded = _id3v23_pair("", value)
+    body = encoded[:1] + b"eng" + encoded[1:]
+    return b"COMM" + len(body).to_bytes(4, "big") + b"\x00\x00" + body
+
+
+def _id3_text(encoding: int, data: bytes) -> str:
+    codec = {0: "latin-1", 1: "utf-16", 2: "utf-16-be", 3: "utf-8"}.get(encoding, "latin-1")
+    return data.decode(codec, errors="replace").rstrip("\x00")
+
+
+def _id3v23_text(text: str) -> bytes:
+    """Encoding byte and text for ID3v2.3: ISO-8859-1 when it fits, otherwise UTF-16 with BOM."""
+    try:
+        return b"\x00" + text.encode("latin-1")
+    except UnicodeEncodeError:
+        return b"\x01" + text.encode("utf-16")
+
+
+def _id3v24_frame_to_v23(frame: bytes) -> bytes | None:
+    """A 2.4 frame as a 2.3 frame: text in 2.3 encodings (no UTF-8), several values joined with ``/``,
+    TDRC as TYER, comments and lyrics (COMM, USLT) kept. Frames with 2.4-only format flags, or of a kind this
+    does not convert, are dropped."""
+    frame_id, flags, data = frame[:4], frame[8:10], frame[10:]
+    if flags[1] or not data:  # compression, encryption, unsynchronisation, data length indicator
+        return None
+    body: bytes | None = None
+    if frame_id == b"TXXX":
+        description, value = _split_encoded(data[0], data[1:])
+        body = _id3v23_pair(description, value)
+    elif frame_id in (b"COMM", b"USLT") and len(data) >= 4:  # the same layout: language, description, text
+        description, value = _split_encoded(data[0], data[4:])
+        encoded = _id3v23_pair(description, value)
+        body = encoded[:1] + data[1:4] + encoded[1:]
+    elif frame_id[:1] == b"T":
+        text = "/".join(v for v in _id3_text(data[0], data[1:]).split("\x00") if v)
+        if frame_id == b"TDRC":
+            frame_id, text = b"TYER", text[:4]
+        elif frame_id not in _ID3V23_TEXT_FRAMES:
+            return None
+        body = _id3v23_text(text)
+    if body is None:
+        return None
+    return frame_id + len(body).to_bytes(4, "big") + b"\x00\x00" + body
+
+
+_ID3V23_TEXT_FRAMES = {
+    b"TALB", b"TBPM", b"TCOM", b"TCON", b"TCOP", b"TENC", b"TEXT", b"TIT1", b"TIT2", b"TIT3", b"TKEY",
+    b"TLAN", b"TLEN", b"TPE1", b"TPE2", b"TPE3", b"TPE4", b"TPOS", b"TPUB", b"TRCK", b"TSRC", b"TSSE",
+}  # fmt: skip
+
+
+def _split_encoded(encoding: int, data: bytes) -> tuple[str, str]:
+    """``description`` and ``value`` of a TXXX/COMM body (the terminator depends on the encoding)."""
+    wide = encoding in (1, 2)
+    index = data.find(b"\x00\x00" if wide else b"\x00")
+    while wide and index > 0 and index % 2:
+        index = data.find(b"\x00\x00", index + 1)
+    if index < 0:
+        return _id3_text(encoding, data), ""
+    return _id3_text(encoding, data[:index]), _id3_text(encoding, data[index + (2 if wide else 1) :])
+
+
+def _id3v23_pair(description: str, value: str) -> bytes:
+    """Encoding byte, terminated description and value in one 2.3 encoding."""
+    try:
+        return b"\x00" + description.encode("latin-1") + b"\x00" + value.encode("latin-1")
+    except UnicodeEncodeError:
+        return b"\x01" + description.encode("utf-16") + b"\x00\x00" + value.encode("utf-16")
+
+
+STEMS_SUFFIX = "-stems"
+"""The folder next to a song that holds its stems marked *save* (``<name>-stems``)."""
+
+
+def feeds(prompt: Any, node_id: Any, output: int, class_type: str) -> bool:
+    """Whether output ``output`` of node ``node_id`` goes into a node of ``class_type`` in the executed
+    ``prompt`` (ComfyUI's API form: an input linked to it is ``[node_id, output]``)."""
+    if not isinstance(prompt, Mapping) or node_id is None:
+        return False
+    for node in prompt.values():
+        if not isinstance(node, Mapping) or node.get("class_type") != class_type:
+            continue
+        for value in (node.get("inputs") or {}).values():
+            if isinstance(value, list | tuple) and len(value) == 2 and str(value[0]) == str(node_id):
+                if value[1] == output:
+                    return True
+    return False
+
+
+def file_facts(path: Path) -> dict[str, Any]:
+    import hashlib
+
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {"name": path.name, "bytes": path.stat().st_size, "sha256": digest}
+
+
+def redact(value: Any) -> Any:
+    """Copy of ``value`` with secret-like keys and token-like strings replaced by ``<redacted>``."""
+    if isinstance(value, Mapping):
+        return {
+            k: (
+                "<redacted>"
+                if isinstance(k, str) and isinstance(v, str) and v and _SECRET_KEY.search(k)
+                else redact(v)
+            )
+            for k, v in value.items()
+        }
+    if isinstance(value, list | tuple):
+        return [redact(item) for item in value]
+    if isinstance(value, str):
+        return _SECRET_VALUE.sub("<redacted>", value)
+    return value
+
+
+def secret_inputs(prompt: Mapping[str, Any]) -> set[str]:
+    """The values of the prompt's inputs that :func:`redact` hides by their name (an API key in a node's
+    input): a copy of the workflow hides them too, where its widget values have no names."""
+    return {
+        value
+        for node in prompt.values()
+        if isinstance(node, Mapping) and isinstance(node.get("inputs"), Mapping)
+        for name, value in node["inputs"].items()
+        if isinstance(name, str) and isinstance(value, str) and value and _SECRET_KEY.search(name)
+    }
+
+
+MODEL_LICENCES = {
+    "sheetsage2_bf16.safetensors": "CC BY-NC 4.0 (SheetSage2, Comfy-Org/YuE2 repackaging): non-commercial use only",
+    "ar_lora_inst_v3abc_comfyui.safetensors": "CC BY-NC 4.0 (YuE2 instrumental adapter): non-commercial use only",
+}
+"""Model files whose licence restricts the use of the result, by file name (model cards, 2026-09-25)."""
+
+
+def workflow_licences(prompt: Mapping[str, Any] | None) -> set[str]:
+    """Licences of the known model files the prompt references (loaders' file-name inputs)."""
+    found: set[str] = set()
+    for node in (prompt or {}).values():
+        inputs = node.get("inputs", {}) if isinstance(node, Mapping) else {}
+        for value in inputs.values() if isinstance(inputs, Mapping) else ():
+            if isinstance(value, str):
+                licence = MODEL_LICENCES.get(value.replace("\\", "/").rsplit("/", 1)[-1].lower())
+                if licence:
+                    found.add(licence)
+    return found
+
+
+PROMPT_NODE_KEYS = ("class_type", "inputs", "_meta")
+"""What a release record keeps of each prompt node. ComfyUI also writes run-time fields into the
+prompt (``is_changed`` fingerprints - NaN for native loop nodes - and loop bookkeeping)."""
+
+
+def prompt_for_record(prompt: Mapping[str, Any]) -> dict[str, Any]:
+    """The API prompt as submitted: per node only its class, inputs and title; secrets redacted."""
+    nodes = {
+        str(node_id): {key: node[key] for key in PROMPT_NODE_KEYS if key in node}
+        for node_id, node in prompt.items()
+        if isinstance(node, Mapping)
+    }
+    return dict(redact(nodes))
+
+
+@dataclass(frozen=True)
+class RecordInput:
+    versions: Mapping[str, str]
+    prompt: Mapping[str, Any] | None
+    reports: Sequence[Mapping[str, Any]]
+    files: Sequence[Mapping[str, Any]]
+    audio: Mapping[str, Any]
+    title: str
+    licences: Sequence[str]
+    sheet_music: Mapping[str, Any] | None = field(default=None)
+    """The sheet music PDF the export asked for (``file``, ``paper``, ``size``, ``status``); ``None``: none."""
+    workflow: Mapping[str, Any] | None = field(default=None)
+    """The workflow the run was queued with, secrets redacted (``continuation.workflow_for_record``): opening
+    the record restores it exactly. ``None``: queued without one (the API)."""
+    timing: Sequence[Mapping[str, Any]] | None = field(default=None)
+    """Per take, when each lyrics line and syllable is sung (``subtitles.Subtitles.to_timing``) - the Plenio
+    Player shows the lyrics and the notation in time with it. ``None``: no subtitles were made."""
+    subtitles: Mapping[str, Any] | None = field(default=None)
+    """Whether lyrics subtitles were asked for (``wanted``), for how many takes they were made (``takes``) and
+    why not for the others (``why``) - the Plenio Player tells a song without times by it (since 1.1.0)."""
+    quality: Mapping[str, Any] | None = field(default=None)
+    """How well it came out, measured (since 1.4.0, ``plenio.core.quality``): the stars and every measure - a hint
+    where to listen first, never the verdict. Like ``made``, not part of the fingerprint."""
+    made: Mapping[str, Any] | None = field(default=None)
+    """How the song was made (since 1.4.0): when its run began and ended (``started``, ``finished``), how long it
+    took (``seconds``), on what (``on``: the graphics card and its memory or the processor, the RAM) and the lyrics
+    fidelity (``lyrics_fidelity``). Like ``created``, not part of the fingerprint."""
+
+
+def record_fingerprint(record: Mapping[str, Any]) -> str:
+    """The record's content hash: everything but when and on what it was made, how well it came out (measured
+    after it was made) and the fingerprint itself."""
+    return sha256_text(
+        canonical_json(
+            {k: v for k, v in record.items() if k not in ("created", "made", "quality", "fingerprint")}
+        )
+    )
+
+
+def with_sheet_music(record: Mapping[str, Any], facts: Mapping[str, Any]) -> dict[str, Any]:
+    """``record`` once its sheet music PDF is written: the file listed (role ``sheet_music``), the status
+    ``saved``, the fingerprint computed again."""
+    updated = dict(record)
+    updated["files"] = [*record.get("files", []), {**facts, "role": "sheet_music"}]
+    updated["sheet_music"] = {**dict(record.get("sheet_music") or {}), "status": "saved"}
+    updated["fingerprint"] = record_fingerprint(updated)
+    return updated
+
+
+def build_record(data: RecordInput) -> dict[str, Any]:
+    """The release record: everything needed to know how the audio was made."""
+    documents: dict[str, Any] = {}
+    for report in data.reports:
+        for kind, doc in (report.get("data", {}).get("documents") or {}).items():
+            documents[kind] = doc
+    record = {
+        "schema": RECORD_SCHEMA,
+        "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "title": data.title,
+        "versions": dict(data.versions),
+        "documents": documents,
+        "reports": [dict(r) for r in data.reports],
+        "audio": dict(data.audio),
+        "files": [dict(f) for f in data.files],
+        "licences": list(data.licences),
+        "prompt": prompt_for_record(data.prompt) if data.prompt else None,
+    }
+    if data.sheet_music is not None:
+        record["sheet_music"] = dict(data.sheet_music)
+    if data.workflow is not None:
+        record["workflow"] = dict(data.workflow)
+    if data.timing:
+        record["timing"] = [dict(t) for t in data.timing]
+    if data.subtitles is not None:
+        record["subtitles"] = dict(data.subtitles)
+    if data.made is not None:
+        record["made"] = dict(data.made)
+    if data.quality is not None:
+        record["quality"] = dict(data.quality)
+    record["fingerprint"] = record_fingerprint(record)
+    return record

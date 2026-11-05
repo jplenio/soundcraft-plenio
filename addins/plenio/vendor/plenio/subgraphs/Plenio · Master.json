@@ -1,0 +1,1415 @@
+{
+ "revision": 0,
+ "last_node_id": 1,
+ "last_link_id": 0,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "259b88ba-7c57-57fb-b73e-58f691fe4b56",
+   "pos": [
+    0,
+    0
+   ],
+   "size": [
+    340,
+    200
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "AUDIO",
+     "link": null
+    },
+    {
+     "localized_name": "reference",
+     "name": "reference",
+     "type": "AUDIO",
+     "link": null
+    },
+    {
+     "localized_name": "brief",
+     "name": "brief",
+     "type": "PLENIO_BRIEF",
+     "link": null
+    },
+    {
+     "localized_name": "hq_mastering",
+     "name": "hq_mastering",
+     "label": "HQ mastering",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "hq_mastering"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "stems",
+     "name": "stems",
+     "label": "stems",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "stems"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "sample_rate",
+     "name": "sample_rate",
+     "label": "sample rate",
+     "type": "COMBO",
+     "widget": {
+      "name": "sample_rate"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "audio",
+     "name": "audio",
+     "type": "AUDIO",
+     "links": null
+    },
+    {
+     "localized_name": "eq_report",
+     "name": "eq_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    },
+    {
+     "localized_name": "loudness_report",
+     "name": "loudness_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    },
+    {
+     "localized_name": "hq1_report",
+     "name": "hq1_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    },
+    {
+     "localized_name": "hq2_report",
+     "name": "hq2_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    },
+    {
+     "localized_name": "hq3_report",
+     "name": "hq3_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    },
+    {
+     "localized_name": "stems_report",
+     "name": "stems_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    },
+    {
+     "localized_name": "separation_report",
+     "name": "separation_report",
+     "type": "PLENIO_REPORT",
+     "links": null
+    }
+   ],
+   "title": "Plenio · Master",
+   "properties": {},
+   "widgets_values": [
+    false,
+    false,
+    "keep"
+   ]
+  }
+ ],
+ "links": [],
+ "version": 0.4,
+ "definitions": {
+  "subgraphs": [
+   {
+    "id": "259b88ba-7c57-57fb-b73e-58f691fe4b56",
+    "version": 1,
+    "state": {
+     "lastGroupId": 3,
+     "lastNodeId": 412,
+     "lastLinkId": 30,
+     "lastRerouteId": 0
+    },
+    "revision": 0,
+    "config": {},
+    "name": "Plenio · Master",
+    "inputNode": {
+     "id": -10,
+     "bounding": [
+      -1640,
+      0,
+      160,
+      160
+     ]
+    },
+    "outputNode": {
+     "id": -20,
+     "bounding": [
+      2640,
+      0,
+      160,
+      200
+     ]
+    },
+    "inputs": [
+     {
+      "id": "98a543fe-8ef2-5ed3-a678-bb71d7736c3d",
+      "name": "audio",
+      "type": "AUDIO",
+      "linkIds": [
+       12,
+       13
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "0715369d-ac39-5742-a605-e1944702949c",
+      "name": "reference",
+      "type": "AUDIO",
+      "linkIds": [
+       14
+      ],
+      "pos": [
+       0,
+       20
+      ]
+     },
+     {
+      "id": "a94adff5-d05d-519d-b6e7-0f5cde93f0bb",
+      "name": "brief",
+      "type": "PLENIO_BRIEF",
+      "linkIds": [
+       15,
+       16,
+       17
+      ],
+      "pos": [
+       0,
+       40
+      ]
+     },
+     {
+      "id": "0ef66cfd-0a79-55dd-92a9-860a09161767",
+      "name": "hq_mastering",
+      "type": "BOOLEAN",
+      "linkIds": [
+       18
+      ],
+      "pos": [
+       0,
+       60
+      ],
+      "label": "HQ mastering"
+     },
+     {
+      "id": "5cf1bebc-4a70-5897-9bd7-c68f7d1e86b1",
+      "name": "stems",
+      "type": "BOOLEAN",
+      "linkIds": [
+       19,
+       20,
+       21
+      ],
+      "pos": [
+       0,
+       80
+      ],
+      "label": "stems"
+     },
+     {
+      "id": "88af35db-67c6-5f32-9faa-8c9c73452a51",
+      "name": "sample_rate",
+      "type": "COMBO",
+      "linkIds": [
+       22
+      ],
+      "pos": [
+       0,
+       100
+      ],
+      "label": "sample rate"
+     }
+    ],
+    "outputs": [
+     {
+      "id": "01a8890f-1800-5079-aa9e-ea10de89d3fa",
+      "name": "audio",
+      "type": "AUDIO",
+      "linkIds": [
+       23
+      ],
+      "pos": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "3d87958a-7bb6-5f60-ae3b-c8f5ef1eb5b9",
+      "name": "eq_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       24
+      ],
+      "pos": [
+       0,
+       20
+      ]
+     },
+     {
+      "id": "3ffa6f92-b084-5e12-8c53-356459d04231",
+      "name": "loudness_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       25
+      ],
+      "pos": [
+       0,
+       40
+      ]
+     },
+     {
+      "id": "cd2d0fd6-e902-5c58-b133-b742aeae2651",
+      "name": "hq1_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       26
+      ],
+      "pos": [
+       0,
+       60
+      ]
+     },
+     {
+      "id": "04ea7f1a-b280-5a07-848a-58345377917d",
+      "name": "hq2_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       27
+      ],
+      "pos": [
+       0,
+       80
+      ]
+     },
+     {
+      "id": "c7235b14-c893-5cc2-88af-c70fef3a24fd",
+      "name": "hq3_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       28
+      ],
+      "pos": [
+       0,
+       100
+      ]
+     },
+     {
+      "id": "d4b8b8a2-e5e0-5ee2-a131-278122cc8e6f",
+      "name": "stems_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       29
+      ],
+      "pos": [
+       0,
+       120
+      ]
+     },
+     {
+      "id": "8e12e141-7607-5a50-b6ac-98415b460fa0",
+      "name": "separation_report",
+      "type": "PLENIO_REPORT",
+      "linkIds": [
+       30
+      ],
+      "pos": [
+       0,
+       140
+      ]
+     }
+    ],
+    "widgets": [],
+    "nodes": [
+     {
+      "id": 401,
+      "type": "PlenioHQStereoCleanup",
+      "pos": [
+       0,
+       0
+      ],
+      "size": [
+       380,
+       220
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "link": 6
+       },
+       {
+        "localized_name": "brief",
+        "name": "brief",
+        "shape": 7,
+        "type": "PLENIO_BRIEF",
+        "link": 15
+       },
+       {
+        "localized_name": "preset",
+        "name": "preset",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "preset"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "links": [
+         8
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         26
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "PlenioHQStereoCleanup"
+      },
+      "widgets_values": [
+       "auto - from the song's genre"
+      ]
+     },
+     {
+      "id": 402,
+      "type": "PlenioAudioModelLoader",
+      "pos": [
+       440,
+       0
+      ],
+      "size": [
+       340,
+       110
+      ],
+      "flags": {
+       "collapsed": true
+      },
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "kind",
+        "name": "kind",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "kind"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "kind.model",
+        "name": "kind.model",
+        "type": "COMBO",
+        "widget": {
+         "name": "kind.model"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "PLENIO_AUDIO_MODEL",
+        "links": [
+         7
+        ]
+       }
+      ],
+      "title": "Super-resolution model (HQ mastering)",
+      "properties": {
+       "Node name for S&R": "PlenioAudioModelLoader",
+       "models": [
+        {
+         "name": "pytorch_model.bin",
+         "url": "https://huggingface.co/woongzip1/universr-audio/resolve/main/pytorch_model.bin",
+         "directory": "audio_sr"
+        }
+       ]
+      },
+      "widgets_values": [
+       "super-resolution",
+       "pytorch_model.bin"
+      ]
+     },
+     {
+      "id": 403,
+      "type": "PlenioHQRegenerateHighs",
+      "pos": [
+       440,
+       80
+      ],
+      "size": [
+       380,
+       300
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "link": 8
+       },
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "PLENIO_AUDIO_MODEL",
+        "link": 7
+       },
+       {
+        "localized_name": "brief",
+        "name": "brief",
+        "shape": 7,
+        "type": "PLENIO_BRIEF",
+        "link": 16
+       },
+       {
+        "localized_name": "preset",
+        "name": "preset",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "preset"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "hq_mastering",
+        "name": "hq_mastering",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "hq_mastering"
+        },
+        "link": 18
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "model_steps",
+        "name": "model_steps",
+        "type": "INT",
+        "widget": {
+         "name": "model_steps"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "links": [
+         9
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         27
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "PlenioHQRegenerateHighs"
+      },
+      "widgets_values": [
+       "auto - from the song's genre",
+       true,
+       0,
+       "fixed",
+       4
+      ]
+     },
+     {
+      "id": 404,
+      "type": "PlenioHQDeReverb",
+      "pos": [
+       880,
+       0
+      ],
+      "size": [
+       380,
+       220
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 4,
+      "inputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "link": 9
+       },
+       {
+        "localized_name": "brief",
+        "name": "brief",
+        "shape": 7,
+        "type": "PLENIO_BRIEF",
+        "link": 17
+       },
+       {
+        "localized_name": "preset",
+        "name": "preset",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "preset"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "links": [
+         10
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         28
+        ]
+       }
+      ],
+      "title": "HQ 3 · De-Reverb (optional)",
+      "properties": {
+       "Node name for S&R": "PlenioHQDeReverb"
+      },
+      "widgets_values": [
+       "auto - from the song's genre"
+      ]
+     },
+     {
+      "id": 405,
+      "type": "PlenioEQ",
+      "pos": [
+       1360,
+       0
+      ],
+      "size": [
+       760,
+       660
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "link": 10
+       },
+       {
+        "localized_name": "reference",
+        "name": "reference",
+        "shape": 7,
+        "type": "AUDIO",
+        "link": 14
+       },
+       {
+        "localized_name": "mode",
+        "name": "mode",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "mode"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "mode.preset",
+        "name": "mode.preset",
+        "type": "COMBO",
+        "widget": {
+         "name": "mode.preset"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "links": [
+         11
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         24
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "PlenioEQ"
+      },
+      "widgets_values": [
+       "match preset",
+       "Warm - gentle (workflow default)"
+      ]
+     },
+     {
+      "id": 406,
+      "type": "PlenioLoudness",
+      "pos": [
+       2180,
+       0
+      ],
+      "size": [
+       360,
+       220
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "link": 11
+       },
+       {
+        "localized_name": "target",
+        "name": "target",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "target"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "compression",
+        "name": "compression",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "compression"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "sample_rate",
+        "name": "sample_rate",
+        "type": "COMBO",
+        "widget": {
+         "name": "sample_rate"
+        },
+        "link": 22
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "links": [
+         23
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         25
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "PlenioLoudness"
+      },
+      "widgets_values": [
+       "streaming (-14 LUFS, -1 dBTP)",
+       "Balanced - gentle glue",
+       "keep"
+      ]
+     },
+     {
+      "id": 407,
+      "type": "PlenioAudioModelLoader",
+      "pos": [
+       -1380,
+       0
+      ],
+      "size": [
+       340,
+       130
+      ],
+      "flags": {
+       "collapsed": true
+      },
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "kind",
+        "name": "kind",
+        "type": "COMFY_DYNAMICCOMBO_V3",
+        "widget": {
+         "name": "kind"
+        },
+        "link": null
+       },
+       {
+        "localized_name": "kind.model",
+        "name": "kind.model",
+        "type": "COMBO",
+        "widget": {
+         "name": "kind.model"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "PLENIO_AUDIO_MODEL",
+        "links": [
+         1
+        ]
+       }
+      ],
+      "title": "Separation model (stems)",
+      "properties": {
+       "Node name for S&R": "PlenioAudioModelLoader",
+       "models": [
+        {
+         "name": "model_bs_roformer_ep_17_sdr_9.6568.ckpt",
+         "url": "https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/download/v1.0.12/model_bs_roformer_ep_17_sdr_9.6568.ckpt",
+         "directory": "audio_separation"
+        }
+       ]
+      },
+      "widgets_values": [
+       "separation",
+       "model_bs_roformer_ep_17_sdr_9.6568.ckpt"
+      ]
+     },
+     {
+      "id": 408,
+      "type": "PlenioSeparateStems",
+      "pos": [
+       -1380,
+       80
+      ],
+      "size": [
+       340,
+       170
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "link": 12
+       },
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "PLENIO_AUDIO_MODEL",
+        "link": 1
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "stems",
+        "name": "stems",
+        "type": "PLENIO_STEMS",
+        "links": [
+         2
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         5
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "PlenioSeparateStems"
+      },
+      "widgets_values": []
+     },
+     {
+      "id": 409,
+      "type": "PlenioStemMixer",
+      "pos": [
+       -980,
+       0
+      ],
+      "size": [
+       420,
+       640
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "stems",
+        "name": "stems",
+        "type": "PLENIO_STEMS",
+        "link": 2
+       },
+       {
+        "localized_name": "mix",
+        "name": "mix",
+        "label": "mixer",
+        "type": "STRING",
+        "widget": {
+         "name": "mix"
+        },
+        "link": null
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "audio",
+        "name": "audio",
+        "type": "AUDIO",
+        "links": [
+         3
+        ]
+       },
+       {
+        "localized_name": "report",
+        "name": "report",
+        "type": "PLENIO_REPORT",
+        "links": [
+         4
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "PlenioStemMixer"
+      },
+      "widgets_values": [
+       ""
+      ]
+     },
+     {
+      "id": 410,
+      "type": "ComfySwitchNode",
+      "pos": [
+       -480,
+       0
+      ],
+      "size": [
+       300,
+       90
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": 13
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": 3
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 19
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "COMFY_MATCHTYPE_V3",
+        "links": [
+         6
+        ]
+       }
+      ],
+      "title": "Stems on: the mix · off: the song",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode"
+      },
+      "widgets_values": [
+       null
+      ]
+     },
+     {
+      "id": 411,
+      "type": "ComfySwitchNode",
+      "pos": [
+       -480,
+       170
+      ],
+      "size": [
+       300,
+       90
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": null
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": 4
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 20
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "COMFY_MATCHTYPE_V3",
+        "links": [
+         29
+        ]
+       }
+      ],
+      "title": "Stems on: the mix report",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode"
+      },
+      "widgets_values": [
+       null
+      ]
+     },
+     {
+      "id": 412,
+      "type": "ComfySwitchNode",
+      "pos": [
+       -480,
+       340
+      ],
+      "size": [
+       300,
+       90
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "on_false",
+        "name": "on_false",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": null
+       },
+       {
+        "localized_name": "on_true",
+        "name": "on_true",
+        "shape": 7,
+        "type": "COMFY_MATCHTYPE_V3",
+        "link": 5
+       },
+       {
+        "localized_name": "switch",
+        "name": "switch",
+        "type": "BOOLEAN",
+        "widget": {
+         "name": "switch"
+        },
+        "link": 21
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "COMFY_MATCHTYPE_V3",
+        "links": [
+         30
+        ]
+       }
+      ],
+      "title": "Stems on: the separation report",
+      "properties": {
+       "Node name for S&R": "ComfySwitchNode"
+      },
+      "widgets_values": [
+       null
+      ]
+     }
+    ],
+    "groups": [
+     {
+      "id": 1,
+      "title": "AUDIO HQ (before the EQ)",
+      "bounding": [
+       -30,
+       -110,
+       1320,
+       800
+      ],
+      "color": "#3f789e",
+      "font_size": 32,
+      "flags": {}
+     },
+     {
+      "id": 2,
+      "title": "MASTER",
+      "bounding": [
+       1330,
+       -110,
+       1240,
+       800
+      ],
+      "color": "#3f789e",
+      "font_size": 32,
+      "flags": {}
+     },
+     {
+      "id": 3,
+      "title": "STEMS (the block's stems switch, off)",
+      "bounding": [
+       -1410,
+       -110,
+       1260,
+       800
+      ],
+      "color": "#555",
+      "font_size": 32,
+      "flags": {}
+     }
+    ],
+    "links": [
+     {
+      "id": 1,
+      "origin_id": 407,
+      "origin_slot": 0,
+      "target_id": 408,
+      "target_slot": 1,
+      "type": "PLENIO_AUDIO_MODEL"
+     },
+     {
+      "id": 2,
+      "origin_id": 408,
+      "origin_slot": 0,
+      "target_id": 409,
+      "target_slot": 0,
+      "type": "PLENIO_STEMS"
+     },
+     {
+      "id": 3,
+      "origin_id": 409,
+      "origin_slot": 0,
+      "target_id": 410,
+      "target_slot": 1,
+      "type": "AUDIO"
+     },
+     {
+      "id": 4,
+      "origin_id": 409,
+      "origin_slot": 1,
+      "target_id": 411,
+      "target_slot": 1,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 5,
+      "origin_id": 408,
+      "origin_slot": 1,
+      "target_id": 412,
+      "target_slot": 1,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 6,
+      "origin_id": 410,
+      "origin_slot": 0,
+      "target_id": 401,
+      "target_slot": 0,
+      "type": "COMFY_MATCHTYPE_V3"
+     },
+     {
+      "id": 7,
+      "origin_id": 402,
+      "origin_slot": 0,
+      "target_id": 403,
+      "target_slot": 1,
+      "type": "PLENIO_AUDIO_MODEL"
+     },
+     {
+      "id": 8,
+      "origin_id": 401,
+      "origin_slot": 0,
+      "target_id": 403,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 9,
+      "origin_id": 403,
+      "origin_slot": 0,
+      "target_id": 404,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 10,
+      "origin_id": 404,
+      "origin_slot": 0,
+      "target_id": 405,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 11,
+      "origin_id": 405,
+      "origin_slot": 0,
+      "target_id": 406,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 12,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 408,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 13,
+      "origin_id": -10,
+      "origin_slot": 0,
+      "target_id": 410,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 14,
+      "origin_id": -10,
+      "origin_slot": 1,
+      "target_id": 405,
+      "target_slot": 1,
+      "type": "AUDIO"
+     },
+     {
+      "id": 15,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 401,
+      "target_slot": 1,
+      "type": "PLENIO_BRIEF"
+     },
+     {
+      "id": 16,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 403,
+      "target_slot": 2,
+      "type": "PLENIO_BRIEF"
+     },
+     {
+      "id": 17,
+      "origin_id": -10,
+      "origin_slot": 2,
+      "target_id": 404,
+      "target_slot": 1,
+      "type": "PLENIO_BRIEF"
+     },
+     {
+      "id": 18,
+      "origin_id": -10,
+      "origin_slot": 3,
+      "target_id": 403,
+      "target_slot": 4,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 19,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 410,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 20,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 411,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 21,
+      "origin_id": -10,
+      "origin_slot": 4,
+      "target_id": 412,
+      "target_slot": 2,
+      "type": "BOOLEAN"
+     },
+     {
+      "id": 22,
+      "origin_id": -10,
+      "origin_slot": 5,
+      "target_id": 406,
+      "target_slot": 3,
+      "type": "COMBO"
+     },
+     {
+      "id": 23,
+      "origin_id": 406,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 0,
+      "type": "AUDIO"
+     },
+     {
+      "id": 24,
+      "origin_id": 405,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 1,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 25,
+      "origin_id": 406,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 2,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 26,
+      "origin_id": 401,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 3,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 27,
+      "origin_id": 403,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 4,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 28,
+      "origin_id": 404,
+      "origin_slot": 1,
+      "target_id": -20,
+      "target_slot": 5,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 29,
+      "origin_id": 411,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 6,
+      "type": "PLENIO_REPORT"
+     },
+     {
+      "id": 30,
+      "origin_id": 412,
+      "origin_slot": 0,
+      "target_id": -20,
+      "target_slot": 7,
+      "type": "PLENIO_REPORT"
+     }
+    ],
+    "extra": {},
+    "category": "Plenio/Mastering",
+    "description": "Finishes a song: Stems (with the block's stems switch on: Separate Stems and the Stem Mixer, set the mix inside the block) - Audio HQ: HQ 1 · Stereo Cleanup runs, HQ 2 · Regenerate Highs (UniverSR) with HQ mastering on (fewer AI shimmer and artifacts, about twice the time), HQ 3 · De-Reverb is bypassed; their presets follow the brief's genre - then a gentle tone match (EQ) and loudness for streaming (-14 LUFS, -1 dBTP true peak) with gentle compression. Open the block to mix the stems, change a preset, bypass a stage (Ctrl+B), the EQ curve or the compression style."
+   }
+  ]
+ },
+ "extra": {}
+}
