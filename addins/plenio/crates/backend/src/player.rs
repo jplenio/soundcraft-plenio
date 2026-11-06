@@ -123,8 +123,13 @@ pub fn srt(lines: &[(f64, f64, String)]) -> String {
 
 /// Write the record of a song sent from SoundCraft beside its audio: the take's record with the
 /// title and the files of the sent song. Returns the record's path.
-pub fn write_sent_record(take_record: &Value, title: &str, audio: &Path, lines: Option<&Path>, seconds: f64) -> Result<PathBuf, String> {
+///
+/// `shift`: how much later the take's audio starts in the mix than in its own file (the mix starts
+/// where the session's sound starts). The record's measured times move with it, so that the Player's
+/// words and notes stay on the music.
+pub fn write_sent_record(take_record: &Value, title: &str, audio: &Path, lines: Option<&Path>, seconds: f64, shift: f64) -> Result<PathBuf, String> {
     let mut record = if take_record.is_object() { take_record.clone() } else { json!({"schema": "plenio.record/1", "versions": {"plenio": ""}}) };
+    shift_timing(&mut record, shift);
     let stem = audio.file_stem().map(|s| s.to_string_lossy().into_owned()).ok_or("the sent song has no name")?;
     let folder = audio.parent().ok_or("the sent song has no folder")?;
     let mut files = Vec::new();
@@ -147,9 +152,62 @@ pub fn write_sent_record(take_record: &Value, title: &str, audio: &Path, lines: 
     Ok(path)
 }
 
+/// Move a record's measured times by `by` seconds: each take's warp, its lines and syllables, and
+/// the lines as heard.
+fn shift_timing(record: &mut Value, by: f64) {
+    fn moved(v: &mut Value, by: f64) {
+        if let Some(t) = v.as_f64() {
+            *v = json!(t + by);
+        }
+    }
+    fn move_lines(lines: Option<&mut Value>, by: f64) {
+        for line in lines.and_then(Value::as_array_mut).into_iter().flatten() {
+            for key in ["start", "end"] {
+                if let Some(t) = line.get_mut(key) {
+                    moved(t, by);
+                }
+            }
+            // Each unit is `[start, cut]` or `[start, cut, score]`: only the first is the audio's time.
+            for unit in line.get_mut("units").and_then(Value::as_array_mut).into_iter().flatten() {
+                if let Some(t) = unit.get_mut(0) {
+                    moved(t, by);
+                }
+            }
+        }
+    }
+    if by == 0.0 {
+        return;
+    }
+    for take in record.get_mut("timing").and_then(Value::as_array_mut).into_iter().flatten() {
+        if let Some(b) = take.get_mut("warp").and_then(|w| w.get_mut(1)) {
+            moved(b, by);
+        }
+        move_lines(take.get_mut("lines"), by);
+        move_lines(take.get_mut("sung").and_then(|s| s.get_mut("lines")), by);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_measured_times_move_with_the_mix() {
+        let mut record = json!({"timing": [{
+            "warp": [1.0, -1.5],
+            "lines": [{"start": 28.5, "end": 34.0, "units": [[28.5, 2, 29.78], [29.0, 6]]}],
+            "sung": {"lines": [{"start": 0.25, "end": 1.0, "units": [[0.25, 2]]}]},
+        }]});
+        shift_timing(&mut record, 1.25);
+        let take = &record["timing"][0];
+        assert_eq!(take["warp"], json!([1.0, -0.25]));
+        assert_eq!(take["lines"][0]["start"], json!(29.75));
+        assert_eq!(take["lines"][0]["units"], json!([[29.75, 2, 29.78], [30.25, 6]]), "the score's time stays");
+        assert_eq!(take["sung"]["lines"][0]["units"][0], json!([1.5, 2]));
+        let mut none = json!({"title": "no timing"});
+        shift_timing(&mut none, 1.25);
+        assert_eq!(none, json!({"title": "no timing"}));
+    }
 
     #[test]
     fn timed_lines_become_an_srt_the_player_reads() {
@@ -171,7 +229,7 @@ mod tests {
         std::fs::write(&lines, srt(&[(0.0, 1.0, "hi".into())])).unwrap();
         let take =
             json!({"schema": "plenio.record/1", "title": "Night Drive", "documents": {"lyrics": {"text": "[verse] hi"}}, "audio": {"seconds": 90.0}});
-        let path = write_sent_record(&take, "Night Drive (SoundCraft mix)", &audio, Some(&lines), 92.5).unwrap();
+        let path = write_sent_record(&take, "Night Drive (SoundCraft mix)", &audio, Some(&lines), 92.5, 0.0).unwrap();
         assert_eq!(path.file_name().unwrap(), "Night Drive (SoundCraft mix).plenio.json");
         let record: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(record["title"], "Night Drive (SoundCraft mix)");

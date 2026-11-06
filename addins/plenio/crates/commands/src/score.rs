@@ -77,14 +77,63 @@ fn playlist_sequence(s: &Session, r: &PlaylistRef) -> Option<Sequence> {
     Some(out)
 }
 
+/// A score tick (at [`soundcraft_midi::PPQ`], `bpm` being the score's tempo) in seconds of the score.
+fn score_seconds(tick: i64, bpm: f64) -> f64 {
+    tick as f64 / f64::from(soundcraft_midi::PPQ) * 60.0 / bpm
+}
+
+/// A score tick as a tick of the session's timeline: where the take plays it.
+fn session_tick(s: &Session, take: &Take, bpm: f64, tick: i64) -> i64 {
+    let at = take.score_to_session(score_seconds(tick, bpm));
+    s.tempo.samples_to_ticks(s.sample_rate.samples(at), s.sample_rate)
+}
+
+/// A score track's notes as a clip starting at the score's first bar holds them. The score's tempo
+/// and the take's warp become the session's ticks; a note on the grid of a take that keeps the score's
+/// tempo stays on it.
+fn laid_out(s: &Session, take: &Take, bpm: f64, seq: &Sequence) -> Sequence {
+    let origin = session_tick(s, take, bpm, 0);
+    let mut out = seq.clone();
+    for n in &mut out.notes {
+        let (start, end) = (session_tick(s, take, bpm, n.start), session_tick(s, take, bpm, n.end()));
+        n.start = start.saturating_sub(origin).max(0);
+        n.length = end.saturating_sub(start).max(1);
+    }
+    for c in &mut out.ctrls {
+        c.tick = session_tick(s, take, bpm, c.tick).saturating_sub(origin).max(0);
+    }
+    out
+}
+
+/// Notes of the session's timeline (ticks from its start) as the score's: the way back of [`laid_out`].
+fn back_to_score(s: &Session, take: &Take, seq: &Sequence) -> Sequence {
+    let bpm = take.bpm.filter(|b| *b > 0.0).unwrap_or(120.0);
+    let tick = |t: i64| -> i64 {
+        let seconds = s.sample_rate.seconds(s.tempo.tick_to_samples(t, s.sample_rate));
+        (take.session_to_score(seconds) * bpm / 60.0 * f64::from(soundcraft_midi::PPQ)).round() as i64
+    };
+    let mut out = seq.clone();
+    for n in &mut out.notes {
+        let (start, end) = (tick(n.start).max(0), tick(n.end()));
+        n.start = start;
+        n.length = end.saturating_sub(start).max(1);
+    }
+    out
+}
+
 /// Lay the score's MIDI tracks on the song's score tracks (made the first time, inside the song's
-/// folder and muted: the take already plays these notes), each take on a playlist of its own.
+/// folder and muted: the take already plays these notes), each take on a playlist of its own. Each
+/// clip lasts from the score's first bar to its end, whatever its track's last note; the session's
+/// tempo and the take's place ([`Take::lay_out`]) must be set before.
 /// Returns the role tracks it made.
 pub fn place_score(e: &mut Engine, song: &Song, bytes: &[u8], playlist: &str, take: &mut Take) -> Result<Vec<RoleTrack>> {
     if bytes.len() > MAX_MIDI_BYTES {
         return Err(io("the score's MIDI file is too large"));
     }
     let smf = soundcraft_midi::read_smf(bytes).map_err(|err| io(format!("the score's MIDI file: {err}")))?;
+    let bpm = take.bpm.or_else(|| smf.tempos.first().map(|t| t.1)).filter(|b| b.is_finite() && *b > 0.0).unwrap_or(120.0);
+    take.bpm = Some(bpm);
+    let score_end = smf.tracks.iter().map(|t| t.sequence.end_tick()).max().unwrap_or(0).max(1);
     let folder = song.track(Role::Song);
     let mut made: Vec<RoleTrack> = Vec::new();
     let mut used: Vec<(Role, TrackId, usize)> = Vec::new();
@@ -120,11 +169,12 @@ pub fn place_score(e: &mut Engine, song: &Song, bytes: &[u8], playlist: &str, ta
                 i
             }
         };
-        let end = tr.sequence.end_tick().max(1);
-        let length = s.tempo.tick_to_samples(end, s.sample_rate).max(1);
+        let start = s.sample_rate.samples(take.score_at);
+        let length = s.tempo.tick_to_samples(session_tick(s, take, bpm, score_end), s.sample_rate).saturating_sub(start).max(1);
+        let notes = laid_out(s, take, bpm, &tr.sequence);
         let id = s.new_clip_id();
         if let Some(pl) = s.track_mut(track).and_then(|t| t.playlists.get_mut(index_in_take)) {
-            pl.clips.push(Clip::midi(id, label(role), 0, length, tr.sequence.clone()));
+            pl.clips.push(Clip::midi(id, label(role), start, length, notes));
             pl.sort();
         }
         take.midi_tracks.insert(role_key(role).into(), index);
@@ -260,7 +310,7 @@ pub fn notes_for_plenio(s: &Session, song: &Song) -> Option<std::result::Result<
         .filter_map(|(key, seq)| {
             let index = *take.midi_tracks.get(&key)?;
             let name = SCORE_ROLES.iter().find(|(r, _)| role_key(*r) == key).map(|(_, n)| (*n).to_string())?;
-            Some((index, name, seq))
+            Some((index, name, back_to_score(s, take, &seq)))
         })
         .collect();
     Some(splice(&original, &replacements))

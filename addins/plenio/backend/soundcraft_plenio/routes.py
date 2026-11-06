@@ -2,7 +2,8 @@
 
 Everything that makes songs goes through Plenio's Song API (``/plenio/api/v1``) unchanged; these routes
 only answer what that API does not: which add-in and Plenio this is, and which model files the YuE2
-templates need, where they are and where a missing one goes (SoundCraft downloads them itself).
+templates need, where they are and where a missing one goes (SoundCraft downloads them itself), the
+stems of a take, and where a score sits in a take that has no measured times (a song without words).
 
 MiniMax is not part of the add-in: its model files and template are left out of every answer.
 """
@@ -16,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 BASE = "/scp/v1"
-WRAPPER_VERSION = "0.2.0"
+WRAPPER_VERSION = "0.3.0"
 PACKAGE_ROOT = Path(__file__).resolve().parent
 VENDOR_ROOT = PACKAGE_ROOT / "plenio_vendor"
 MINIMAX = re.compile("minimax", re.IGNORECASE)
@@ -111,7 +112,7 @@ async def info(request: Any) -> Any:
             "vendor_commit": vendor.get("commit", ""),
             "comfyui": comfyui_version,
             "templates": list(TEMPLATES),
-            "paths": {"song_api": "/plenio/api/v1", "models": f"{BASE}/models", "stems": f"{BASE}/stems"},
+            "paths": {"song_api": "/plenio/api/v1", "models": f"{BASE}/models", "stems": f"{BASE}/stems", "align": f"{BASE}/align"},
         }
     )
 
@@ -238,7 +239,46 @@ async def stems(request: Any) -> Any:
     return web.json_response(answer)
 
 
+def warp_answer(found: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Plenio's estimate as the add-in takes it: ``warp`` is ``[a, b]`` with ``t_audio = a t_score + b``, or
+    ``None`` when the score and the music do not match clearly enough."""
+    if not found:
+        return {"warp": None}
+    return {"warp": found.get("warp"), "match": found.get("match"), "lead": found.get("lead")}
+
+
+async def align(request: Any) -> Any:
+    """Where a score sits in a take, from the music: what Plenio's Player does for a song without measured
+    times (``plenio.player.align.estimate``). A second or so of CPU; no model."""
+    import asyncio
+
+    from aiohttp import web
+
+    import folder_paths  # type: ignore[import-not-found]
+
+    from .plenio_vendor.plenio.player.align import estimate
+
+    try:
+        data = await request.json()
+    except ValueError:
+        return _error("bad_request", "the body is not JSON", 400)
+    output = Path(folder_paths.get_output_directory())
+    source = Path(str(data.get("file") or ""))
+    score = data.get("score")
+    if not source.is_file() or not inside(source, output):
+        return _error("not_found", "the take must be a file of this studio's output folder", 404)
+    if not isinstance(score, str) or not score.strip():
+        return _error("bad_request", "`score` (the take's ABC) is required", 400)
+    try:
+        found = await asyncio.to_thread(estimate, source, score)
+    except Exception as error:
+        log.exception("SoundCraft Plenio: align")
+        return _error("internal", f"the score could not be matched to the take: {error}", 500)
+    return web.json_response(warp_answer(found))
+
+
 def register(routes: Any) -> None:
     routes.get(BASE)(info)
     routes.get(f"{BASE}/models")(models)
     routes.post(f"{BASE}/stems")(stems)
+    routes.post(f"{BASE}/align")(align)

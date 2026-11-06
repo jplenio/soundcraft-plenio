@@ -158,6 +158,9 @@ pub struct Record {
     pub sample_rate: u32,
     /// Measured quality, 0 to 5 in halves.
     pub stars: Option<f32>,
+    /// Where the score sits in the audio, `(a, b)` with `t_audio = a * t_score + b`: Plenio's
+    /// measurement of the sung words against the score (none for a song without words).
+    pub warp: Option<(f64, f64)>,
 }
 
 impl Record {
@@ -173,7 +176,15 @@ impl Record {
             })
             .unwrap_or_default();
         let audio = v.get("audio");
+        let warp = v
+            .get("timing")
+            .and_then(Value::as_array)
+            .and_then(|takes| takes.first())
+            .and_then(|take| take.get("warp"))
+            .and_then(Value::as_array)
+            .and_then(|w| Some((w.first()?.as_f64()?, w.get(1)?.as_f64()?)));
         Record {
+            warp,
             title: text(v, "title"),
             documents,
             seconds: audio.and_then(|a| a.get("seconds")).and_then(Value::as_f64).filter(|s| s.is_finite() && *s >= 0.0).unwrap_or(0.0),

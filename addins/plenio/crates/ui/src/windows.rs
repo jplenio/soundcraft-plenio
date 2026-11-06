@@ -430,13 +430,23 @@ fn choice_row(ui: &mut egui::Ui, label: &str, id: &str, value: &mut String, choi
     ui.end_row();
 }
 
+/// The inspector's title (which is also its window's identity).
+pub(crate) const INSPECTOR_TITLE: &str = "Plenio Song";
+/// What the inspector shows above and below the lyrics, about (points).
+const AROUND_THE_LYRICS: f32 = 300.0;
+
 fn inspector(ui_state: &mut PlenioUi, app: &mut SoundApp, ctx: &egui::Context) {
     let mut open = ui_state.show_inspector;
     let project = Project::load(app.engine.session()).unwrap_or_default();
     let song = ui_state.song.and_then(|id| project.song(id)).or_else(|| project.songs.first()).cloned();
-    egui::Window::new("Plenio Song")
+    // Its size is the owner's, in both directions: the content takes what the window gives.
+    egui::Window::new(INSPECTOR_TITLE)
+        .id(egui::Id::unique(INSPECTOR_TITLE))
         .open(&mut open)
+        .resizable(true)
         .default_width(420.0)
+        .default_height(ctx.content_rect().height() * 0.7)
+        .min_height(160.0)
         .default_pos(ctx.content_rect().right_top() + egui::vec2(-440.0, 80.0))
         .show(ctx, |ui| {
             let Some(song) = song else {
@@ -444,7 +454,7 @@ fn inspector(ui_state: &mut PlenioUi, app: &mut SoundApp, ctx: &egui::Context) {
                 return;
             };
             ui_state.song = Some(song.id);
-            egui::ScrollArea::vertical().max_height(ctx.content_rect().height() * 0.8).show(ui, |ui| inspector_body(ui_state, app, ui, &song));
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| inspector_body(ui_state, app, ui, &song));
         });
     ui_state.show_inspector = open;
 }
@@ -546,7 +556,10 @@ fn lyrics(ui_state: &mut PlenioUi, app: &mut SoundApp, ui: &mut egui::Ui, song: 
             }
         }
     });
-    ui.add(egui::TextEdit::multiline(text).desired_rows(10).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace));
+    // A taller window shows more of the words.
+    let row = ui.text_style_height(&egui::TextStyle::Monospace).max(1.0);
+    let rows = ((ui.clip_rect().height() - AROUND_THE_LYRICS) / row).clamp(10.0, 400.0) as usize;
+    ui.add(egui::TextEdit::multiline(text).desired_rows(rows).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace));
     let edited = *text != doc.text;
     let text = text.clone();
     ui.horizontal(|ui| {

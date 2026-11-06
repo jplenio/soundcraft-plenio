@@ -302,9 +302,32 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
     take.playlists.clear();
     let label = take.label();
     let first_of_session = project.songs.iter().all(|s| s.takes.is_empty()) && !others_have_clips(e.session(), &project);
+    // The first take of a session that holds nothing else sets its tempo, meter and key: before
+    // anything is laid out, for the bars and the notes are measured with them. The tempo is the one
+    // the take really plays, so that the session's bars stay on its audio.
+    if first_of_session && let Some(bpm) = take.bpm {
+        let meter = p
+            .get("meter")
+            .and_then(Value::as_array)
+            .and_then(|m| Some((u32::try_from(m.first()?.as_u64()?).ok()?, u32::try_from(m.get(1)?.as_u64()?).ok()?)));
+        let (n, d) = meter.unwrap_or((4, 4));
+        let scale = take.warp.filter(|w| soundcraft_plenio_project::warp_ok(*w)).map_or(1.0, |w| w.0);
+        let played = if (scale - 1.0).abs() > 0.0005 { bpm / scale } else { bpm };
+        if let Ok(map) = soundcraft_time::TempoMap::new(played, n, d) {
+            e.session_mut().tempo = map;
+        }
+        if let Some(key) = key_name(&take.key) {
+            e.session_mut().key_signatures = vec![(0, key)];
+        }
+    }
+    let (rate, bar) = {
+        let s = e.session();
+        (s.sample_rate, s.sample_rate.seconds(s.tempo.tick_to_samples(s.tempo.bar_start_tick(2), s.sample_rate)))
+    };
+    take.lay_out(bar);
     // The take's audio on a playlist of its own.
     let index = take_playlist(e.session_mut(), mix, &label).ok_or_else(|| bad(ID, "the song's audio track is gone"))?;
-    inner(e, "file.import_audio", &json!({"path": audio, "track": mix.0, "at": 0}))?;
+    inner(e, "file.import_audio", &json!({"path": audio, "track": mix.0, "at": rate.samples(take.audio_at)}))?;
     // A cover's first take: the original is muted, so the two do not play at once (unmute it for A/B).
     if song.takes.is_empty()
         && let Some(source) = song.track(Role::Source).and_then(|t| e.session_mut().track_mut(t))
@@ -342,20 +365,6 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
         let bytes = std::fs::read(midi).map_err(|err| bad(ID, format!("`midi`: {err}")))?;
         made = crate::score::place_score(e, &song, &bytes, &label, &mut take)?;
         take.files.insert("midi".into(), midi.to_string());
-    }
-    // The first take of a session that holds nothing else sets its tempo, meter and key.
-    if first_of_session && let Some(bpm) = take.bpm {
-        let meter = p
-            .get("meter")
-            .and_then(Value::as_array)
-            .and_then(|m| Some((u32::try_from(m.first()?.as_u64()?).ok()?, u32::try_from(m.get(1)?.as_u64()?).ok()?)));
-        let (n, d) = meter.unwrap_or((4, 4));
-        if let Ok(map) = soundcraft_time::TempoMap::new(bpm, n, d) {
-            e.session_mut().tempo = map;
-        }
-        if let Some(key) = key_name(&take.key) {
-            e.session_mut().key_signatures = vec![(0, key)];
-        }
     }
     let number = take.number;
     // The song's folder takes the song's title from its first take (it was named before there was one).
@@ -449,6 +458,8 @@ fn stems_add(e: &mut Engine, p: &Value) -> Result<Value> {
     let song = project.song(id).ok_or_else(|| bad(ID, format!("no Plenio song {id}")))?.clone();
     let index = song.takes.iter().position(|t| u64::from(t.number) == number).ok_or_else(|| bad(ID, format!("the song has no take {number}")))?;
     let label = song.takes.get(index).map(Take::label).unwrap_or_default();
+    // The stems are the take's audio taken apart: they lie where it lies.
+    let at = e.session().sample_rate.samples(song.takes.get(index).map_or(0.0, |t| t.audio_at));
     let folder = song.track(Role::Song);
     let mut made = Vec::new();
     let mut refs = Vec::new();
@@ -483,7 +494,7 @@ fn stems_add(e: &mut Engine, p: &Value) -> Result<Value> {
             }
             None => take_playlist(s, track, &label).ok_or_else(|| bad(ID, "the stem track is gone"))?,
         };
-        inner(e, "file.import_audio", &json!({"path": path, "track": track.0, "at": 0}))?;
+        inner(e, "file.import_audio", &json!({"path": path, "track": track.0, "at": at}))?;
         refs.push(PlaylistRef { track, index: playlist });
     }
     let song_mut = project.song_mut(id).ok_or_else(|| bad(ID, format!("no Plenio song {id}")))?;

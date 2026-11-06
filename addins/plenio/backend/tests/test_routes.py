@@ -31,6 +31,13 @@ def load_routes():
 routes = load_routes()
 
 
+class WarpAnswer(unittest.TestCase):
+    def test_an_estimate_is_passed_on_and_no_estimate_is_said(self) -> None:
+        self.assertEqual(routes.warp_answer(None), {"warp": None})
+        found = {"warp": [1.0, -1.3], "anchors": [[1.0, 2.3]], "match": 0.35, "lead": 2.31}
+        self.assertEqual(routes.warp_answer(found), {"warp": [1.0, -1.3], "match": 0.35, "lead": 2.31})
+
+
 class ModelsAnswer(unittest.TestCase):
     def setUp(self) -> None:
         self.catalogue = models.load_catalogue(VENDOR / "resources" / "models.toml")

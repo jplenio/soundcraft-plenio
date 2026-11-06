@@ -12,6 +12,69 @@ use std::time::{Duration, Instant};
 
 static READY: AtomicBool = AtomicBool::new(false);
 
+/// Where audio, words and notes of the active take lie, and how well they meet: every sung line against
+/// the nearest note of the melody.
+fn sync_report(s: &soundcraft_model::Session) {
+    let Ok(p) = Project::load(s) else { return };
+    let Some(song) = p.songs.first() else { return };
+    let Some(take) = song.active_take() else { return };
+    let rate = s.sample_rate;
+    println!(
+        "take: warp {:?}, audio at {:.3} s, score at {:.3} s, {:.2} s long, session tempo {:?}",
+        take.warp,
+        take.audio_at,
+        take.score_at,
+        take.seconds,
+        s.tempo.tempos()[0].bpm
+    );
+    let mut melody = Vec::new();
+    for role in &song.tracks {
+        let Some(track) = s.track(role.track) else { continue };
+        for clip in track.clips().iter().take(1) {
+            let (start, end) = (rate.seconds(clip.start), rate.seconds(clip.start + clip.length));
+            let mut line = format!("  {:?} \"{}\": {} clip(s), first {start:.3} s to {end:.3} s", role.role, track.name, track.clips().len());
+            if let soundcraft_model::ClipContent::Midi { sequence } = &clip.content {
+                let origin = s.tempo.samples_to_ticks(clip.start, rate);
+                let at = |tick: i64| rate.seconds(s.tempo.tick_to_samples(origin + tick, rate));
+                let last = sequence.notes.iter().map(|n| at(n.end())).fold(0.0, f64::max);
+                line += &format!(", {} notes, last note ends at {last:.3} s", sequence.notes.len());
+                if role.role == soundcraft_plenio_project::Role::Melody {
+                    melody = sequence.notes.iter().map(|n| at(n.start)).collect();
+                }
+            }
+            println!("{line}");
+        }
+    }
+    let mut off: Vec<f64> = take
+        .lines
+        .iter()
+        .filter_map(|l| melody.iter().map(|n| (n - l.start).abs()).fold(None, |a: Option<f64>, d| Some(a.map_or(d, |x| x.min(d)))))
+        .collect();
+    off.sort_by(f64::total_cmp);
+    if let (Some(median), Some(worst)) = (off.get(off.len() / 2), off.last()) {
+        println!("sung lines against the nearest melody note ({}): median {median:.3} s, worst {worst:.3} s", off.len());
+    }
+}
+
+/// The measured times the Plenio Player gets with the mix.
+fn sent_record_report(root: &std::path::Path) {
+    let mut folders = vec![root.to_path_buf()];
+    while let Some(folder) = folders.pop() {
+        for entry in std::fs::read_dir(&folder).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                folders.push(path);
+            } else if path.to_string_lossy().contains("SoundCraft mix") && path.to_string_lossy().ends_with(".plenio.json") {
+                let record: serde_json::Value = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+                println!(
+                    "sent to the Player: warp {}, first line at {}, {} s",
+                    record["timing"][0]["warp"], record["timing"][0]["lines"][0]["start"], record["audio"]["seconds"]
+                );
+            }
+        }
+    }
+}
+
 fn main() {
     let folder = std::path::PathBuf::from(std::env::args().nth(1).unwrap_or_else(|| ".".into()));
     let minutes: u64 = std::env::args().nth(2).and_then(|m| m.parse().ok()).unwrap_or(15);
@@ -126,6 +189,8 @@ fn main() {
         println!("message: {m}");
     }
     let session = harness.state().engine.session();
+    sync_report(session);
+    sent_record_report(&config);
     if let Ok(p) = Project::load(session) {
         for s in &p.songs {
             let take = s.active_take();

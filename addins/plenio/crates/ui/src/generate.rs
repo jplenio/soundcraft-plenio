@@ -149,8 +149,7 @@ impl PlenioUi {
                     .iter()
                     .map(|s| {
                         let start = f64::from(s.start_bar) * bar;
-                        let end = (start + f64::from(s.bars) * bar).min(if seconds > 0.0 { seconds } else { f64::MAX });
-                        json!({"name": s.name, "start": start, "end": end.max(start)})
+                        json!({"name": s.name, "start": start, "end": start + f64::from(s.bars) * bar})
                     })
                     .collect()
             })
@@ -185,6 +184,7 @@ impl PlenioUi {
             "job": d.job.id, "title": title, "seeds": d.job.seeds, "fields": pending.fields, "documents": documents,
             "stars": record.stars, "seconds": seconds, "files": files, "sections": sections, "lines": lines,
             "bpm": info.as_ref().map(|i| i.bpm), "key": info.as_ref().map(|i| i.key.clone()).unwrap_or_default(),
+            "warp": record.warp,
         });
         let meter = info.as_ref().map(|i| json!([i.meter.0, i.meter.1])).unwrap_or(Value::Null);
         let params = json!({"song": pending.song, "audio": audio, "take": take, "meter": meter});
@@ -229,6 +229,29 @@ impl PlenioUi {
                 }
             }
             Err(e) => app.engine.message(format!("Plenio: the take comes without its notes: {e}")),
+        }
+        // No measurement (a song without words has nothing to measure by): Plenio's estimate from the
+        // music, as its Player makes it.
+        let take = &params["take"];
+        if take["warp"].is_null()
+            && self.ready()
+            && let (Some(file), Some(score)) = (take["files"]["studio_song"].as_str(), take["documents"]["score"].as_str())
+        {
+            let body = json!({"file": file, "score": score});
+            self.held.insert(tag, (params, folder));
+            self.studio.send(Request::Post { tag: format!("align:{tag}"), path: "/scp/v1/align".into(), body });
+            return;
+        }
+        Self::place(app, params);
+    }
+
+    /// Plenio's estimate of where the score sits in a take arrived (or did not): place the take.
+    pub fn aligned(&mut self, app: &mut SoundApp, tag: u64, result: Result<Value, String>) {
+        let Some((mut params, _)) = self.held.remove(&tag) else { return };
+        match result.map(|v| v.get("warp").cloned().unwrap_or(Value::Null)) {
+            Ok(warp) if !warp.is_null() => params["take"]["warp"] = warp,
+            Ok(_) => app.engine.message("Plenio: the music of this take does not tell where its score sits; the notes lie as written."),
+            Err(e) => app.engine.message(format!("Plenio: where the score sits in this take was not found ({e}); the notes lie as written.")),
         }
         Self::place(app, params);
     }
@@ -336,14 +359,19 @@ impl PlenioUi {
         }
         let session = app.engine.session();
         let rate = session.sample_rate;
-        let end = session.content_end().max(rate.samples(take.seconds)).max(1);
+        let end = session.content_end().max(rate.samples(take.audio_at + take.seconds)).max(1);
+        // The mix starts where the session's sound starts: no silence before a take that was moved to
+        // meet its score.
+        let start = session.tracks.iter().filter(|t| !t.mixer.mute).flat_map(|t| t.clips()).map(|c| c.start).min().unwrap_or(0).clamp(0, end - 1);
         if let Err(e) =
-            app.run("file.bounce_mix", json!({"path": audio.to_string_lossy(), "format": "flac", "bit_depth": 24, "start": 0, "end": end}))
+            app.run("file.bounce_mix", json!({"path": audio.to_string_lossy(), "format": "flac", "bit_depth": 24, "start": start, "end": end}))
         {
             app.engine.message(format!("Plenio: the mix was not bounced: {e}"));
             return;
         }
-        let lines: Vec<(f64, f64, String)> = take.lines.iter().map(|l| (l.start, l.end, l.text.clone())).collect();
+        let from = rate.seconds(start);
+        let lines: Vec<(f64, f64, String)> =
+            take.lines.iter().map(|l| ((l.start - from).max(0.0), (l.end - from).max(0.0), l.text.clone())).collect();
         let srt_path = folder.join(format!("{stem} (lines).srt"));
         let srt = (!lines.is_empty() && std::fs::write(&srt_path, soundcraft_plenio_backend::player::srt(&lines)).is_ok()).then_some(srt_path);
         let record = take
@@ -352,8 +380,8 @@ impl PlenioUi {
             .and_then(|p| std::fs::read_to_string(p).ok())
             .and_then(|t| serde_json::from_str::<Value>(&t).ok())
             .unwrap_or(Value::Null);
-        let seconds = rate.seconds(end);
-        match soundcraft_plenio_backend::player::write_sent_record(&record, &title, &audio, srt.as_deref(), seconds) {
+        let seconds = rate.seconds(end - start);
+        match soundcraft_plenio_backend::player::write_sent_record(&record, &title, &audio, srt.as_deref(), seconds, take.audio_at - from) {
             Ok(_) => {
                 app.engine.message(format!("Plenio: {title} is in the Plenio Player."));
                 self.open_player();

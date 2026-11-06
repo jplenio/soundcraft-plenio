@@ -98,7 +98,7 @@ fn a_delivered_take_lands_on_the_songs_tracks() {
         .into_iter()
         .map(|(k, v)| (k.to_string(), Document { text: v.into(), state: "auto".into() }))
         .collect();
-    let record = Record { title: "Garden".into(), documents, seconds: 0.5, sample_rate: 48_000, stars: Some(4.0) };
+    let record = Record { title: "Garden".into(), documents, seconds: 0.5, sample_rate: 48_000, stars: Some(4.0), warp: None };
     let job = Job {
         id: "job-1".into(),
         status: JobStatus::Succeeded,
@@ -134,6 +134,61 @@ fn a_delivered_take_lands_on_the_songs_tracks() {
     assert_eq!(data.documents.get("lyrics").map(|d| d.text.as_str()), Some("[verse]\nMorning light\n[chorus]\nWe sing"));
     assert!(crate::draw::badge(&ui, data).starts_with("Plenio · Take 1 · 4 stars (of 1)"));
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The owner's wish of 2026-11-06: the inspector's height is theirs to change, to see more.
+#[test]
+fn the_inspectors_height_follows_the_window() {
+    let _turn = turn();
+    let mut app = app();
+    app.run("plenio.song.new", json!({"title": "Garden"})).unwrap();
+    let mut ui = quiet_ui();
+    ui.settings.activated = true;
+    ui.show_inspector = true;
+    app.add_extension(Box::new(ui));
+    let ctx = egui::Context::default();
+    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 1000.0));
+    let run = |app: &mut SoundApp, events: Vec<egui::Event>| {
+        let mut out = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), events, ..Default::default() }, |ui| {
+            app.logic(ui.ctx());
+            app.ui(ui);
+        });
+        out.textures_delta.clear();
+    };
+    // Press on the window's lower edge, pull it by `by` points, let go.
+    let drag = |app: &mut SoundApp, rect: egui::Rect, by: f32| {
+        let from = egui::pos2(rect.center().x, rect.max.y);
+        let at = |k: f32| from + egui::vec2(0.0, by * k / 5.0);
+        let button =
+            |pos, pressed| egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE };
+        run(app, vec![egui::Event::PointerMoved(from)]);
+        run(app, vec![egui::Event::PointerMoved(from)]);
+        run(app, vec![button(from, true)]);
+        for k in 1..=5 {
+            run(app, vec![egui::Event::PointerMoved(at(k as f32))]);
+        }
+        run(app, vec![button(at(5.0), false)]);
+        for _ in 0..3 {
+            run(app, Vec::new());
+        }
+    };
+    for _ in 0..4 {
+        run(&mut app, Vec::new());
+    }
+    let id = egui::Id::unique(windows::INSPECTOR_TITLE);
+    let before = egui::AreaState::load(&ctx, id).and_then(|a| a.rect().is_finite().then(|| a.rect())).expect("the inspector is shown");
+    assert!(before.height() > 400.0, "it opens tall enough to see the lyrics: {before:?}");
+
+    // Up: the window follows, its content does not hold it open.
+    drag(&mut app, before, -250.0);
+    let smaller = egui::AreaState::load(&ctx, id).map(|a| a.rect()).expect("the inspector is shown");
+    assert!((before.height() - smaller.height() - 250.0).abs() < 20.0, "from {before:?} to {smaller:?}");
+    // Down, past where it started: the window is taller than its content needs.
+    drag(&mut app, smaller, 350.0);
+    let taller = egui::AreaState::load(&ctx, id).map(|a| a.rect()).expect("the inspector is shown");
+    assert!((taller.height() - smaller.height() - 350.0).abs() < 20.0, "from {smaller:?} to {taller:?}");
+    assert!(taller.height() > before.height());
+    assert_eq!(app.extensions(), vec![("plenio", true)]);
 }
 
 #[test]

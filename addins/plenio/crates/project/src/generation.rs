@@ -37,7 +37,7 @@ pub struct Doc {
     pub state: DocState,
 }
 
-/// A part of the song in time (seconds from the take's start).
+/// A part of the song in time (seconds on the session's timeline, once the take is laid out).
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SectionSpan {
@@ -46,7 +46,7 @@ pub struct SectionSpan {
     pub end: f64,
 }
 
-/// A line of the lyrics as sung (seconds from the take's start).
+/// A line of the lyrics as sung (seconds on the session's timeline, once the take is laid out).
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LineSpan {
@@ -90,9 +90,64 @@ pub struct Take {
     pub midi_tracks: BTreeMap<String, usize>,
     /// What the score tracks held when the take was laid out, to tell the owner's edits.
     pub midi_digests: BTreeMap<String, u64>,
+    /// Where the score sits in the take's audio, `(a, b)` with `t_audio = a * t_score + b`: Plenio's
+    /// measurement of the sung words against the score's notes, or its estimate from the music. A
+    /// YuE2 render is shifted against its score (seconds, and each take by its own amount).
+    pub warp: Option<(f64, f64)>,
+    /// Where the take's audio starts on the session's timeline (seconds).
+    pub audio_at: f64,
+    /// Where the first bar of its score lies on the session's timeline (seconds): a bar line, so that
+    /// the session's bars are the score's.
+    pub score_at: f64,
+}
+
+/// The largest shift of a take against its score that is believed (seconds).
+const MAX_SHIFT: f64 = 120.0;
+
+/// Whether a measured warp can be true: Plenio looks at scales of 0.92 to 1.08 and shifts of seconds.
+pub fn warp_ok(warp: (f64, f64)) -> bool {
+    let (a, b) = warp;
+    a.is_finite() && b.is_finite() && (0.5..=2.0).contains(&a) && b.abs() <= MAX_SHIFT
 }
 
 impl Take {
+    /// The scale of the score's time in the take's audio (1 when nothing was measured).
+    fn scale(&self) -> f64 {
+        self.warp.filter(|w| warp_ok(*w)).map_or(1.0, |w| w.0)
+    }
+
+    /// A time of the score (seconds from its first bar) on the session's timeline.
+    pub fn score_to_session(&self, seconds: f64) -> f64 {
+        self.score_at + self.scale() * seconds
+    }
+
+    /// A time on the session's timeline as a time of the score.
+    pub fn session_to_score(&self, seconds: f64) -> f64 {
+        (seconds - self.score_at) / self.scale()
+    }
+
+    /// Lay the take out on the session's timeline so that audio, words and notes meet: the score's
+    /// first bar on a bar line (the first one it can reach), the audio where the warp puts it against
+    /// the score. `lines` come in audio time and `sections` in score time; both leave in session
+    /// time. A section ends with the audio at the latest.
+    pub fn lay_out(&mut self, bar_seconds: f64) {
+        self.warp = self.warp.filter(|w| warp_ok(*w));
+        let shift = self.warp.map_or(0.0, |w| w.1);
+        self.score_at = if shift > 0.0 && bar_seconds > 0.0 { (shift / bar_seconds).ceil() * bar_seconds } else { 0.0 };
+        self.audio_at = (self.score_at - shift).max(0.0);
+        let audio_at = self.audio_at;
+        for line in &mut self.lines {
+            line.start += audio_at;
+            line.end += audio_at;
+        }
+        let audio_end = if self.seconds > 0.0 { audio_at + self.seconds } else { f64::MAX };
+        let sections: Vec<(f64, f64)> = self.sections.iter().map(|s| (self.score_to_session(s.start), self.score_to_session(s.end))).collect();
+        for (section, (start, end)) in self.sections.iter_mut().zip(sections) {
+            section.start = start;
+            section.end = end.min(audio_end).max(start);
+        }
+    }
+
     /// `Take 3 · 4.5 stars`.
     pub fn label(&self) -> String {
         match self.stars {
@@ -268,6 +323,12 @@ pub(crate) fn sanitize(song: &mut Song, session: &Session) {
         }
         take.stars = take.stars.filter(|s| s.is_finite()).map(|s| s.clamp(0.0, 5.0));
         take.bpm = take.bpm.filter(|b| b.is_finite() && (10.0..=400.0).contains(b));
+        take.warp = take.warp.filter(|w| warp_ok(*w));
+        for at in [&mut take.audio_at, &mut take.score_at] {
+            if !at.is_finite() || *at < 0.0 {
+                *at = 0.0;
+            }
+        }
     }
     if song.active.is_some_and(|i| i >= song.takes.len()) {
         song.active = song.takes.len().checked_sub(1);
@@ -278,6 +339,55 @@ pub(crate) fn sanitize(song: &mut Song, session: &Session) {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn timed(warp: Option<(f64, f64)>) -> Take {
+        Take {
+            warp,
+            seconds: 100.0,
+            lines: vec![LineSpan { start: 10.0, end: 12.0, text: "hi".into() }],
+            sections: vec![SectionSpan { name: "verse".into(), start: 4.0, end: 200.0 }],
+            ..Take::default()
+        }
+    }
+
+    #[test]
+    fn a_take_that_starts_early_moves_its_audio_and_keeps_the_score_on_the_first_bar() {
+        let mut t = timed(Some((1.0, -1.28)));
+        t.lay_out(2.0);
+        assert_eq!((t.score_at, t.audio_at), (0.0, 1.28));
+        assert_eq!((t.lines[0].start, t.lines[0].end), (11.28, 13.28));
+        assert_eq!(t.sections[0].start, 4.0);
+        assert_eq!(t.sections[0].end, 101.28, "a section ends with the audio");
+    }
+
+    #[test]
+    fn a_take_that_starts_late_moves_the_score_to_the_next_bar_line() {
+        let mut t = timed(Some((1.0, 2.5)));
+        t.lay_out(2.0);
+        assert_eq!((t.score_at, t.audio_at), (4.0, 1.5));
+        assert_eq!(t.sections[0].start, 8.0);
+    }
+
+    #[test]
+    fn the_scale_is_applied_both_ways() {
+        let mut t = timed(Some((0.998, -1.3)));
+        t.lay_out(2.0);
+        assert_eq!(t.audio_at, 1.3);
+        assert!((t.score_to_session(100.0) - 99.8).abs() < 1e-9);
+        assert!((t.session_to_score(t.score_to_session(123.4)) - 123.4).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_warp_that_cannot_be_true_is_ignored() {
+        for bad in [(0.0, 0.0), (9.0, 0.0), (1.0, 1e300), (f64::NAN, 0.0), (1.0, f64::INFINITY)] {
+            let mut t = timed(Some(bad));
+            t.lay_out(2.0);
+            assert_eq!((t.warp, t.score_at, t.audio_at, t.lines[0].start), (None, 0.0, 0.0, 10.0));
+        }
+        let mut t = timed(None);
+        t.lay_out(0.0);
+        assert_eq!((t.score_at, t.audio_at), (0.0, 0.0));
+    }
 
     fn take(lyrics: &str, score: &str) -> Take {
         Take {
