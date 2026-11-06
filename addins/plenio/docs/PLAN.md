@@ -6,8 +6,8 @@
 | **Branch** | `plenio-addin` (Remote `upstream` = `storytold/soundcraft`) |
 | **Plenio-Quelle** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (Version 1.5.0) – **wird nie verändert**, Code wird kopiert |
 | **Plan erstellt** | 2026-11-05 |
-| **Zuletzt aktualisiert** | 2026-11-05 |
-| **Stand** | Phase 0–5 erledigt und live durch die UI geprüft (Song, Noten, Stems, Cover, Player); Phase 6 großteils, offene Punkte im Abschnitt „Stand 2026-11-05 abends“ |
+| **Zuletzt aktualisiert** | 2026-11-06 |
+| **Stand** | Phase 0–5 erledigt und live durch die UI geprüft (Song, Noten, Stems, Cover, Player); Phase 6 großteils, offene Punkte im Abschnitt „Stand 2026-11-05 abends“; eigener Fork vorbereitet, Repo auf GitHub steht noch aus ([FORK.md](FORK.md)) |
 
 Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hinweis
 
@@ -37,7 +37,7 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
 - [x] Plenio analysiert (Song-API, Routen, Subgraphs, Player, Modellkatalog, Standalone-Konzept)
 - [x] Plan erstellt und vom Owner freigegeben (2026-11-05)
 - [x] Entscheidung 9.1: **eigene, vom Add-in verwaltete ComfyUI-Instanz** (eigener Basisordner, vorhandene Modelle werden mitbenutzt)
-- [x] Entscheidung 9.2: **Seams dürfen upstream** als allgemeine Extension-API eingereicht werden
+- [x] Entscheidung 9.2: ~~Seams dürfen upstream~~ → **kein Upstream, eigener Fork** (geändert 2026-11-06, siehe [FORK.md](FORK.md))
 - [x] Entscheidung 9.3: **`origin` → `upstream` umbenannt, Arbeit auf Branch `plenio-addin`**
 - [x] Zusatzvorgabe: **Plenio-Projekt nicht verändern**, sinnvollen Code nach SoundCraft kopieren
 - [x] Plan als Markdown gespeichert (diese Datei)
@@ -45,7 +45,7 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
 ### Phase 0 – Fundament
 
 - [x] Git: `origin` in `upstream` umbenannt, Branch `plenio-addin` von `73eeb69` angelegt
-  💡 Ein eigener GitHub-Fork als neues `origin` fehlt noch; `gh` ist auf diesem Rechner nicht installiert. Bis dahin wird nur lokal committet.
+  💡 Der GitHub-Fork `jplenio/soundcraft-plenio` als `origin` muss der Owner noch anlegen (Schritte in [FORK.md](FORK.md)); bis dahin ist alles nur lokal.
 - [x] Rust-Toolchain installiert: rustup mit stable 1.99.1 (`x86_64-pc-windows-msvc` + `wasm32-unknown-unknown`, clippy, rustfmt) unter `D:\Rust`
   💡 `CARGO_HOME=D:\Rust\cargo`, `RUSTUP_HOME=D:\Rust\rustup` als Benutzervariablen; `D:\Rust\cargo\bin` steht im Benutzer-PATH (neue Shells). rustup-init per SHA-256 geprüft. MSVC kommt aus Visual Studio 2022.
 - [x] Baseline auf unverändertem Stand `73eeb69` (eigener Worktree, eigenes Target-Verzeichnis)
@@ -131,9 +131,11 @@ Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hin
 - [x] Parität: Songs entstehen mit Plenios eigenen Templates über die Song-API, also mit allem, was die Templates tun (Best Take, Check Vocals, LoRAs, Creativity, Creative Modes, Master, Cover-Art, Export); im Formular stehen alle Felder der Song-API. Plenios Unit-Tests gegen die Kopie: **1980 bestanden, 1 übersprungen, 0 fehlgeschlagen**.
   💡 Nicht über die API erreichbar und daher offen: Zwischenstopps zum Prüfen (Review-Modus), LoRA-Auswahl (kein Feld der Song-API v1).
 - [x] Property-Tests mit feindlichen Eingaben: Job, Record, Score, SRT (`backend/tests/hostile.rs`), MIDI-Splicing (`commands/tests/hostile_midi.rs`); Pfadschutz der Stems-Route live geprüft
-- [~] Update-Probelauf: Plenio-Sync mehrfach ohne Handarbeit (Kopie um `docs/api`, `docs/design/data`, `docs/user/models.md`, `web/docs` erweitert); SoundCraft-Upstream hat seit `73eeb69` keine neuen Commits (geprüft 2026-11-05), das Verfahren steht in `tools/update_soundcraft.ps1`.
-- [~] Seams als allgemeine Extension-API upstream einreichen (freigegeben, 9.2): Branch **`extension-api`** = die vier Seam-Commits auf `73eeb69` (12 Dateien, +589 −6, mit Tests)
-  💡 Für den PR fehlen ein eigener GitHub-Fork und `gh`. Vor dem PR fragen, ob ein Eintrag in `contributors/people.toml` gewünscht ist (AGENTS.md).
+- [x] Update-Probelauf SoundCraft: erster echter Merge am 2026-11-06 (5 Commits von `upstream/main`, 1 Konflikt in `crates/engine/src/dirty.rs`), Skript in Wegwerf-Klonen mit erfundenem Upstream geprobt (README, Logos, `Cargo.lock`, zweiter Merge ohne Handarbeit)
+- [x] Update-Probelauf Plenio: Plenio-Sync mehrfach ohne Handarbeit (Kopie um `docs/api`, `docs/design/data`, `docs/user/models.md`, `web/docs` erweitert).
+- [x] ~~Seams upstream einreichen~~: entfällt, der Owner führt einen eigenen Fork (2026-11-06). Branch `extension-api` gelöscht; seine Commits sind in `plenio-addin` enthalten.
+- [x] Fork vorbereitet: eigene `README.md`, ArtCraft-Marken entfernt (ihre Lizenz verlangt das), Update-Quelle der App auf den Fork, `tools/update_soundcraft.ps1` neu (merged statt rebased), [FORK.md](FORK.md)
+  💡 Offen beim Owner: Repo auf GitHub anlegen und hochladen. Offen vor eigenen Installern: `packaging/` nennt noch den Ordner `ArtCraft`.
 - [x] Benutzer- und Entwicklerdoku: `addins/plenio/README.md`, `docs/architecture.md › Extensions`
 
 ---
@@ -200,8 +202,7 @@ addins/plenio/
 ### 3.3 SoundCraft-Updates einspielen
 
 - Remote `upstream` = `storytold/soundcraft`; Branch `plenio` / `plenio-addin` = `upstream/main` + Seam-Commit + `addins/`.
-- `tools/update_soundcraft.ps1`: fetch, rebase, bei `Cargo.lock` die Upstream-Version nehmen und neu auflösen, dann `cargo xtask ci` und die Add-in-Tests. Konflikte sind nur in den 6 Seam-Dateien möglich.
-- Werden die Seams upstream angenommen, besteht der Fork nur noch aus `addins/` und der Feature-Zeile.
+- `tools/update_soundcraft.ps1`: fetch, **merge** (der Fork ist veröffentlicht, also kein Rebase), `README.md` bleibt, `Cargo.lock` neu auflösen, ArtCraft-Marken raus, dann `tools/test_all.ps1`. Konflikte sind nur an den in [FORK.md](FORK.md) gelisteten Stellen möglich; Lösungen merkt sich `git rerere`.
 
 ### 3.4 Plenio-Updates übernehmen
 
@@ -363,7 +364,7 @@ Bis zum MVP grob 70–110 h, insgesamt etwa 150–230 h.
 | # | Frage | Entscheidung |
 |---|---|---|
 | 9.1 | Eigene ComfyUI-Instanz oder bestehende? | **Eigene Instanz** |
-| 9.2 | Seams upstream einreichen? | **Ja, erlaubt** |
+| 9.2 | Seams upstream einreichen? | ~~Ja, erlaubt~~ → **Nein: eigener Fork mit regelmäßigem Merge** (2026-11-06) |
 | 9.3 | `origin` → `upstream`, Branch `plenio-addin`? | **Ja, erlaubt** – erledigt |
 | – | Plenio-Projekt ändern? | **Nein** – Code wird nach SoundCraft kopiert |
 
@@ -413,3 +414,4 @@ Bis zum MVP grob 70–110 h, insgesamt etwa 150–230 h.
 | 2026-11-05 | Rust 1.99.1 installiert; Baseline gemessen (3 Windows-Fehler in `soundcraft-cli`, schon vor dem Add-in); Phase 0 erledigt: Seams S1–S6, vier Add-in-Crates, Plenio-Menü und Aktivierung, Offscreen-Screenshots geprüft; Phase 1 begonnen: Sync-Skript und erste Kopie von Plenio 1.5.0 |
 | 2026-11-05 | Phase 1–3 und 5: Studio, Song-API-Anbindung, Songs/Takes/Noten/Stems, Player, Import; Plenios Unit-Tests gegen die Kopie: 1980 bestanden, 1 übersprungen; End-to-End durch die UI; Branch `extension-api` mit den Seams |
 | 2026-11-06 | Phase 4 live: Cover durch die UI (309 s), Original beim ersten Cover-Take stumm |
+| 2026-11-06 | Rückmeldungen des Owners: (1) Inspector in der Höhe veränderbar, Lyrics wachsen mit. (2) Audio, Lyrics und Noten liegen zusammen: Plenios gemessener Warp aus dem Release-Record (`timing[0].warp`, ohne Worte Schätzung über `POST /scp/v1/align`); erster Score-Takt auf einem Taktstrich, Audio dagegen versetzt; Stems und Player folgen. Gemessen an „A Winter Shroud“: gesungene Zeilen gegen Noten im Median 0,05 s statt 1,3 s; live an „Sentences in the Shower“ (Warp 1,009/−1,71): Median 0,07 s, schlechteste Zeile 0,38 s. Plenios `follow()`-Pfad war gegen das Gehörte schlechter als die Gerade (Median 0,12 s), daher die Gerade. (3) MIDI-Clips des ersten Takes wurden mit dem alten Session-Tempo vermessen (120 statt 84 BPM: Ende bei 70 %) und nur bis zur letzten Note der eigenen Spur: Tempo zuerst, jeder Clip bis zum Score-Ende. Daten geprüft: Score, MIDI und SoundCrafts Leser haben dieselben 143/240/280 Noten. (4) Eigener Fork statt Upstream-PR, siehe [FORK.md](FORK.md); erster echter Merge von `upstream/main` (5 Commits, 1 Konflikt in `dirty.rs`), Skript zusätzlich in Wegwerf-Klonen geprobt |

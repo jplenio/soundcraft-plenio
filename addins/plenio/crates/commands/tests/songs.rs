@@ -6,6 +6,16 @@ use soundcraft_engine::Engine;
 use soundcraft_model::{ClipContent, TrackId};
 use soundcraft_plenio_project::{Project, Role};
 
+/// The add-in's activation is one switch for the process, and one test turns it off: the tests take
+/// turns. Each starts with the commands registered and the add-in activated.
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    static ACTIVATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let guard = ACTIVATION.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    soundcraft_plenio_commands::register();
+    soundcraft_plenio_commands::set_activated(true);
+    guard
+}
+
 /// A second of stereo 16-bit silence at 48 kHz.
 fn wav(path: &std::path::Path) {
     let frames: u32 = 48_000;
@@ -38,8 +48,7 @@ fn take(job: &str, lines: Value) -> Value {
 
 #[test]
 fn a_song_gets_its_tracks_and_every_take_its_playlists() {
-    soundcraft_plenio_commands::register();
-    soundcraft_plenio_commands::set_activated(true);
+    let _turn = turn();
     let dir = std::env::temp_dir().join(format!("scp-songs-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let audio = dir.join("take.wav");
@@ -123,8 +132,7 @@ fn status_and_bad_parameters(e: &mut Engine, song: u64) {
 
 #[test]
 fn stems_play_instead_of_the_mix_and_only_for_their_take() {
-    soundcraft_plenio_commands::register();
-    soundcraft_plenio_commands::set_activated(true);
+    let _turn = turn();
     let dir = std::env::temp_dir().join(format!("scp-stems-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let audio = dir.join("take.wav");
@@ -160,8 +168,7 @@ fn stems_play_instead_of_the_mix_and_only_for_their_take() {
 
 #[test]
 fn a_covers_first_take_mutes_the_original() {
-    soundcraft_plenio_commands::register();
-    soundcraft_plenio_commands::set_activated(true);
+    let _turn = turn();
     let dir = std::env::temp_dir().join(format!("scp-cover-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let audio = dir.join("take.wav");
@@ -211,6 +218,7 @@ fn scored_take(job: &str, warp: Value) -> Value {
 }
 
 struct Scored {
+    _turn: std::sync::MutexGuard<'static, ()>,
     e: Engine,
     song: u64,
     mix: TrackId,
@@ -221,8 +229,7 @@ struct Scored {
 }
 
 fn scored_song(name: &str) -> Scored {
-    soundcraft_plenio_commands::register();
-    soundcraft_plenio_commands::set_activated(true);
+    let turn = turn();
     let dir = std::env::temp_dir().join(format!("scp-sync-{name}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let (audio, midi) = (dir.join("take.wav"), dir.join("score.mid"));
@@ -232,6 +239,7 @@ fn scored_song(name: &str) -> Scored {
     assert_ne!(e.session().tempo.tempos()[0].bpm, 84.0, "the session starts at another tempo than the score");
     let made = e.execute("plenio.song.new", &json!({"title": "Winter"})).unwrap();
     Scored {
+        _turn: turn,
         song: made["song"].as_u64().unwrap(),
         mix: TrackId(made["tracks"]["mix"].as_u64().unwrap()),
         lyrics: TrackId(made["tracks"]["lyrics"].as_u64().unwrap()),

@@ -53,9 +53,9 @@ keine Entscheidung braucht:
 - ArtCraft-Marken, die SoundCraft neu mitbringt, fliegen wieder raus.
 - Von Hand gelöste Konflikte merkt sich `git rerere` und wendet sie beim nächsten Mal selbst an.
 
-`-Full` lässt zusätzlich SoundCrafts ganze Testsuite laufen. Bekannte Fehlschläge auf diesem Rechner sind nur drei
-Tests von `soundcraft-cli` (`it`): Unter Windows läuft dort eine Verbindung in ein Timeout statt abgewiesen zu
-werden, unabhängig vom Add-in.
+`-Full` lässt zusätzlich SoundCrafts ganze Testsuite laufen. Unter Windows überspringt es dabei drei Tests von
+`soundcraft-cli`: Dort läuft eine Verbindung auf einen geschlossenen Port in ein Timeout, statt abgewiesen zu werden.
+Sie schlagen hier auch ohne das Add-in fehl.
 
 ### Wenn ein Konflikt stehen bleibt
 
@@ -70,8 +70,9 @@ pwsh addins/plenio/tools/update_soundcraft.ps1 -Continue -Full -Push
 Abbrechen geht jederzeit mit `git merge --abort`. Nach einem fertigen Merge führt `git reset --hard ORIG_HEAD` zurück,
 solange nichts hochgeladen ist.
 
-Typischer Fall (beim ersten echten Merge am 2026-11-06 aufgetreten): SoundCraft ergänzt ein Feld von `Session`, und in
-`crates/engine/src/dirty.rs` stehen die Felder beider Seiten in derselben Zeile. Lösung: beide Felder behalten.
+Typischer Fall (beim ersten echten Merge am 2026-11-06 aufgetreten): SoundCraft ändert die Feldliste von `Session` in
+`crates/engine/src/dirty.rs`, wo der Fork `extensions` ergänzt hat. Lösung: SoundCrafts Änderung übernehmen und
+`extensions` in der Liste lassen. Fehlt das Feld danach, meldet es der Compiler.
 
 ## Warum Plenio von SoundCrafts Änderungen nicht betroffen ist
 
