@@ -15,6 +15,32 @@ use std::time::{Duration, Instant};
 
 static READY: AtomicBool = AtomicBool::new(false);
 
+/// Where the metronome clicks in the audio of the active take: every beat as the click renderer steps
+/// through the tempo map (`mix/src/click.rs`), in seconds of the audio file. For a measure from outside.
+fn write_clicks(s: &soundcraft_model::Session, path: &std::path::Path) {
+    let Ok(p) = Project::load(s) else { return };
+    let Some(take) = p.songs.first().and_then(|song| song.active_take()) else { return };
+    let rate = s.sample_rate;
+    let last = rate.samples(take.audio_at + take.seconds);
+    let mut tick = 0;
+    let (mut beats, mut bars) = (Vec::new(), Vec::new());
+    while s.tempo.tick_to_samples(tick, rate) <= last {
+        let at = rate.seconds(s.tempo.tick_to_samples(tick, rate)) - take.audio_at;
+        beats.push(at);
+        if s.tempo.bar_beat_at_tick(tick).beat == 1 {
+            bars.push(at);
+        }
+        tick += s.tempo.meter_at_tick(tick).ticks_per_beat();
+    }
+    let answer = serde_json::json!({
+        "audio": take.files.get("song"), "audio_at": take.audio_at, "seconds": take.seconds, "warp": take.warp,
+        "tempos": s.tempo.tempos().len(), "beats": beats, "bars": bars,
+    });
+    if let Err(e) = std::fs::write(path, answer.to_string()) {
+        eprintln!("{}: {e}", path.display());
+    }
+}
+
 fn report(s: &soundcraft_model::Session) {
     let rate = s.sample_rate;
     println!("session: {} tracks, tempo {:?}", s.tracks.len(), s.tempo.tempos()[0].bpm);
@@ -140,6 +166,7 @@ fn main() {
         Err(e) => eprintln!("render failed: {e}"),
     }
     report(harness.state().engine.session());
+    write_clicks(harness.state().engine.session(), &folder.join("clicks.json"));
     let then = std::env::args().nth(3).unwrap_or_default();
     if then == "stems" || then == "make-again" {
         harness.get_by_label("Split this take into stems").click();

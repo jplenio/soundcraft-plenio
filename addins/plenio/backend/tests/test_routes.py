@@ -31,11 +31,16 @@ def load_routes():
 routes = load_routes()
 
 
-class WarpAnswer(unittest.TestCase):
-    def test_an_estimate_is_passed_on_and_no_estimate_is_said(self) -> None:
-        self.assertEqual(routes.warp_answer(None), {"warp": None})
-        found = {"warp": [1.0, -1.3], "anchors": [[1.0, 2.3]], "match": 0.35, "lead": 2.31}
-        self.assertEqual(routes.warp_answer(found), {"warp": [1.0, -1.3], "match": 0.35, "lead": 2.31})
+class BeatRequest(unittest.TestCase):
+    def test_a_warp_is_two_finite_numbers(self) -> None:
+        self.assertEqual(routes.warp_of([1, -1.5]), [1.0, -1.5])
+        for bad in (None, "x", [1.0], [1.0, 2.0, 3.0], [1.0, float("nan")], [1.0, float("inf")], [True, 1.0], ["1", 2.0]):
+            self.assertIsNone(routes.warp_of(bad), bad)
+
+    def test_anchors_keep_what_is_good_and_are_limited(self) -> None:
+        self.assertEqual(routes.anchors_of([[1, 2], "x", [3.0], [4, 5.5]]), [[1.0, 2.0], [4.0, 5.5]])
+        self.assertEqual(routes.anchors_of("x"), [])
+        self.assertEqual(len(routes.anchors_of([[1, 2]] * (routes.MAX_ANCHORS + 5))), routes.MAX_ANCHORS)
 
 
 class ModelsAnswer(unittest.TestCase):

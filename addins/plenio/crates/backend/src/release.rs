@@ -301,8 +301,8 @@ mod tests {
             ("Garden.PLENIO.JSON", "Garden"),
             ("Garden.json", "Garden"),
             ("Mr. Blue.flac", "Mr. Blue"),
-            ("Gärten.plenio.json", "Gärten"),
-            ("ä.flac", "ä"),
+            ("Café.plenio.json", "Café"),
+            ("é.flac", "é"),
         ] {
             assert_eq!(song_stem(Path::new(file)), stem, "{file}");
         }

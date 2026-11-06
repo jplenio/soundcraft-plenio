@@ -182,6 +182,15 @@ impl PlenioUi {
             say(app, "Plenio: the take came without audio.");
             return;
         };
+        // A song brought in lies outside the studio, which reads only its own output.
+        if d.job.id.starts_with(IMPORTED) && self.ready() {
+            match self.copy_into_studio(std::path::Path::new(&audio), &format!("song-{}-{tag}", pending.song)) {
+                Ok(copy) => {
+                    files.insert("studio_song".into(), Value::String(copy));
+                }
+                Err(e) => log::warn!("Plenio: {e}"),
+            }
+        }
         let title = if record.title.is_empty() { d.job.title.clone() } else { record.title.clone() };
         let take = json!({
             "job": d.job.id, "title": title, "seeds": d.job.seeds, "fields": pending.fields, "documents": documents,
@@ -190,7 +199,7 @@ impl PlenioUi {
             "warp": record.warp,
         });
         let meter = info.as_ref().map(|i| json!([i.meter.0, i.meter.1])).unwrap_or(Value::Null);
-        let params = json!({"song": pending.song, "audio": audio, "take": take, "meter": meter});
+        let params = json!({"song": pending.song, "audio": audio, "take": take, "meter": meter, "anchors": record.anchors});
         let score = record.document("score");
         // What the add-in makes for a take lies beside the take; a song brought in may lie among others
         // in a folder that is not the add-in's.
@@ -217,8 +226,18 @@ impl PlenioUi {
 
     fn place(app: &mut SoundApp, params: Value) {
         let title = params["take"]["title"].as_str().unwrap_or_default().to_string();
+        let tempo = serde_json::from_value::<soundcraft_plenio_project::BarMap>(params["take"]["bars"].clone())
+            .ok()
+            .filter(|b| b.usable())
+            .map(|b| b.tempo_range());
         match app.run("plenio.take.add", params) {
-            Ok(v) => say(app, format!("Plenio: take {} of {title} is on its tracks.", v["take"])),
+            Ok(v) => {
+                let how = match tempo {
+                    Some((low, high)) => format!("the session's tempo follows its audio ({low:.1} to {high:.1} BPM)"),
+                    None => "its bars could not be measured, so the session's tempo may run off its audio".to_string(),
+                };
+                say(app, format!("Plenio: take {} of {title} is on its tracks; {how}.", v["take"]));
+            }
             Err(e) => say(app, format!("Plenio: the take could not be placed: {e}")),
         }
     }
@@ -239,28 +258,47 @@ impl PlenioUi {
             }
             Err(e) => say(app, format!("Plenio: the take comes without its notes: {e}")),
         }
-        // No measurement (a song without words has nothing to measure by): Plenio's estimate from the
-        // music, as its Player makes it.
+        // Where every bar lies in the audio, which is the master: measured in the studio, from the take
+        // itself and its score, near where Plenio's warp (or else its estimate) puts them.
         let take = &params["take"];
-        if take["warp"].is_null()
-            && self.ready()
+        if self.ready()
             && let (Some(file), Some(score)) = (take["files"]["studio_song"].as_str(), take["documents"]["score"].as_str())
         {
-            let body = json!({"file": file, "score": score});
+            let body = json!({"file": file, "score": score, "warp": take["warp"], "anchors": params["anchors"]});
             self.held.insert(tag, (params, folder));
-            self.studio.send(Request::Post { tag: format!("align:{tag}"), path: "/scp/v1/align".into(), body });
+            self.studio.send(Request::Post { tag: format!("beats:{tag}"), path: "/scp/v1/beats".into(), body });
             return;
         }
         Self::place(app, params);
     }
 
-    /// Plenio's estimate of where the score sits in a take arrived (or did not): place the take.
-    pub fn aligned(&mut self, app: &mut SoundApp, tag: u64, result: Result<Value, String>) {
+    /// The bars of a take arrived (or did not): place the take. Without them it lies on the warp's line.
+    pub fn beats_found(&mut self, app: &mut SoundApp, tag: u64, result: Result<Value, String>) {
         let Some((mut params, _)) = self.held.remove(&tag) else { return };
-        match result.map(|v| v.get("warp").cloned().unwrap_or(Value::Null)) {
-            Ok(warp) if !warp.is_null() => params["take"]["warp"] = warp,
-            Ok(_) => say(app, "Plenio: the music of this take does not tell where its score sits; the notes lie as written."),
-            Err(e) => say(app, format!("Plenio: where the score sits in this take was not found ({e}); the notes lie as written.")),
+        match result {
+            Ok(answer) => {
+                if params["take"]["warp"].is_null() {
+                    params["take"]["warp"] = answer.get("warp").cloned().unwrap_or(Value::Null);
+                }
+                if let Some(bars) = answer.get("bars").filter(|b| b.is_object()) {
+                    params["take"]["bars"] = bars.clone();
+                    // The sections by their measures: not every measure of a song has the same length.
+                    let score = params["take"]["documents"]["score"].as_str().and_then(ScoreInfo::parse);
+                    let times: Vec<f64> = bars["score"].as_array().map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+                    if let Some(info) = score {
+                        let at = |bar: u32| times.get(bar as usize).copied();
+                        let sections: Vec<Value> = info
+                            .sections
+                            .iter()
+                            .filter_map(|s| {
+                                Some(json!({"name": s.name, "start": at(s.start_bar)?, "end": at(s.start_bar + s.bars).or(times.last().copied())?}))
+                            })
+                            .collect();
+                        params["take"]["sections"] = Value::Array(sections);
+                    }
+                }
+            }
+            Err(e) => log::warn!("Plenio: the bars of this take were not measured: {e}"),
         }
         Self::place(app, params);
     }
@@ -321,11 +359,16 @@ impl PlenioUi {
     fn copy_to_studio(&self, song: &soundcraft_plenio_project::Song, take: &soundcraft_plenio_project::Take) -> Result<String, String> {
         let (first, second) = if song.unmastered { ("original", "song") } else { ("song", "original") };
         let from = PathBuf::from(take.files.get(first).or_else(|| take.files.get(second)).ok_or("the take has no audio file")?);
+        self.copy_into_studio(&from, &format!("song-{}-take-{}", song.id, take.number))
+    }
+
+    /// A copy of a file in a folder of the studio's output.
+    fn copy_into_studio(&self, from: &std::path::Path, folder: &str) -> Result<String, String> {
         let name = from.file_name().ok_or("the take has no audio file")?;
         let layout = soundcraft_plenio_backend::instance::Layout::new(&self.studio_root());
-        let folder = layout.output().join("soundcraft-imported").join(format!("song-{}-take-{}", song.id, take.number));
+        let folder = layout.output().join("soundcraft-imported").join(folder);
         let to = folder.join(name);
-        std::fs::create_dir_all(&folder).and_then(|()| std::fs::copy(&from, &to)).map_err(|e| format!("{}: {e}", from.display()))?;
+        std::fs::create_dir_all(&folder).and_then(|()| std::fs::copy(from, &to)).map_err(|e| format!("{}: {e}", from.display()))?;
         Ok(to.to_string_lossy().into_owned())
     }
 

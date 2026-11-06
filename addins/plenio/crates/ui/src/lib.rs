@@ -258,8 +258,8 @@ impl PlenioUi {
             }
         } else if let Some(t) = tag.strip_prefix("midi:").and_then(|t| t.parse().ok()) {
             self.score_midi(app, t, result);
-        } else if let Some(t) = tag.strip_prefix("align:").and_then(|t| t.parse().ok()) {
-            self.aligned(app, t, result);
+        } else if let Some(t) = tag.strip_prefix("beats:").and_then(|t| t.parse().ok()) {
+            self.beats_found(app, t, result);
         } else if let Some((song, mode)) = tag.strip_prefix("score-import:").and_then(|r| r.split_once(':')) {
             if let Ok(song) = song.parse() {
                 self.score_imported(app, song, generate::mode_from(mode), result);

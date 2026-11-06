@@ -373,6 +373,172 @@ fn a_take_that_runs_faster_keeps_its_notes_on_its_audio_and_gives_them_back_as_w
     assert_eq!(back.iter().map(|n| (n.start, n.pitch, n.length)).collect::<Vec<_>>(), vec![(0, 55, 960), (30 * 960 * 4, 50, 960)]);
 }
 
+/// What the audio of a take has: 32 measures of 4/4 from `first`, wandering around the score's tempo.
+fn wandering_bars(first: f64, depth: f64) -> Value {
+    let bar = 4.0 * 60.0 / 84.0;
+    let score: Vec<f64> = (0..=32).map(|k| f64::from(k) * bar).collect();
+    let audio: Vec<f64> = score.iter().map(|t| first + t + depth * (t / (32.0 * bar) * std::f64::consts::TAU).sin()).collect();
+    json!({"score": score, "audio": audio, "meters": vec![[4, 4]; 32]})
+}
+
+impl Scored {
+    fn add_measured(&mut self, job: &str, bars: Value) {
+        let mut take = scored_take(job, json!([1.0, 0.0]));
+        take["bars"] = bars;
+        let params = json!({"song": self.song, "audio": self.audio, "midi": self.midi, "take": take, "meter": [4, 4]});
+        self.e.execute("plenio.take.add", &params).unwrap();
+    }
+    /// Every measure of the bars against the session: its bar line, at the sample where the audio has it.
+    fn assert_bars_on_audio(&self, bars: &Value, first_bar: i64) {
+        let s = self.e.session();
+        let audio_start = s.track(self.mix).unwrap().clips()[0].start;
+        for (k, at) in bars["audio"].as_array().unwrap().iter().enumerate() {
+            let tick = s.tempo.bar_start_tick(first_bar + k as i64);
+            let want = audio_start + self.samples(at.as_f64().unwrap());
+            let got = s.tempo.tick_to_samples(tick, s.sample_rate);
+            assert!((got - want).abs() <= 1, "bar {} at {got} samples, the audio has it at {want}", first_bar + k as i64);
+        }
+    }
+}
+
+#[test]
+fn the_sessions_bars_are_the_bars_of_a_take_whose_tempo_wanders() {
+    let mut t = scored_song("bars");
+    let bars = wandering_bars(-1.28, 0.25);
+    t.add_measured("first", bars.clone());
+    let s = t.e.session();
+    // The audio starts 1.28 s after the score's first bar, which lies at the session's start.
+    t.near(s.track(t.mix).unwrap().clips()[0].start, 1.28, "the audio");
+    t.assert_bars_on_audio(&bars, 1);
+    // A tempo for every measure, and none of them is the score's.
+    assert_eq!(s.tempo.tempos().len(), 32);
+    assert!(s.tempo.tempos().iter().all(|e| (e.bpm - 84.0).abs() > 0.01 && (e.bpm - 84.0).abs() < 4.0), "{:?}", s.tempo.tempos());
+    // The audio stays as it is; the notes stay on the grid, tick by tick, as written.
+    let track = t.role(Role::Accompaniment);
+    let clip = &s.track(track).unwrap().clips()[0];
+    assert_eq!(clip.start, 0);
+    let ClipContent::Midi { sequence } = &clip.content else { panic!("not a MIDI clip") };
+    assert_eq!(sequence.notes.iter().map(|n| (n.start, n.length)).collect::<Vec<_>>(), [(0, 960), (30 * 3840, 960)]);
+    // The clip lasts to the score's end, which is a bar line.
+    assert_eq!(clip.length, s.tempo.tick_to_samples(32 * 3840, s.sample_rate));
+    // Words stay on the audio, sections on the bars.
+    let p = Project::load(s).unwrap();
+    let take = p.song(t.song).unwrap().active_take().unwrap();
+    assert!((take.lines[0].start - (4.434 + 1.28)).abs() < 1e-9);
+    assert!((take.score_to_session(2.0 * 4.0 * 60.0 / 84.0) - (bars["audio"][2].as_f64().unwrap() + 1.28)).abs() < 1e-9);
+    // One undo takes it all back.
+    let tempo = s.tempo.clone();
+    assert!(t.e.undo());
+    assert_ne!(t.e.session().tempo, tempo);
+    assert_eq!(t.e.session().tempo.tempos().len(), 1);
+}
+
+#[test]
+fn a_take_that_starts_before_its_score_gets_a_bar_of_its_tempo_before_it() {
+    let mut t = scored_song("bars-lead");
+    let bars = wandering_bars(0.5, 0.1);
+    t.add_measured("first", bars.clone());
+    // The first measure lasts 2.86 s or so, so the score starts on bar 2 and the audio a bit before it.
+    t.assert_bars_on_audio(&bars, 2);
+    let s = t.e.session();
+    let audio = s.sample_rate.seconds(s.track(t.mix).unwrap().clips()[0].start);
+    assert!(audio > 2.0 && audio < 3.0, "{audio}");
+    assert_eq!(s.track(t.role(Role::Accompaniment)).unwrap().clips()[0].start, s.tempo.tick_to_samples(3840, s.sample_rate));
+    assert_eq!(s.tempo.tempo_at_tick(0), s.tempo.tempo_at_tick(3840));
+}
+
+#[test]
+fn a_meter_change_in_the_score_is_a_meter_change_in_the_session() {
+    let mut t = scored_song("bars-meters");
+    // 3 measures of 4/4, one of 2/4, then 4/4 again.
+    let meters: Vec<[u32; 2]> = (0..30).map(|k| if k == 3 { [2, 4] } else { [4, 4] }).collect();
+    let quarter = 60.0 / 84.0;
+    let mut score = vec![0.0];
+    for m in &meters {
+        score.push(score.last().unwrap() + f64::from(m[0]) * quarter);
+    }
+    let audio: Vec<f64> = score.iter().map(|t| t * 1.01 - 0.75).collect();
+    let bars = json!({"score": score, "audio": audio, "meters": meters});
+    t.add_measured("first", bars.clone());
+    t.assert_bars_on_audio(&bars, 1);
+    let s = t.e.session();
+    let changes: Vec<(i64, u32)> = s.tempo.meters().iter().map(|m| (m.tick, m.numerator)).collect();
+    assert_eq!(changes, [(0, 4), (3 * 3840, 2), (3 * 3840 + 1920, 4)]);
+}
+
+#[test]
+fn another_take_brings_its_own_bars_and_the_owners_midi_keeps_its_place_in_them() {
+    let mut t = scored_song("bars-takes");
+    let (one, two) = (wandering_bars(-1.28, 0.25), wandering_bars(-0.5, -0.3));
+    t.add_measured("first", one.clone());
+    // The owner's own MIDI, on bar 9, and audio at a time of its own.
+    let made = t.e.execute("track.new", &json!({"kind": "midi", "name": "Mine"})).unwrap();
+    let mine = TrackId(made["tracks"][0]["id"].as_u64().or(made["ids"][0].as_u64()).or(made["tracks"][0].as_u64()).unwrap());
+    let bar_9 = t.e.session().tempo.bar_start_tick(9);
+    let session = t.e.session_mut();
+    let rate = session.sample_rate;
+    let start = session.tempo.tick_to_samples(bar_9, rate);
+    let end = session.tempo.tick_to_samples(bar_9 + 3840, rate);
+    let id = session.new_clip_id();
+    let note = soundcraft_midi::Note { pitch: 64, velocity: 90, release_velocity: 64, channel: 0, start: 960, length: 480 };
+    let notes = soundcraft_midi::Sequence { notes: vec![note], ctrls: Vec::new() };
+    let tr = session.track_mut(mine).unwrap();
+    let pl = tr.active_playlist;
+    tr.playlists[pl].clips.push(soundcraft_model::Clip::midi(id, "Mine", start, end - start, notes));
+    let where_mine = |e: &Engine| {
+        let s = e.session();
+        let clip = &s.track(mine).unwrap().clips()[0];
+        (s.tempo.samples_to_ticks(clip.start, s.sample_rate), s.tempo.samples_to_ticks(clip.start + clip.length, s.sample_rate), clip.start)
+    };
+    assert_eq!(where_mine(&t.e), (bar_9, bar_9 + 3840, start));
+
+    t.add_measured("second", two.clone());
+    t.assert_bars_on_audio(&two, 1);
+    let (from, to, moved) = where_mine(&t.e);
+    assert_eq!((from, to), (bar_9, bar_9 + 3840), "the clip stays on bar 9");
+    assert_ne!(moved, start, "whose time moved with the take's bars");
+    let ClipContent::Midi { sequence } = &t.e.session().track(mine).unwrap().clips()[0].content else { panic!("not a MIDI clip") };
+    assert_eq!(sequence.notes[0].start, 960, "and its notes in it");
+
+    // Back and forth: each take brings its bars back, to the sample.
+    t.e.execute("plenio.take.select", &json!({"song": t.song, "take": 1})).unwrap();
+    t.assert_bars_on_audio(&one, 1);
+    assert_eq!(where_mine(&t.e), (bar_9, bar_9 + 3840, start));
+    t.e.execute("plenio.take.select", &json!({"song": t.song, "take": 2})).unwrap();
+    t.assert_bars_on_audio(&two, 1);
+}
+
+#[test]
+fn notes_of_a_measured_take_go_back_as_written() {
+    let mut t = scored_song("bars-back");
+    t.add_measured("first", wandering_bars(-1.28, 0.25));
+    let track = t.role(Role::Accompaniment);
+    let session = t.e.session_mut();
+    let tr = session.track_mut(track).unwrap();
+    let active = tr.active_playlist;
+    let ClipContent::Midi { sequence } = &mut tr.playlists[active].clips[0].content else { panic!("not a MIDI clip") };
+    sequence.notes[0].pitch = 55;
+    let p = Project::load(t.e.session()).unwrap();
+    let file = soundcraft_plenio_commands::notes_for_plenio(t.e.session(), p.song(t.song).unwrap()).unwrap().unwrap();
+    let read = soundcraft_midi::read_smf(&file).unwrap();
+    let back = &read.tracks.iter().find(|x| x.name == "Instrument").unwrap().sequence.notes;
+    assert_eq!(back.iter().map(|n| (n.start, n.pitch, n.length)).collect::<Vec<_>>(), vec![(0, 55, 960), (30 * 960 * 4, 50, 960)]);
+}
+
+#[test]
+fn bars_that_cannot_be_true_leave_the_take_on_its_warp() {
+    let mut t = scored_song("bars-bad");
+    let mut bars = wandering_bars(-1.28, 0.25);
+    bars["audio"][5] = bars["audio"][4].clone();
+    let mut take = scored_take("first", json!([1.0, -1.28]));
+    take["bars"] = bars;
+    t.e.execute("plenio.take.add", &json!({"song": t.song, "audio": t.audio, "midi": t.midi, "take": take, "meter": [4, 4]})).unwrap();
+    let s = t.e.session();
+    assert_eq!(s.tempo.tempos().len(), 1);
+    assert_eq!(s.tempo.tempos()[0].bpm, 84.0);
+    t.near(s.track(t.mix).unwrap().clips()[0].start, 1.28, "the audio");
+}
+
 #[test]
 fn stems_lie_where_the_audio_of_their_take_lies() {
     let mut t = scored_song("stems");

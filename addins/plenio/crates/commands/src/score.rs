@@ -10,7 +10,8 @@ use serde_json::json;
 use soundcraft_engine::{Engine, EngineError, Result};
 use soundcraft_midi::{Sequence, Smf, SmfTrack};
 use soundcraft_model::{Clip, Session, TrackId};
-use soundcraft_plenio_project::{PlaylistRef, Role, RoleTrack, Song, Take};
+use soundcraft_plenio_project::{BarMap, PlaylistRef, Role, RoleTrack, Song, Take};
+use soundcraft_time::{TICKS_PER_QUARTER, TempoMap};
 
 /// The largest MIDI file read (Plenio's own limit).
 pub const MAX_MIDI_BYTES: usize = 8 * 1024 * 1024;
@@ -75,6 +76,29 @@ fn playlist_sequence(s: &Session, r: &PlaylistRef) -> Option<Sequence> {
     }
     out.sort();
     Some(out)
+}
+
+/// The session's tempo and meters while a laid-out take plays, from the bars measured in its audio: each
+/// of the session's bar lines from the score's first on lies where the audio has that measure, to the
+/// sample. The bars before the score last as long as its first measure.
+pub fn tempo_map(take: &Take) -> Option<TempoMap> {
+    let bars = take.bars.as_ref()?;
+    let first_meter = *bars.meters.first()?;
+    let first = bars.tempos().next()?;
+    let mut map = TempoMap::new(first, first_meter.0, first_meter.1).ok()?;
+    let first_length = BarMap::quarters(first_meter) * 60.0 / first;
+    let ticks_of = |meter: (u32, u32)| (BarMap::quarters(meter) * TICKS_PER_QUARTER as f64).round() as i64;
+    let mut tick = (take.score_at / first_length).round() as i64 * ticks_of(first_meter);
+    let mut meter = first_meter;
+    for (now, tempo) in bars.meters.iter().copied().zip(bars.tempos()) {
+        if now != meter {
+            map.set_meter(tick, now.0, now.1).ok()?;
+            meter = now;
+        }
+        map.set_tempo(tick, tempo).ok()?;
+        tick += ticks_of(now);
+    }
+    Some(map)
 }
 
 /// A score tick (at [`soundcraft_midi::PPQ`], `bpm` being the score's tempo) in seconds of the score.

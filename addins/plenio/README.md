@@ -22,12 +22,16 @@ up to date with SoundCraft is in [docs/FORK.md](docs/FORK.md).
    - **Melody**, **Instrument Line**, **Chords**: the score as MIDI (muted; unmute to hear the notes),
      over the whole length of the score.
 
-   Audio, words and notes meet. A YuE2 render is shifted against its score, each take by its own
-   amount, and Plenio measures it from the sung words (for a song without words: from the music). The
-   score's first bar lies on a bar line of the session, so the session's bars are the score's, and the
-   take's audio is placed against it; a take that runs a little faster or slower than its score gets
-   its notes stretched to match, and they go back to Plenio as written. Takes and stems keep their own
-   place on their own playlists.
+   **The audio is the master, and the session's tempo follows it.** A YuE2 render keeps no steady tempo:
+   against the best single tempo its beats wander by a quarter of a second in the median song and by a
+   second in the worst, so no BPM value, however exact, keeps a metronome on it. Every measure of the
+   score is found in the audio (its onsets, the score's pitch classes, the sung words), and each becomes
+   a tempo change on its bar line. The session's bars are then the take's: metronome, grid and any MIDI
+   you add stay on the audio, the audio is not changed, and the notes stay on the grid as written. Meter
+   changes in the score become meter changes in the session. Each take brings its own tempo map when
+   you choose it; your own MIDI clips keep their bar and beat. Takes and stems keep their own place on
+   their own playlists. A take whose bars cannot be measured (the status line says so) lies on the
+   straight line Plenio measured, with its notes stretched to match.
 3. The **Plenio Song** inspector: choose a take, change the lyrics (YuE2's section tags as buttons;
    *Check* runs Plenio's own rules), the brief (every field of the Song API's template), lock seeds.
    **Generate** does what the changes call for: new words get new notes, notes you changed on the score
@@ -62,7 +66,7 @@ this fork): `cargo build -p soundcraft --no-default-features` builds SoundCraft 
 Songs are made by Plenio's **Song API** (`/plenio/api/v1`) in the add-in's own ComfyUI instance;
 the editor's routes (`/plenio/score/midi/*`, `/plenio/lyrics/analyze`) and `/plenio/api/v1/from-record`
 serve the notes, the lyrics check and imports. The add-in's wrapper adds only `/scp/v1` (who it is,
-the models without MiniMax, stems, and where a score sits in a take without measured times).
+the models without MiniMax, stems, and where every bar of a score lies in its take).
 
 ## Folders
 

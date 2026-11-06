@@ -62,6 +62,87 @@ pub struct PlaylistRef {
     pub index: usize,
 }
 
+/// Where the measures of a score lie in a take's audio, measured from the audio. The take is the master:
+/// a YuE2 render keeps no steady tempo, so the session's tempo map follows these times, and the audio
+/// stays as it is. The bars of the session are then the take's bars, whatever the tempo does.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BarMap {
+    /// Every measure's start and the score's end, in seconds of the score at its own tempo.
+    pub score: Vec<f64>,
+    /// The same, in seconds of the take's audio (before 0 where the score starts before the audio).
+    pub audio: Vec<f64>,
+    /// The meter of every measure: one value fewer than the times.
+    pub meters: Vec<(u32, u32)>,
+}
+
+/// The most measures believed.
+const MAX_BARS: usize = 4096;
+
+fn increasing(times: &[f64]) -> bool {
+    times.iter().all(|t| t.is_finite()) && times.windows(2).all(|w| w.first() < w.last())
+}
+
+/// The value at `x` of the straight pieces through `from` → `to`; the first and last go on outside.
+fn through(from: &[f64], to: &[f64], x: f64) -> f64 {
+    let k = from.partition_point(|v| *v <= x).saturating_sub(1).min(from.len().saturating_sub(2));
+    match (from.get(k), from.get(k + 1), to.get(k), to.get(k + 1)) {
+        (Some(a), Some(b), Some(c), Some(d)) if b > a => c + (x - a) * (d - c) / (b - a),
+        _ => x,
+    }
+}
+
+impl BarMap {
+    /// Quarter notes in a measure of this meter.
+    pub fn quarters(meter: (u32, u32)) -> f64 {
+        f64::from(meter.0) * 4.0 / f64::from(meter.1.max(1))
+    }
+
+    /// Whether it can be laid out: times in order for every measure, meters and tempos that exist.
+    pub fn usable(&self) -> bool {
+        let count = self.meters.len();
+        let lengths_fit = self.score.len() == count + 1 && self.audio.len() == count + 1;
+        let meters_exist = self.meters.iter().all(|(n, d)| (1..=64).contains(n) && [1, 2, 4, 8, 16, 32, 64].contains(d));
+        (1..=MAX_BARS).contains(&count)
+            && lengths_fit
+            && meters_exist
+            && increasing(&self.score)
+            && increasing(&self.audio)
+            && self.tempos().all(|t| (5.0..=1000.0).contains(&t))
+    }
+
+    /// The tempo of every measure in quarter notes a minute.
+    pub fn tempos(&self) -> impl Iterator<Item = f64> + '_ {
+        self.meters.iter().zip(self.audio.windows(2)).map(|(meter, times)| match times {
+            [a, b] => Self::quarters(*meter) * 60.0 / (b - a),
+            _ => 0.0,
+        })
+    }
+
+    /// The slowest and the fastest tempo of its measures.
+    pub fn tempo_range(&self) -> (f64, f64) {
+        self.tempos().fold((f64::MAX, f64::MIN), |(low, high), t| (low.min(t), high.max(t)))
+    }
+
+    /// A time of the score (seconds at its own tempo) in the take's audio.
+    pub fn audio_of(&self, score: f64) -> f64 {
+        through(&self.score, &self.audio, score)
+    }
+
+    /// A time of the take's audio in the score.
+    pub fn score_of(&self, audio: f64) -> f64 {
+        through(&self.audio, &self.score, audio)
+    }
+
+    /// Where the audio has the score's first measure, and how long that measure lasts.
+    fn first_measure(&self) -> (f64, f64) {
+        match self.audio.as_slice() {
+            [a, b, ..] => (*a, b - a),
+            _ => (0.0, 0.0),
+        }
+    }
+}
+
 /// One rendered take of a song.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -94,6 +175,9 @@ pub struct Take {
     /// measurement of the sung words against the score's notes, or its estimate from the music. A
     /// YuE2 render is shifted against its score (seconds, and each take by its own amount).
     pub warp: Option<(f64, f64)>,
+    /// Where the score's measures lie in the take's audio. With it the session's tempo follows the take;
+    /// without it (not measured, or a session from before) the take lies on the straight line of `warp`.
+    pub bars: Option<BarMap>,
     /// Where the take's audio starts on the session's timeline (seconds).
     pub audio_at: f64,
     /// Where the first bar of its score lies on the session's timeline (seconds): a bar line, so that
@@ -118,21 +202,32 @@ impl Take {
 
     /// A time of the score (seconds from its first bar) on the session's timeline.
     pub fn score_to_session(&self, seconds: f64) -> f64 {
-        self.score_at + self.scale() * seconds
+        match &self.bars {
+            Some(bars) => self.audio_at + bars.audio_of(seconds),
+            None => self.score_at + self.scale() * seconds,
+        }
     }
 
     /// A time on the session's timeline as a time of the score.
     pub fn session_to_score(&self, seconds: f64) -> f64 {
-        (seconds - self.score_at) / self.scale()
+        match &self.bars {
+            Some(bars) => bars.score_of(seconds - self.audio_at),
+            None => (seconds - self.score_at) / self.scale(),
+        }
     }
 
     /// Lay the take out on the session's timeline so that audio, words and notes meet: the score's
-    /// first bar on a bar line (the first one it can reach), the audio where the warp puts it against
-    /// the score. `lines` come in audio time and `sections` in score time; both leave in session
-    /// time. A section ends with the audio at the latest.
+    /// first bar on a bar line (the first one it can reach), the audio where the bars (or else the warp)
+    /// put it against the score. `bar_seconds` is the session's bar for a take without bars of its own.
+    /// `lines` come in audio time and `sections` in score time; both leave in session time. A section
+    /// ends with the audio at the latest.
     pub fn lay_out(&mut self, bar_seconds: f64) {
         self.warp = self.warp.filter(|w| warp_ok(*w));
-        let shift = self.warp.map_or(0.0, |w| w.1);
+        self.bars = self.bars.take().filter(BarMap::usable);
+        let (shift, bar_seconds) = match &self.bars {
+            Some(bars) => bars.first_measure(),
+            None => (self.warp.map_or(0.0, |w| w.1), bar_seconds),
+        };
         self.score_at = if shift > 0.0 && bar_seconds > 0.0 { (shift / bar_seconds).ceil() * bar_seconds } else { 0.0 };
         self.audio_at = (self.score_at - shift).max(0.0);
         let audio_at = self.audio_at;
@@ -324,6 +419,7 @@ pub(crate) fn sanitize(song: &mut Song, session: &Session) {
         take.stars = take.stars.filter(|s| s.is_finite()).map(|s| s.clamp(0.0, 5.0));
         take.bpm = take.bpm.filter(|b| b.is_finite() && (10.0..=400.0).contains(b));
         take.warp = take.warp.filter(|w| warp_ok(*w));
+        take.bars = take.bars.take().filter(BarMap::usable);
         for at in [&mut take.audio_at, &mut take.score_at] {
             if !at.is_finite() || *at < 0.0 {
                 *at = 0.0;
@@ -339,6 +435,73 @@ pub(crate) fn sanitize(song: &mut Song, session: &Session) {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Four measures of 4/4 that run at 120, 100, 150 and 120, the first at `first` in the audio.
+    fn bars(first: f64) -> BarMap {
+        BarMap {
+            score: vec![0.0, 2.0, 4.0, 6.0, 8.0],
+            audio: vec![first, first + 2.0, first + 4.4, first + 6.0, first + 8.0],
+            meters: vec![(4, 4); 4],
+        }
+    }
+
+    #[test]
+    fn a_bar_map_goes_both_ways_through_its_measures_and_on_outside_them() {
+        let map = bars(1.0);
+        assert!(map.usable());
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        let tempos: Vec<f64> = map.tempos().collect();
+        assert!(tempos.iter().zip([120.0, 100.0, 150.0, 120.0]).all(|(a, b)| near(*a, b)), "{tempos:?}");
+        let (low, high) = map.tempo_range();
+        assert!(near(low, 100.0) && near(high, 150.0));
+        for (score, audio) in [(0.0, 1.0), (2.0, 3.0), (3.0, 4.2), (4.0, 5.4), (8.0, 9.0), (9.0, 10.0), (-1.0, 0.0)] {
+            assert!((map.audio_of(score) - audio).abs() < 1e-9, "{score}");
+            assert!((map.score_of(audio) - score).abs() < 1e-9, "{audio}");
+        }
+    }
+
+    #[test]
+    fn a_bar_map_that_cannot_be_true_is_not_used() {
+        let usable = bars(0.0);
+        let broken = [
+            BarMap { meters: vec![(4, 4); 3], ..usable.clone() },
+            BarMap { audio: vec![0.0, 2.0, 2.0, 4.0, 6.0], ..usable.clone() },
+            BarMap { audio: vec![0.0, 2.0, f64::NAN, 4.0, 6.0], ..usable.clone() },
+            BarMap { meters: vec![(4, 3); 4], ..usable.clone() },
+            BarMap { audio: vec![0.0, 0.001, 2.0, 4.0, 6.0], ..usable.clone() },
+            BarMap::default(),
+        ];
+        for map in broken {
+            assert!(!map.usable(), "{map:?}");
+        }
+        let mut take = Take { bars: Some(BarMap { meters: Vec::new(), ..usable }), ..Take::default() };
+        take.lay_out(2.0);
+        assert_eq!(take.bars, None);
+    }
+
+    #[test]
+    fn a_take_with_bars_lies_where_they_say() {
+        // The audio has the first measure 0.5 s in: the score moves to the first bar line it can reach.
+        let mut take = Take {
+            bars: Some(bars(0.5)),
+            warp: Some((0.9, 7.0)),
+            lines: vec![LineSpan { start: 0.5, end: 1.0, text: "first".into() }],
+            sections: vec![SectionSpan { name: "verse".into(), start: 2.0, end: 4.0 }],
+            ..Take::default()
+        };
+        take.lay_out(99.0);
+        assert_eq!((take.score_at, take.audio_at), (2.0, 1.5));
+        // Measure by measure through the audio, not by the warp's straight line.
+        assert!((take.score_to_session(4.0) - (1.5 + 4.9)).abs() < 1e-9);
+        assert!((take.session_to_score(1.5 + 4.9) - 4.0).abs() < 1e-9);
+        assert_eq!((take.lines[0].start, take.sections[0].start), (2.0, 1.5 + 2.5));
+
+        // The audio starts after the score's first measure: the score starts at the session's start.
+        let mut late = Take { bars: Some(bars(-1.25)), ..Take::default() };
+        late.lay_out(99.0);
+        assert_eq!((late.score_at, late.audio_at), (0.0, 1.25));
+        assert!((late.score_to_session(2.0) - 2.0).abs() < 1e-9);
+    }
 
     fn timed(warp: Option<(f64, f64)>) -> Take {
         Take {

@@ -7,8 +7,8 @@ use crate::when_activated;
 use serde_json::{Value, json};
 use soundcraft_engine::cmd::{CommandSpec, always};
 use soundcraft_engine::{Engine, EngineError, Result, find_command};
-use soundcraft_model::{Clip, Playlist, Session, TrackId, TrackKind};
-use soundcraft_plenio_project::{Doc, DocState, PlaylistRef, Project, Role, RoleTrack, Song, SongKind, Take};
+use soundcraft_model::{Clip, ClipContent, Playlist, Session, TrackId, TrackKind};
+use soundcraft_plenio_project::{BarMap, Doc, DocState, PlaylistRef, Project, Role, RoleTrack, Song, SongKind, Take};
 
 /// The most lyric clips one take puts on the lyrics track.
 const MAX_LYRIC_CLIPS: usize = 2000;
@@ -302,10 +302,16 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
     take.playlists.clear();
     let label = take.label();
     let first_of_session = project.songs.iter().all(|s| s.takes.is_empty()) && !others_have_clips(e.session(), &project);
+    let measured = take.bars.as_ref().is_some_and(BarMap::usable);
     // The first take of a session that holds nothing else sets its tempo, meter and key: before
     // anything is laid out, for the bars and the notes are measured with them. The tempo is the one
-    // the take really plays, so that the session's bars stay on its audio.
-    if first_of_session && let Some(bpm) = take.bpm {
+    // the take really plays, so that the session's bars stay on its audio. A take with measured bars
+    // brings its own tempo and meters, below.
+    if first_of_session && measured {
+        if let Some(key) = key_name(&take.key) {
+            e.session_mut().key_signatures = vec![(0, key)];
+        }
+    } else if first_of_session && let Some(bpm) = take.bpm {
         let meter = p
             .get("meter")
             .and_then(Value::as_array)
@@ -325,6 +331,10 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
         (s.sample_rate, s.sample_rate.seconds(s.tempo.tick_to_samples(s.tempo.bar_start_tick(2), s.sample_rate)))
     };
     take.lay_out(bar);
+    // The audio is the master: from here on the session's bars are this take's.
+    if let Some(map) = crate::score::tempo_map(&take) {
+        conduct(e.session_mut(), &project, map);
+    }
     // The take's audio on a playlist of its own.
     let index = take_playlist(e.session_mut(), mix, &label).ok_or_else(|| bad(ID, "the song's audio track is gone"))?;
     inner(e, "file.import_audio", &json!({"path": audio, "track": mix.0, "at": rate.samples(take.audio_at)}))?;
@@ -384,6 +394,28 @@ fn take_add(e: &mut Engine, p: &Value) -> Result<Value> {
     Ok(json!({"song": id, "take": number}))
 }
 
+/// A take's tempo and meters become the session's. Everything on a musical track of the owner's keeps
+/// its place in the bars: its bar and beat stay, its time follows. The songs' own tracks have a playlist
+/// for each take, already laid out on that take's bars; audio tracks keep their time.
+fn conduct(s: &mut Session, project: &Project, map: soundcraft_time::TempoMap) {
+    let rate = s.sample_rate;
+    let own: Vec<TrackId> = project.songs.iter().flat_map(|song| song.tracks.iter().map(|r| r.track)).collect();
+    let old = std::mem::replace(&mut s.tempo, map.clone());
+    for track in s.tracks.iter_mut().filter(|t| t.ticks_timebase && !own.contains(&t.id)) {
+        for playlist in &mut track.playlists {
+            for clip in &mut playlist.clips {
+                let start = map.tick_to_samples(old.samples_to_ticks(clip.start, rate), rate).max(0);
+                if matches!(clip.content, ClipContent::Midi { .. }) {
+                    let end = old.samples_to_ticks(clip.start.saturating_add(clip.length), rate);
+                    clip.length = map.tick_to_samples(end, rate).saturating_sub(start).max(1);
+                }
+                clip.start = start;
+            }
+            playlist.sort();
+        }
+    }
+}
+
 fn take_select(e: &mut Engine, p: &Value) -> Result<Value> {
     const ID: &str = "plenio.take.select";
     let id = song_param(ID, p)?;
@@ -392,9 +424,13 @@ fn take_select(e: &mut Engine, p: &Value) -> Result<Value> {
     let song = project.song_mut(id).ok_or_else(|| bad(ID, format!("no Plenio song {id}")))?;
     let index = song.takes.iter().position(|t| u64::from(t.number) == number).ok_or_else(|| bad(ID, format!("the song has no take {number}")))?;
     let refs = song.takes.get(index).map(|t| t.playlists.clone()).unwrap_or_default();
+    let map = song.takes.get(index).and_then(crate::score::tempo_map);
     song.adopt(index);
     let song = song.clone();
     let s = e.session_mut();
+    if let Some(map) = map {
+        conduct(s, &project, map);
+    }
     for r in &refs {
         if let Some(t) = s.track_mut(r.track)
             && r.index < t.playlists.len()

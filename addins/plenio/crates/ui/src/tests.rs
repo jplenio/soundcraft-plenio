@@ -134,7 +134,7 @@ fn a_delivered_take_lands_on_the_songs_tracks() {
         .into_iter()
         .map(|(k, v)| (k.to_string(), Document { text: v.into(), state: "auto".into() }))
         .collect();
-    let record = Record { title: "Garden".into(), documents, seconds: 0.5, sample_rate: 48_000, stars: Some(4.0), warp: None };
+    let record = Record { anchors: Vec::new(), title: "Garden".into(), documents, seconds: 0.5, sample_rate: 48_000, stars: Some(4.0), warp: None };
     let job = Job {
         id: "job-1".into(),
         status: JobStatus::Succeeded,
@@ -371,11 +371,44 @@ fn an_import_waits_for_the_studio_and_takes_what_it_answers() {
     let (&midi, (_, folder)) = ui.held.iter().next().unwrap();
     assert!(!folder.starts_with(&dir), "{}", folder.display());
     ui.handle(&mut app, Event::Answer { tag: format!("midi:{midi}"), result: Err("no notes in this test".into()) });
+    // Then for its bars, measured from a copy in the studio's own folder.
+    assert_eq!(ui.held.len(), 1, "the take waits for its bars");
+    let bars = json!({"score": [0.0, 2.4], "audio": [0.1, 2.55], "meters": [[4, 4]]});
+    ui.handle(&mut app, Event::Answer { tag: format!("beats:{midi}"), result: Ok(json!({"warp": [1.0, 0.1], "bars": bars})) });
     let p = Project::load(app.engine.session()).unwrap();
     let song = p.songs.first().expect("the song came in");
     assert_eq!(song.fields.get("lyrics.language"), Some(&json!("en")));
-    assert_eq!(song.active_take().unwrap().seeds.get("take"), Some(&7));
+    let take = song.active_take().unwrap();
+    assert_eq!(take.seeds.get("take"), Some(&7));
+    assert!(take.bars.is_some() && take.files.contains_key("studio_song"));
+    assert!(app.ui.status.contains("follows its audio"), "{}", app.ui.status);
+    // The session's tempo is the take's: four quarters in 2.45 s.
+    assert!((app.engine.session().tempo.tempos()[0].bpm - 4.0 * 60.0 / 2.45).abs() < 1e-9);
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Where the bars could not be measured the take still comes, and the owner is told.
+#[test]
+fn a_take_whose_bars_are_not_measured_comes_all_the_same() {
+    let _turn = turn();
+    let dir = temp("no-bars");
+    let mut ui = quiet_ui();
+    ui.state = State::Ready { port: 1, plenio: "x".into(), comfyui: "x".into() };
+    let mut app = app();
+    let path = dir.join("Garden.flac");
+    flac(&path, Some(&song_record()));
+    ui.import_record(&mut app, path);
+    let tag = *ui.imports.keys().next().unwrap();
+    ui.handle(&mut app, Event::Answer { tag: format!("from-record:{tag}"), result: Ok(json!({"template": "yue2-song"})) });
+    let (&midi, _) = ui.held.iter().next().unwrap();
+    ui.handle(&mut app, Event::Answer { tag: format!("midi:{midi}"), result: Err("no notes in this test".into()) });
+    ui.handle(&mut app, Event::Answer { tag: format!("beats:{midi}"), result: Err("no bars in this test".into()) });
+    let p = Project::load(app.engine.session()).unwrap();
+    let take = p.songs.first().unwrap().active_take().unwrap();
+    assert_eq!(take.bars, None);
+    assert_eq!(take.warp, Some((1.0, -0.25)));
+    assert!(app.ui.status.contains("could not be measured"), "{}", app.ui.status);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

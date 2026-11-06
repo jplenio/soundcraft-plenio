@@ -10,7 +10,7 @@
 
 mod generation;
 
-pub use generation::{DOCUMENTS, Doc, DocState, LineSpan, Mode, Plan, PlaylistRef, SectionSpan, Take, What, warp_ok};
+pub use generation::{BarMap, DOCUMENTS, Doc, DocState, LineSpan, Mode, Plan, PlaylistRef, SectionSpan, Take, What, warp_ok};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

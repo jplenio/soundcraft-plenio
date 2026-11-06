@@ -69,7 +69,10 @@ if (-not $Python) {
     }
 }
 if ($Python -and (Test-Path $Python)) {
-    Step "wrapper tests" { & $Python -I addins/plenio/backend/tests/test_routes.py }
+    Step "wrapper tests" {
+        & $Python -I addins/plenio/backend/tests/test_routes.py
+        & $Python -I addins/plenio/backend/tests/test_beats.py
+    }
     if ($Plenio) {
         $env:PYTHONDONTWRITEBYTECODE = "1"
         $env:PYTHONPATH = Join-Path $Plenio ".devdeps"

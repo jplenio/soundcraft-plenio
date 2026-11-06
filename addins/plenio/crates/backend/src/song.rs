@@ -161,6 +161,8 @@ pub struct Record {
     /// Where the score sits in the audio, `(a, b)` with `t_audio = a * t_score + b`: Plenio's
     /// measurement of the sung words against the score (none for a song without words).
     pub warp: Option<(f64, f64)>,
+    /// Sung syllables whose place was measured: `(t_audio, t_score)`.
+    pub anchors: Vec<(f64, f64)>,
 }
 
 impl Record {
@@ -185,6 +187,7 @@ impl Record {
             .and_then(|w| Some((w.first()?.as_f64()?, w.get(1)?.as_f64()?)));
         Record {
             warp,
+            anchors: record_anchors(v),
             title: text(v, "title"),
             documents,
             seconds: audio.and_then(|a| a.get("seconds")).and_then(Value::as_f64).filter(|s| s.is_finite() && *s >= 0.0).unwrap_or(0.0),
@@ -319,6 +322,24 @@ pub fn parse_srt(srt: &str) -> Vec<Cue> {
     }
     cues.sort_by(|x, y| x.start.total_cmp(&y.start));
     cues
+}
+
+/// The sung syllables of a release record with their places in the score (`timing[0].lines[].units`,
+/// each `[start, cut, score]`): `(t_audio, t_score)`.
+pub fn record_anchors(record: &Value) -> Vec<(f64, f64)> {
+    let lines =
+        record.get("timing").and_then(Value::as_array).and_then(|takes| takes.first()).and_then(|take| take.get("lines")).and_then(Value::as_array);
+    lines
+        .into_iter()
+        .flatten()
+        .filter_map(|line| line.get("units")?.as_array())
+        .flatten()
+        .filter_map(|unit| {
+            let (audio, score) = (unit.get(0)?.as_f64()?, unit.get(2)?.as_f64()?);
+            (audio.is_finite() && score.is_finite()).then_some((audio, score))
+        })
+        .take(MAX_CUES)
+        .collect()
 }
 
 /// The lyrics' lines as sung, from a release record (`timing[0].lines`), sorted by start.
