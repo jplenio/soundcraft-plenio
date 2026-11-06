@@ -89,6 +89,7 @@ bei der Benutzung.
 | `crates/engine/src/cmd.rs`, `cmd/extensions.rs` (neu) | `register_extension_commands` | Befehle des Add-ins |
 | `crates/ui-egui/src/extension.rs` (neu), wenige Aufrufe in `lib.rs`, `app.rs`, `menus.rs`, `edit_window/tracks.rs` | `UiExtension` | Oberfläche des Add-ins |
 | `apps/soundcraft/` | Feature `plenio`, zwei Zeilen in `main.rs` | schaltet das Add-in ein |
+| `apps/soundcraft/src/main.rs` | `open_filter`: der Dateidialog bietet die Endungen an, die der Aufrufer nennt | sonst bietet „Import Plenio Song…“ nur Audio an |
 | `Cargo.toml`, `xtask/src/main.rs` | Workspace-Mitglieder, Layer aus dem Manifest | baut und prüft `addins/` |
 | `docs/architecture.md`, `ATTRIBUTION.md` | Abschnitt „Extensions“, Zeile für `vendor/` | Doku und Herkunft |
 | `crates/ui-egui/src/lib.rs` | `UPDATE_APP`: `repo` und `developer` | siehe unten: Updates |

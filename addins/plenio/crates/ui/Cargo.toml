@@ -28,6 +28,9 @@ log.workspace = true
 [dev-dependencies]
 # examples/plenio_shot.rs renders the UI offscreen.
 egui_kittest = { workspace = true, features = ["wgpu", "snapshot"] }
+# The tests make real FLAC files with a song in them.
+soundcraft-audio-io.workspace = true
+flate2 = "1"
 
 [lints]
 workspace = true

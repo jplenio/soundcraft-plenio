@@ -20,6 +20,13 @@ use soundcraft_ui_egui::extension::{Lane, UiExtension};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+/// Tell the owner something: the status line shows it, the log keeps it.
+pub(crate) fn say(app: &mut SoundApp, message: impl Into<String>) {
+    let message = message.into();
+    app.engine.message(message.clone());
+    app.ui.status = message;
+}
+
 /// Register the add-in's commands; call it once, before the first command runs.
 pub fn register_commands() {
     soundcraft_plenio_commands::register();
@@ -56,8 +63,10 @@ pub(crate) struct PlenioUi {
     pub waiting: Vec<(u64, Mode)>,
     /// Covers whose recording is uploading: upload tag → song.
     pub uploads: BTreeMap<u64, u64>,
-    /// Plenio songs being brought in: tag → (their record file, the record).
-    pub imports: BTreeMap<u64, (PathBuf, Value)>,
+    /// Plenio songs being brought in: tag → (the file chosen, what belongs to the song).
+    pub imports: BTreeMap<u64, (PathBuf, soundcraft_plenio_backend::release::SongFiles)>,
+    /// The songs of `imports` waiting for the studio: the notes and the song's fields come from it.
+    pub waiting_imports: Vec<u64>,
     /// The player's address to open in the browser on the next frame.
     pub open_url: Option<String>,
     /// Songs being split into stems.
@@ -106,6 +115,7 @@ impl PlenioUi {
             splitting: std::collections::BTreeSet::new(),
             open_url: None,
             imports: BTreeMap::new(),
+            waiting_imports: Vec::new(),
             song: None,
             show_activation: false,
             show_about: false,
@@ -139,7 +149,7 @@ impl PlenioUi {
             && let Err(e) = self.settings.save(dir)
         {
             log::warn!("{e}");
-            app.engine.message(format!("The Plenio settings could not be saved: {e}"));
+            say(app, format!("The Plenio settings could not be saved: {e}"));
         }
     }
 
@@ -150,10 +160,10 @@ impl PlenioUi {
         self.save_settings(app);
         if on {
             self.start_studio();
-            app.engine.message("Plenio add-in activated: its studio is starting.");
+            say(app, "Plenio add-in activated: its studio is starting.");
         } else {
             self.studio.send(Request::Stop);
-            app.engine.message("Plenio add-in deactivated.");
+            say(app, "Plenio add-in deactivated.");
         }
     }
 
@@ -182,12 +192,19 @@ impl PlenioUi {
                     self.studio.send(Request::Get { tag: "models".into(), path: "/scp/v1/models".into() });
                 }
                 if let State::Failed(why) = &state {
-                    app.engine.message(format!("Plenio studio: {why}"));
+                    say(app, format!("Plenio studio: {why}"));
                 }
                 self.state = state;
                 if self.ready() {
                     for (song, mode) in std::mem::take(&mut self.waiting) {
                         self.generate(app, song, mode);
+                    }
+                    for tag in std::mem::take(&mut self.waiting_imports) {
+                        self.ask_from_record(tag);
+                    }
+                } else if matches!(self.state, State::Failed(_) | State::Stopped) {
+                    for tag in std::mem::take(&mut self.waiting_imports) {
+                        self.imported(app, tag, Err("the studio is not running".into()));
                     }
                 }
             }
@@ -201,10 +218,10 @@ impl PlenioUi {
             Event::Uploaded { tag, result } => self.uploaded(app, tag, result),
             Event::Player(result) => match result {
                 Ok(url) => {
-                    app.engine.message(format!("Plenio Player: {url}"));
+                    say(app, format!("Plenio Player: {url}"));
                     self.open_url = Some(url);
                 }
-                Err(e) => app.engine.message(format!("Plenio Player: {e}")),
+                Err(e) => say(app, format!("Plenio Player: {e}")),
             },
             Event::ModelProgress { file, done, total } => {
                 self.downloads.insert(file, (done, total));
@@ -212,8 +229,8 @@ impl PlenioUi {
             Event::ModelDone { file, result } => {
                 self.downloads.remove(&file);
                 match result {
-                    Ok(()) => app.engine.message(format!("Plenio: {file} downloaded.")),
-                    Err(e) => app.engine.message(format!("Plenio: {file} not downloaded: {e}")),
+                    Ok(()) => say(app, format!("Plenio: {file} downloaded.")),
+                    Err(e) => say(app, format!("Plenio: {file} not downloaded: {e}")),
                 }
                 self.studio.send(Request::Get { tag: "models".into(), path: "/scp/v1/models".into() });
             }
@@ -221,10 +238,13 @@ impl PlenioUi {
                 let what = tag.and_then(|t| self.jobs.remove(&t)).map(|p| p.song);
                 let upload = tag.and_then(|t| self.uploads.remove(&t));
                 let title = what.or(upload).and_then(|s| Project::load(app.engine.session()).ok()?.song(s).map(|s| s.title.clone()));
-                app.engine.message(match title {
-                    Some(t) => format!("Plenio: no take of {t}: {message}"),
-                    None => format!("Plenio: {message}"),
-                });
+                say(
+                    app,
+                    match title {
+                        Some(t) => format!("Plenio: no take of {t}: {message}"),
+                        None => format!("Plenio: {message}"),
+                    },
+                );
             }
         }
     }

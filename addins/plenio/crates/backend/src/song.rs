@@ -321,6 +321,27 @@ pub fn parse_srt(srt: &str) -> Vec<Cue> {
     cues
 }
 
+/// The lyrics' lines as sung, from a release record (`timing[0].lines`), sorted by start.
+pub fn record_lines(record: &Value) -> Vec<Cue> {
+    let lines =
+        record.get("timing").and_then(Value::as_array).and_then(|takes| takes.first()).and_then(|take| take.get("lines")).and_then(Value::as_array);
+    let mut cues: Vec<Cue> = lines
+        .into_iter()
+        .flatten()
+        .take(MAX_CUES)
+        .filter_map(|line| {
+            let (start, end) = (line.get("start")?.as_f64()?, line.get("end")?.as_f64()?);
+            (start.is_finite() && end.is_finite() && start >= 0.0 && end >= start).then(|| Cue {
+                start,
+                end,
+                text: text(line, "text").chars().take(2000).collect(),
+            })
+        })
+        .collect();
+    cues.sort_by(|x, y| x.start.total_cmp(&y.start));
+    cues
+}
+
 fn srt_time(t: &str) -> Option<f64> {
     let t = t.trim().replace(',', ".");
     let mut parts = t.split(':');

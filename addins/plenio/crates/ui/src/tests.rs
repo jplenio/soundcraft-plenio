@@ -50,6 +50,42 @@ fn wav(path: &std::path::Path) {
     std::fs::write(path, b).unwrap();
 }
 
+/// A real FLAC of half a second of silence, with `record` inside as Plenio writes it: behind the
+/// stream info, in an APPLICATION block.
+fn flac(path: &std::path::Path, record: Option<&Value>) {
+    use soundcraft_audio_io::{AudioBuffer, BitDepth, EncodeOptions, FileFormat, encode};
+    use std::io::Write;
+    let plain = encode(
+        &AudioBuffer::new(48_000, 2, 24_000),
+        &EncodeOptions { format: FileFormat::Flac, bit_depth: BitDepth::Int16, dither: false, bwf: None },
+    )
+    .unwrap();
+    let Some(record) = record else {
+        std::fs::write(path, plain).unwrap();
+        return;
+    };
+    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    gz.write_all(record.to_string().as_bytes()).unwrap();
+    let body = [b"PLNOplenio.project/1\0".as_slice(), &gz.finish().unwrap()].concat();
+    // "fLaC", the stream info's header and its 34 bytes; it may have been the last block.
+    let (head, rest) = plain.split_at(42);
+    let mut out = head.to_vec();
+    out[4] &= 0x7F;
+    out.push(2 | (head[4] & 0x80));
+    out.extend_from_slice(&(body.len() as u32).to_be_bytes()[1..]);
+    out.extend_from_slice(&body);
+    out.extend_from_slice(rest);
+    std::fs::write(path, out).unwrap();
+}
+
+fn song_record() -> Value {
+    json!({"schema": "plenio.record/1", "title": "Garden", "documents": {
+        "lyrics": {"state": "auto", "status": "", "sha256": "", "text": "[verse]\nMorning light"},
+        "score": {"state": "auto", "status": "", "sha256": "", "text": "X:1\nM:4/4\nQ:1/4=100\nK:C\n% verse\nV: Vocal\nz8|\n"}},
+        "timing": [{"warp": [1.0, -0.25], "lines": [{"text": "Morning light", "start": 0.1, "end": 0.4, "units": []}]}],
+        "audio": {"seconds": 0.5, "sample_rate": 48000}, "quality": {"stars": 3.5}})
+}
+
 fn frames(app: &mut SoundApp, n: usize) {
     let ctx = egui::Context::default();
     let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 900.0));
@@ -257,5 +293,148 @@ fn a_plenio_song_is_brought_in_with_its_take_and_lyrics() {
     std::fs::write(&other, "{\"hello\": 1}").unwrap();
     ui.import_record(&mut app, other);
     assert_eq!(Project::load(app.engine.session()).unwrap().songs.len(), 1);
+    assert!(app.ui.status.contains("not a Plenio release record"), "{}", app.ui.status);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_flac_alone_brings_in_the_whole_song() {
+    let _turn = turn();
+    let dir = temp("flac-alone");
+    let mut ui = quiet_ui();
+    let mut app = app();
+    let path = dir.join("2026-11-05 Garden.flac");
+    flac(&path, Some(&song_record()));
+    ui.import_record(&mut app, path.clone());
+    let p = Project::load(app.engine.session()).unwrap();
+    let song = p.songs.first().expect("the song came in");
+    assert_eq!(song.title, "Garden");
+    let take = song.active_take().unwrap();
+    assert_eq!(take.files.get("song").map(String::as_str), Some(path.to_str().unwrap()));
+    assert_eq!(take.files.get("record"), None);
+    assert_eq!((take.stars, take.lines.len(), take.warp), (Some(3.5), 1, Some((1.0, -0.25))));
+    // The take's audio went through SoundCraft's decoder, past the block with the song in it.
+    let session = app.engine.session();
+    let mix = session.track(song.track(Role::Mix).unwrap()).unwrap();
+    assert_eq!(mix.clips().first().map(|c| c.length), Some(24_000));
+    // The release record for the player comes out of the FLAC, too.
+    assert_eq!(generate::take_record(take)["title"], "Garden");
+    // The owner is told what is missing without a studio.
+    assert!(app.ui.status.contains("without its notes"), "{}", app.ui.status);
+    // Nothing is written beside the song, which may lie among others.
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_flac_that_is_no_plenio_song_says_so_on_the_status_line() {
+    let _turn = turn();
+    let dir = temp("flac-plain");
+    let mut ui = quiet_ui();
+    let mut app = app();
+    let path = dir.join("Holiday.flac");
+    flac(&path, None);
+    ui.import_record(&mut app, path);
+    assert!(Project::load(app.engine.session()).unwrap().songs.is_empty());
+    assert!(app.ui.status.contains("Holiday.flac") && app.ui.status.contains("Import Audio"), "{}", app.ui.status);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A song brought in before the studio is ready waits for it: the notes and the fields come from there.
+#[test]
+fn an_import_waits_for_the_studio_and_takes_what_it_answers() {
+    let _turn = turn();
+    let dir = temp("flac-waits");
+    let mut ui = quiet_ui();
+    ui.auto_start = true;
+    ui.state = State::Starting("starting".into());
+    let mut app = app();
+    let path = dir.join("Garden.flac");
+    flac(&path, Some(&song_record()));
+    ui.import_record(&mut app, path);
+    assert!(Project::load(app.engine.session()).unwrap().songs.is_empty());
+    assert!(app.ui.status.contains("when the studio is ready"), "{}", app.ui.status);
+    let tag = *ui.imports.keys().next().unwrap();
+    assert_eq!(ui.waiting_imports, [tag]);
+
+    ui.handle(&mut app, Event::State(State::Ready { port: 1, plenio: "x".into(), comfyui: "x".into() }));
+    assert!(ui.waiting_imports.is_empty());
+    ui.handle(
+        &mut app,
+        Event::Answer {
+            tag: format!("from-record:{tag}"),
+            result: Ok(json!({"template": "yue2-song", "fields": {"lyrics.language": "en"}, "seeds": {"take": 7}})),
+        },
+    );
+    // The take waits for its score's notes, which would lie in a folder of the add-in's.
+    assert_eq!(ui.held.len(), 1);
+    let (&midi, (_, folder)) = ui.held.iter().next().unwrap();
+    assert!(!folder.starts_with(&dir), "{}", folder.display());
+    ui.handle(&mut app, Event::Answer { tag: format!("midi:{midi}"), result: Err("no notes in this test".into()) });
+    let p = Project::load(app.engine.session()).unwrap();
+    let song = p.songs.first().expect("the song came in");
+    assert_eq!(song.fields.get("lyrics.language"), Some(&json!("en")));
+    assert_eq!(song.active_take().unwrap().seeds.get("take"), Some(&7));
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Its stems are made like any take's, and nothing lands in the folder the song came from.
+#[test]
+fn a_song_brought_in_goes_to_the_studio_for_its_stems() {
+    let _turn = turn();
+    let dir = temp("flac-stems");
+    let config = dir.join("config");
+    let library = dir.join("library");
+    std::fs::create_dir_all(&library).unwrap();
+    let mut ui = PlenioUi::new(Some(config.clone()));
+    ui.auto_start = false;
+    let mut app = app();
+    flac(&library.join("Garden.flac"), Some(&song_record()));
+    ui.import_record(&mut app, library.join("Garden.flac"));
+    let song = Project::load(app.engine.session()).unwrap().songs.first().unwrap().id;
+
+    // Without a studio it says so.
+    ui.split_stems(&mut app, song, 1);
+    assert!(app.ui.status.contains("start the studio"), "{}", app.ui.status);
+    assert!(ui.splitting.is_empty());
+
+    ui.state = State::Ready { port: 1, plenio: "x".into(), comfyui: "x".into() };
+    ui.split_stems(&mut app, song, 1);
+    assert!(ui.splitting.contains(&song));
+    let copy = soundcraft_plenio_backend::instance::Layout::new(&config)
+        .output()
+        .join("soundcraft-imported")
+        .join(format!("song-{song}-take-1"))
+        .join("Garden.flac");
+    assert!(copy.is_file(), "{}", copy.display());
+
+    let stem = dir.join("from the studio.flac");
+    flac(&stem, None);
+    ui.stems_done(&mut app, song, 1, Ok(json!({"order": ["vocals"], "stems": {"vocals": stem.to_string_lossy()}})));
+    let p = Project::load(app.engine.session()).unwrap();
+    let vocals = p.songs.first().unwrap().track(Role::Vocals).expect("the stem track");
+    assert_eq!(app.engine.session().track(vocals).unwrap().clips().len(), 1);
+    assert!(ui.splitting.is_empty());
+    assert_eq!(std::fs::read_dir(&library).unwrap().count(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn an_import_waiting_for_a_studio_that_fails_comes_in_without_it() {
+    let _turn = turn();
+    let dir = temp("flac-failed");
+    let mut ui = quiet_ui();
+    ui.auto_start = true;
+    ui.state = State::Starting("starting".into());
+    let mut app = app();
+    let path = dir.join("Garden.flac");
+    flac(&path, Some(&song_record()));
+    ui.import_record(&mut app, path);
+    ui.handle(&mut app, Event::State(State::Failed("no ComfyUI".into())));
+    assert!(ui.waiting_imports.is_empty() && ui.imports.is_empty());
+    let p = Project::load(app.engine.session()).unwrap();
+    assert_eq!(p.songs.first().map(|s| s.takes.len()), Some(1));
+    assert!(app.ui.status.contains("without its notes"), "{}", app.ui.status);
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -19,6 +19,8 @@ thiserror.workspace = true
 log.workspace = true
 # Already in the build (a file's SHA-256 for the release records sent to the player).
 sha2 = "0.10"
+# Already in the build (through ureq's gzip): the release record inside a song's FLAC is gzipped.
+flate2 = "1"
 # The features craft-update already uses, so no crate is added to the build.
 ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring", "gzip", "platform-verifier"] }
 

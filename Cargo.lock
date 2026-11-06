@@ -4511,6 +4511,7 @@ dependencies = [
 name = "soundcraft-plenio-backend"
 version = "0.17.0"
 dependencies = [
+ "flate2",
  "log",
  "proptest",
  "serde",
@@ -4551,8 +4552,10 @@ dependencies = [
  "craft-ui",
  "egui",
  "egui_kittest",
+ "flate2",
  "log",
  "serde_json",
+ "soundcraft-audio-io",
  "soundcraft-engine",
  "soundcraft-model",
  "soundcraft-plenio-backend",

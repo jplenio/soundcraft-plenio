@@ -1,7 +1,7 @@
 //! The add-in's menu, context menu and windows: activation, studio, new song or cover, the song
 //! inspector (takes, brief, lyrics, seeds) and about.
 
-use crate::PlenioUi;
+use crate::{PlenioUi, say};
 use serde_json::{Value, json};
 use soundcraft_model::{TrackId, TrackKind};
 use soundcraft_plenio_backend::{Request, State};
@@ -74,8 +74,9 @@ pub fn menu(ui_state: &mut PlenioUi, app: &mut SoundApp, ui: &mut egui::Ui) {
             ui_state.new_song = Some(NewSong::cover(t));
             ui.close();
         }
-        if ui.button("Import Plenio Song…").on_hover_text("A song Plenio made (its .plenio.json), to edit and make again here").clicked() {
-            let picked = app.services.pick_open.as_ref().and_then(|pick| pick("Import Plenio Song", &["json"]));
+        if ui.button("Import Plenio Song…").on_hover_text("A song Plenio made (its FLAC or its .plenio.json), to edit and make again here").clicked()
+        {
+            let picked = app.services.pick_open.as_ref().and_then(|pick| pick("Plenio Song", &["flac", "json", "wav", "mp3"]));
             if let Some(path) = picked {
                 ui_state.import_record(app, path);
             }
@@ -386,7 +387,7 @@ fn new_song(ui_state: &mut PlenioUi, app: &mut SoundApp, ctx: &egui::Context) {
                     ui_state.generate(app, id, Mode::Auto);
                 }
             }
-            Err(e) => app.engine.message(format!("Plenio: {e}")),
+            Err(e) => say(app, format!("Plenio: {e}")),
         }
         return;
     }

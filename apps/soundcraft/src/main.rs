@@ -144,16 +144,23 @@ fn save_prefs(env: &Env, ui: &UiState) {
     }
 }
 
+/// The name and the extensions a file dialog offers for what it is asked to open. A caller that
+/// names its own extensions gets them, under the name it gives.
+fn open_filter(purpose: &str, extensions: &[&str]) -> (String, Vec<String>) {
+    let owned = |list: &[&str]| list.iter().map(ToString::to_string).collect();
+    match (purpose, extensions) {
+        ("session.open", _) => ("SoundCraft Session".into(), owned(&["scraft"])),
+        ("file.import_midi", _) => ("MIDI".into(), owned(&["mid", "midi", "smf"])),
+        ("mix.sampler_load", _) | (_, []) => ("Audio".into(), owned(&FileFormat::readable_extensions())),
+        (name, own) => (name.into(), owned(own)),
+    }
+}
+
 fn services() -> Services {
     Services {
-        pick_open: Some(Box::new(|purpose: &str, _exts: &[&str]| {
-            let d = rfd::FileDialog::new();
-            let d = match purpose {
-                "session.open" => d.add_filter("SoundCraft Session", &["scraft"]),
-                "file.import_midi" => d.add_filter("MIDI", &["mid", "midi", "smf"]),
-                _ => d.add_filter("Audio", &FileFormat::readable_extensions()),
-            };
-            d.pick_file()
+        pick_open: Some(Box::new(|purpose: &str, extensions: &[&str]| {
+            let (name, extensions) = open_filter(purpose, extensions);
+            rfd::FileDialog::new().add_filter(name, &extensions).pick_file()
         })),
         pick_save: Some(Box::new(|purpose: &str, path: &std::path::Path| {
             let mut d = match purpose {
@@ -301,7 +308,17 @@ fn sane_window_size([w, h]: [f32; 2]) -> [f32; 2] {
 
 #[cfg(test)]
 mod tests {
-    use super::set_title;
+    use super::{FileFormat, open_filter, set_title};
+
+    #[test]
+    fn a_file_dialog_offers_what_it_is_asked_for() {
+        let audio = FileFormat::readable_extensions().iter().map(ToString::to_string).collect::<Vec<_>>();
+        assert_eq!(open_filter("session.open", &[]), ("SoundCraft Session".to_string(), vec!["scraft".to_string()]));
+        assert_eq!(open_filter("file.import_midi", &[]).0, "MIDI");
+        assert_eq!(open_filter("file.import_audio", &[]), ("Audio".to_string(), audio.clone()));
+        assert_eq!(open_filter("mix.sampler_load", &FileFormat::readable_extensions()), ("Audio".to_string(), audio));
+        assert_eq!(open_filter("Plenio Song", &["flac", "json"]), ("Plenio Song".to_string(), vec!["flac".to_string(), "json".to_string()]));
+    }
 
     #[test]
     fn the_title_is_sent_only_when_it_changes() {

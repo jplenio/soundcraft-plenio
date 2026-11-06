@@ -10,6 +10,7 @@ pub mod client;
 pub mod discover;
 pub mod instance;
 pub mod player;
+pub mod release;
 pub mod settings;
 pub mod song;
 pub mod studio;

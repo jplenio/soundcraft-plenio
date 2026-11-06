@@ -38,7 +38,9 @@ up to date with SoundCraft is in [docs/FORK.md](docs/FORK.md).
    selection on it becomes the excerpt.
 6. **Send the mix to the Plenio Player** - the session's mix with your effects, with the take's lyrics
    and notes, in the Plenio Player; **Plenio › Open Plenio Player** shows every song the studio made.
-7. **Plenio › Import Plenio Song…** - a song Plenio made (its `.plenio.json`), to edit and make again.
+7. **Plenio › Import Plenio Song…** - a song Plenio made, to edit and make again: its FLAC (which
+   carries the whole song) or its `.plenio.json`. The song comes in when the studio is ready, and
+   nothing is written into the folder it came from. Plain audio comes in with **File › Import Audio**.
 
 Every change goes through the add-in's commands (`plenio.*`), one undo step each; the control channel
 reaches them too (`plenio.status`, `plenio.song.new`, `plenio.take.select` …).
