@@ -1,419 +1,442 @@
-# Plenio-Add-in für SoundCraft – Plan und Fortschritt
+# The Plenio add-in for SoundCraft: plan and progress
 
 | | |
 |---|---|
-| **Ziel** | Plenio (YuE2 · Song, YuE2 · Cover, Plenio Player – **ohne MiniMax**) als Add-in in SoundCraft, nahtlos integriert |
-| **Branch** | `plenio-addin` (Remote `upstream` = `storytold/soundcraft`) |
-| **Plenio-Quelle** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (Version 1.5.0) – **wird nie verändert**, Code wird kopiert |
-| **Plan erstellt** | 2026-11-05 |
-| **Zuletzt aktualisiert** | 2026-11-06 |
-| **Stand** | Phase 0–5 erledigt und live durch die UI geprüft (Song, Noten, Stems, Cover, Player); Phase 6 großteils, offene Punkte im Abschnitt „Stand 2026-11-05 abends“; eigener Fork vorbereitet, Repo auf GitHub steht noch aus ([FORK.md](FORK.md)) |
+| **Goal** | Plenio (YuE2 · Song, YuE2 · Cover, Plenio Player, **without MiniMax**) as an add-in in SoundCraft, seamlessly integrated |
+| **Branch** | `plenio-addin` (remote `upstream` = `storytold/soundcraft`) |
+| **Plenio source** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (version 1.5.0): **never changed**, code is copied |
+| **Plan made** | 2026-11-05 |
+| **Last updated** | 2026-11-06 |
+| **State** | Phases 0–5 done and checked live through the UI (song, notes, stems, cover, player); phase 6 mostly done, open points in the section "State on the evening of 2026-11-05"; the own fork is prepared, the repository on GitHub is still to come ([FORK.md](FORK.md)) |
 
-Legende: `[x]` erledigt · `[ ]` offen · `[~]` begonnen / teilweise · 💡 Hinweis
+Legend: `[x]` done · `[ ]` open · `[~]` started or partly done · 💡 note
 
 ---
 
-## Fortschritt auf einen Blick
+## Progress at a glance
 
-| Phase | Inhalt | Status |
+| Phase | Content | Status |
 |---|---|---|
-| A | Analyse, Konzept, Entscheidungen | ✅ erledigt |
-| 0 | Fundament: Git, Seams S1–S6, Crate-Skelett, Plenio-Menü, Aktivieren-Schalter | ✅ erledigt |
-| 1 | Backend: Plenio-Kopie, Wrapper, ComfyUI-Supervisor, Modelle (Song-API statt eigener Stage-API) | ✅ erledigt |
-| 2 | MVP „YuE2 Song“ | ✅ erledigt |
-| 3 | Noten und Stems | ✅ erledigt (Browser-Score-Editor offen) |
-| 4 | YuE2 Cover | ✅ erledigt (live geprüft) |
-| 5 | Player und Release | ✅ erledigt („In SoundCraft öffnen“ offen) |
-| 6 | Härtung, Update-Probelauf, Doku | 🔶 großteils |
+| A | Analysis, concept, decisions | ✅ done |
+| 0 | Foundation: Git, seams S1–S6, crate skeleton, Plenio menu, activation switch | ✅ done |
+| 1 | Backend: copy of Plenio, wrapper, ComfyUI supervisor, models (Song API instead of an own stage API) | ✅ done |
+| 2 | MVP "YuE2 Song" | ✅ done |
+| 3 | Notes and stems | ✅ done (browser score editor open) |
+| 4 | YuE2 Cover | ✅ done (checked live) |
+| 5 | Player and release | ✅ done ("Open in SoundCraft" open) |
+| 6 | Hardening, update rehearsal, docs | 🔶 mostly done |
 
 ---
 
-## Checkliste
+## Checklist
 
-### Phase A – Analyse, Konzept, Entscheidungen
+### Phase A: analysis, concept, decisions
 
-- [x] `CLAUDE.md` / `AGENTS.md` gelesen, SoundCraft-Architektur analysiert
-  💡 `plan/STATUS.md` und `plan/execution-plan.md` existieren lokal nicht (`plan/` ist gitignored und fehlt auf diesem Rechner).
-- [x] Plenio analysiert (Song-API, Routen, Subgraphs, Player, Modellkatalog, Standalone-Konzept)
-- [x] Plan erstellt und vom Owner freigegeben (2026-11-05)
-- [x] Entscheidung 9.1: **eigene, vom Add-in verwaltete ComfyUI-Instanz** (eigener Basisordner, vorhandene Modelle werden mitbenutzt)
-- [x] Entscheidung 9.2: ~~Seams dürfen upstream~~ → **kein Upstream, eigener Fork** (geändert 2026-11-06, siehe [FORK.md](FORK.md))
-- [x] Entscheidung 9.3: **`origin` → `upstream` umbenannt, Arbeit auf Branch `plenio-addin`**
-- [x] Zusatzvorgabe: **Plenio-Projekt nicht verändern**, sinnvollen Code nach SoundCraft kopieren
-- [x] Plan als Markdown gespeichert (diese Datei)
+- [x] Read `CLAUDE.md` and `AGENTS.md`, analysed SoundCraft's architecture
+  💡 `plan/STATUS.md` and `plan/execution-plan.md` do not exist locally (`plan/` is gitignored and missing on this computer).
+- [x] Analysed Plenio (Song API, routes, subgraphs, player, model catalogue, standalone concept)
+- [x] Plan made and approved by the owner (2026-11-05)
+- [x] Decision 9.1: **an own ComfyUI instance run by the add-in** (own base folder, existing models are shared)
+- [x] Decision 9.2: ~~seams may go upstream~~ → **no upstream, an own fork** (changed 2026-11-06, see [FORK.md](FORK.md))
+- [x] Decision 9.3: **`origin` renamed to `upstream`, work on branch `plenio-addin`**
+- [x] Added requirement: **do not change the Plenio project**, copy the useful code to SoundCraft
+- [x] Plan saved as Markdown (this file)
 
-### Phase 0 – Fundament
+### Phase 0: foundation
 
-- [x] Git: `origin` in `upstream` umbenannt, Branch `plenio-addin` von `73eeb69` angelegt
-  💡 Der GitHub-Fork `jplenio/soundcraft-plenio` als `origin` muss der Owner noch anlegen (Schritte in [FORK.md](FORK.md)); bis dahin ist alles nur lokal.
-- [x] Rust-Toolchain installiert: rustup mit stable 1.99.1 (`x86_64-pc-windows-msvc` + `wasm32-unknown-unknown`, clippy, rustfmt) unter `D:\Rust`
-  💡 `CARGO_HOME=D:\Rust\cargo`, `RUSTUP_HOME=D:\Rust\rustup` als Benutzervariablen; `D:\Rust\cargo\bin` steht im Benutzer-PATH (neue Shells). rustup-init per SHA-256 geprüft. MSVC kommt aus Visual Studio 2022.
-- [x] Baseline auf unverändertem Stand `73eeb69` (eigener Worktree, eigenes Target-Verzeichnis)
-  💡 fmt, clippy, Doctests, assets, layers und wasm grün. **3 Tests scheitern schon vorher** auf diesem Rechner: `soundcraft-cli` `it::behaviour::app_port_comes_from_the_flag_then_the_environment`, `it::behaviour::app_takes_an_empty_port_variable_as_unset`, `it::run::app_reports_a_refused_connection_and_checks_arguments_first`. Ursache: Unter Windows läuft der Verbindungsaufbau zu einem geschlossenen Port in einen Timeout statt sofort abgelehnt zu werden („connection timed out“ statt „refused“). Nicht vom Add-in verursacht. `cargo xtask ci` bricht deshalb hier beim Schritt `test` ab; die übrigen Schritte wurden einzeln ausgeführt.
-- [x] **S1** `crates/model/src/session.rs`: `extensions: BTreeMap<String, Arc<str>>` mit `extension()`, `set_extension()`, Schlüsselregel und Deckeln (64 Einträge, 16 MiB je Eintrag, 64 MiB gesamt), in `sanitize` beim Laden begrenzt; `crates/engine/src/dirty.rs` berücksichtigt das Feld beim Gespeichert-Status. 3 Tests.
-  💡 `Arc<str>` statt `String`, damit Undo-Schnappschüsse den Text nicht kopieren.
-- [x] **S2** `crates/engine/src/cmd/extensions.rs` (neu): `register_extension_commands`, `refused_extension_commands`, `extension_command_id_ok`; in `cmd.rs` nur 3 Zeilen (Modul, `pub use`, `close_into` am Ende von `command_specs()`). Eigene Test-Binary `crates/engine/tests/extension_commands.rs` (Registrierung, Undo, `enabled`, Kollision mit SoundCraft-IDs, späte Registrierung abgelehnt) + 1 Unit-Test.
-  💡 Bewusst kleiner Diff: die Liste der SoundCraft-Module in `command_specs()` blieb unverändert, das erleichtert spätere Rebases. Eine ID, die SoundCraft schon hat, wird beim Aufbau ausgelassen und gemeldet.
-- [x] **S3** `crates/ui-egui/src/extension.rs` (neu): Trait `UiExtension` mit `logic`, `menu_bar`, `windows`, `track_header`, `lane` (mit `Lane::x_of`/`sample_at`), `track_context_menu`; `SoundApp::add_extension`/`extensions()`. Aufrufstellen: je 1 Zeile in `app.rs` (2×), `menus.rs`, `edit_window/tracks.rs` (3×), Feld in `lib.rs`. Ein Hook, der panickt, stoppt nur dieses Add-in (`catch_unwind`, Log und Statusmeldung). 2 Tests.
-  💡 Dock-Panel (`Panel::Extension`), Einstellungen und Datei-Drop sind noch nicht drin: sie kommen additiv, wenn Phase 2 sie braucht (Default-Methoden brechen nichts).
-- [x] **S4** `apps/soundcraft`: Feature `plenio` (im Branch Standard), `register_commands()` direkt nach dem Logger, `add_extension(...)` nach den Prefs (Einstellungsordner nur, wenn Prefs aktiv sind).
-  💡 `cargo clippy -p soundcraft --no-default-features` ist grün: SoundCraft baut weiterhin ohne Add-in.
-- [x] **S5** `Cargo.toml`: Members `addins/*/crates/*`; `xtask layers` liest für Crates außerhalb der Tabelle `[package.metadata.soundcraft] layer = N` aus dem Manifest.
-  💡 Allgemein statt Plenio-spezifischer `LAYERS`-Einträge: so bleibt die Änderung upstream-tauglich. Dokumentiert in `docs/architecture.md › Extensions` (mit Revisionseintrag).
-- [x] **S6** `ATTRIBUTION.md`: Verzeichnis-Zeile für `addins/plenio/vendor/` (Template-Vorschaubilder, App-Icons des Players; Apache-2.0)
-- [x] Crate-Gerüst `addins/plenio/crates/{project,backend,commands,ui}` mit `[lints] workspace = true`, crate-weiten `#![deny(...)]`-Attributen und Layer im Manifest (2/4/4/6)
-  💡 `project`: Songs und Spur-Rollen in `Session.extensions["plenio"]` (begrenzt, verwaiste Rollen fallen weg, neuere Versionen werden abgelehnt). `backend`: Einstellungen in `<Einstellungsordner>/Plenio/settings.json`, atomar geschrieben. `commands`: `plenio.status` und die Aktivierungsprüfung `when_activated`. `ui`: Menü und Fenster. 12 Tests.
-- [x] Menü „Plenio“ sichtbar, „Activate Plenio Add-in…“ mit Fenster (nennt die eigene ComfyUI-Instanz, die Modelle und die CC-BY-NC-Lizenz); aktiviert: „New Song…“, „New Cover from Selection…“, „Open Plenio Player“ (noch ausgegraut), „Deactivate“, „About“
-  💡 Offscreen geprüft mit `cargo run -p soundcraft-plenio-ui --example plenio_shot -- <Ordner>` (drei PNGs: Menü, Aktivierung, Menü aktiviert). Die Oberfläche ist englisch wie SoundCraft und Plenio; Deutsch wäre eine spätere Lokalisierung.
-- [x] Gates: fmt, clippy `--workspace --all-targets -D warnings`, Tests, Doctests, assets, layers, wasm grün, abgesehen von den 3 Baseline-Fehlern oben. Commits pro Thema auf `plenio-addin` (lokal, nicht gepusht).
-- [ ] Offen für später: `soundcraft-cli` (headless/MCP) registriert die `plenio.*`-Commands noch nicht. Im laufenden Desktop-Programm laufen Control-Channel und `soundcraft-cli mcp --connect` über dessen Registry und sollten sie daher erreichen; geprüft ist das noch nicht (das GUI-Programm wurde bisher nicht gestartet, nur offscreen gerendert).
+- [x] Git: renamed `origin` to `upstream`, created branch `plenio-addin` from `73eeb69`
+  💡 The owner still has to create the GitHub fork `jplenio/soundcraft-plenio` as `origin` (steps in [FORK.md](FORK.md)); until then everything is local only.
+- [x] Rust toolchain installed: rustup with stable 1.99.1 (`x86_64-pc-windows-msvc` + `wasm32-unknown-unknown`, clippy, rustfmt) under `D:\Rust`
+  💡 `CARGO_HOME=D:\Rust\cargo`, `RUSTUP_HOME=D:\Rust\rustup` as user variables; `D:\Rust\cargo\bin` is on the user's PATH (new shells). rustup-init checked by SHA-256. MSVC comes from Visual Studio 2022.
+- [x] Baseline on the unchanged state `73eeb69` (own worktree, own target directory)
+  💡 fmt, clippy, doctests, assets, layers and wasm green. **3 tests already fail before any change** on this computer: `soundcraft-cli` `it::behaviour::app_port_comes_from_the_flag_then_the_environment`, `it::behaviour::app_takes_an_empty_port_variable_as_unset`, `it::run::app_reports_a_refused_connection_and_checks_arguments_first`. Cause: on Windows, connecting to a closed port runs into a timeout instead of being refused at once ("connection timed out" instead of "refused"). Not caused by the add-in. `cargo xtask ci` therefore stops at the step `test` here; the other steps were run one by one.
+- [x] **S1** `crates/model/src/session.rs`: `extensions: BTreeMap<String, Arc<str>>` with `extension()`, `set_extension()`, a key rule and caps (64 entries, 16 MiB per entry, 64 MiB in all), limited in `sanitize` on load; `crates/engine/src/dirty.rs` counts the field for the saved state. 3 tests.
+  💡 `Arc<str>` instead of `String`, so that undo snapshots do not copy the text.
+- [x] **S2** `crates/engine/src/cmd/extensions.rs` (new): `register_extension_commands`, `refused_extension_commands`, `extension_command_id_ok`; only 3 lines in `cmd.rs` (module, `pub use`, `close_into` at the end of `command_specs()`). A test binary of its own, `crates/engine/tests/extension_commands.rs` (registration, undo, `enabled`, collision with SoundCraft's ids, late registration refused), plus 1 unit test.
+  💡 A deliberately small diff: the list of SoundCraft's modules in `command_specs()` stayed unchanged, which makes later merges easier. An id SoundCraft already has is left out when the registry is built and reported.
+- [x] **S3** `crates/ui-egui/src/extension.rs` (new): trait `UiExtension` with `logic`, `menu_bar`, `windows`, `track_header`, `lane` (with `Lane::x_of`/`sample_at`), `track_context_menu`; `SoundApp::add_extension`/`extensions()`. Call sites: 1 line each in `app.rs` (2×), `menus.rs`, `edit_window/tracks.rs` (3×), a field in `lib.rs`. A hook that panics stops only that add-in (`catch_unwind`, log and status message). 2 tests.
+  💡 The dock panel (`Panel::Extension`), settings and file drop are not in yet: they come additively when needed (default methods break nothing).
+- [x] **S4** `apps/soundcraft`: feature `plenio` (default on this branch), `register_commands()` right after the logger, `add_extension(...)` after the prefs (the settings folder only when prefs are active).
+  💡 `cargo clippy -p soundcraft --no-default-features` is green: SoundCraft still builds without the add-in.
+- [x] **S5** `Cargo.toml`: members `addins/*/crates/*`; for crates outside its table, `xtask layers` reads `[package.metadata.soundcraft] layer = N` from the manifest.
+  💡 General instead of Plenio-specific `LAYERS` entries. Documented in `docs/architecture.md › Extensions` (with a revision entry).
+- [x] **S6** `ATTRIBUTION.md`: a directory row for `addins/plenio/vendor/` (template preview images, the player's app icons; Apache-2.0)
+- [x] Crate skeleton `addins/plenio/crates/{project,backend,commands,ui}` with `[lints] workspace = true`, crate-wide `#![deny(...)]` attributes and the layer in the manifest (2/4/4/6)
+  💡 `project`: songs and track roles in `Session.extensions["plenio"]` (limited, orphaned roles fall away, newer versions are refused). `backend`: settings in `<settings folder>/Plenio/settings.json`, written atomically. `commands`: `plenio.status` and the activation check `when_activated`. `ui`: menu and windows. 12 tests.
+- [x] Menu "Plenio" visible, "Activate Plenio Add-in…" with a window (names the own ComfyUI instance, the models and the CC-BY-NC licence); activated: "New Song…", "New Cover from Selection…", "Open Plenio Player" (still greyed out), "Deactivate", "About"
+  💡 Checked offscreen with `cargo run -p soundcraft-plenio-ui --example plenio_shot -- <folder>` (three PNGs: menu, activation, menu activated). The UI is in English like SoundCraft and Plenio.
+- [x] Gates: fmt, clippy `--workspace --all-targets -D warnings`, tests, doctests, assets, layers, wasm green, apart from the 3 baseline failures above. Commits by topic on `plenio-addin` (local, not pushed).
+- [ ] Open for later: `soundcraft-cli` (headless/MCP) does not register the `plenio.*` commands yet. In the running desktop app the control channel and `soundcraft-cli mcp --connect` go through its registry and should therefore reach them; this has not been checked yet (the GUI app has so far only been rendered offscreen, not started).
 
-### Phase 1 – Backend
+### Phase 1: backend
 
-- [x] `tools/sync_plenio.py`: feste Kopierliste, `vendor/VENDOR.toml` (Quelle, Commit, Version, Datum, Anzahl), `vendor/VENDOR.sha256`, Änderungsbericht (`--dry-run`), Hash-Check gegen Handänderungen (`--check`)
-  💡 Liest nur Git-Blobs des Commits (`ls-tree` + `cat-file`): nicht committete Änderungen in Plenio werden nie kopiert, jeder Sync eines Commits ergibt dieselben Dateien, das Plenio-Repo wird nicht verändert. `vendor/.gitattributes` hält LF-Zeilenenden wie Plenio (dessen Tests vergleichen byte-genau; SoundCraft arbeitet hier mit `core.autocrlf=true`).
-- [x] Erste Kopie nach `addins/plenio/vendor/plenio/`: Plenio 1.5.0 @ `f26972890377`, 1027 Dateien, ca. 18 MB
-  💡 Kopiert: `plenio/`, `resources/`, `frontend/`, `tests/`, `tools/` (ohne `tools/tutorials/`), `subgraphs/` und `example_workflows/` ohne MiniMax, `locales/`, Lizenz-/Readme-Dateien, `pyproject.toml`, `requirements.txt`, Player-Starter. Nicht kopiert: `web/` (gebaute ComfyUI-Frontend-Erweiterung), `docs/`, `assets/` (Branding), `tools/tutorials/` (Sprecheraufnahme und Showcase-Bilder ungeklärter Herkunft, für Tests nicht nötig). MiniMax-Modelle stehen noch im kopierten `models.toml`; der Wrapper filtert sie zur Laufzeit.
-- [x] Python-Wrapper `backend/soundcraft_plenio/`: eigener `comfy_entrypoint` = Plenios Extension unverändert + `/scp/v1`
-  💡 Plenio hat keine eigenen MiniMax-Nodes (MiniMax ist eine Engine-Wahl in Templates); es reicht, MiniMax-Templates, -Subgraphs und -Modelle wegzulassen. Ein Wächter beendet die Instanz, wenn SoundCraft weg ist (`SCP_PARENT_PID`).
-- [x] ~~Stage-API~~ → **Plenios Song-API direkt** (`/plenio/api/v1/jobs`, `?wait`, `DELETE`, `templates`, `briefs`, `uploads`, `from-record`); `/scp/v1` nur für Info, Modelle (ohne MiniMax) und Stems
-  💡 Anhalten nach Lyrics/Noten („Bei Lyrics/Noten anhalten“) gibt es damit nicht als Zwischenstopp; Lyrics und Noten lassen sich nach jedem Take ändern und neu generieren.
-- [x] ComfyUI-Supervisor: findet ComfyUI über Plenios `comfyui-start.json`, eigene Instanz mit `--base-directory`, `--models-directory` des Owners, freiem Port, Log; Stopp beim Schließen
-  💡 ComfyUI 0.43.0 unter `D:\Daten2\ComfyUI`, Modelle unter `F:\ComfyUI\models`. Live: bereit nach etwa 10 s. Leerlauf-Stopp noch nicht (Stop-Knopf im Studio-Fenster).
-- [x] Modellmanager (`/scp/v1/models` + Downloads in Rust mit Fortschritt, Fortsetzen und Größenprüfung; CC-BY-NC-Modelle erst nach Lizenzbestätigung)
-  💡 Systemcheck über `/plenio/system` (Plenios Route) möglich, im UI noch nicht angezeigt.
-- [x] ~~Golden-Test gegen eine Stage-Kette~~ entfällt: die Songs entstehen mit Plenios eigenem Template über die Song-API, also identisch zur Plenio-Nutzung
-  💡 Echte Läufe: 61-s-Instrumental (133 s), gesungener Song „Heavy in My Pocket“ (93,7 s, durch die SoundCraft-UI, 238 s).
-- [x] Kopierte Plenio-Testsuite gegen die Kopie: `tools/test_all.ps1 -Plenio <Checkout>` (pytest aus Plenios `.devdeps`, nur lesend)
+- [x] `tools/sync_plenio.py`: a fixed copy list, `vendor/VENDOR.toml` (source, commit, version, date, count), `vendor/VENDOR.sha256`, a change report (`--dry-run`), a hash check against changes by hand (`--check`)
+  💡 Reads only Git blobs of the commit (`ls-tree` + `cat-file`): uncommitted changes in Plenio are never copied, every sync of a commit gives the same files, and the Plenio repository is not changed. `vendor/.gitattributes` keeps LF line endings like Plenio (its tests compare byte by byte; SoundCraft works with `core.autocrlf=true` here).
+- [x] First copy to `addins/plenio/vendor/plenio/`: Plenio 1.5.0 @ `f26972890377`, 1027 files, about 18 MB
+  💡 Copied: `plenio/`, `resources/`, `frontend/`, `tests/`, `tools/` (without `tools/tutorials/`), `subgraphs/` and `example_workflows/` without MiniMax, `locales/`, licence and readme files, `pyproject.toml`, `requirements.txt`, player starters. Not copied: `web/` (the built ComfyUI frontend extension), `docs/`, `assets/` (branding), `tools/tutorials/` (a speaker recording and showcase images of unclear origin, not needed for tests). MiniMax models are still in the copied `models.toml`; the wrapper filters them at runtime.
+- [x] Python wrapper `backend/soundcraft_plenio/`: an own `comfy_entrypoint` = Plenio's extension unchanged + `/scp/v1`
+  💡 Plenio has no MiniMax nodes of its own (MiniMax is an engine choice in templates); leaving out MiniMax templates, subgraphs and models is enough. A watchdog ends the instance when SoundCraft is gone (`SCP_PARENT_PID`).
+- [x] ~~Stage API~~ → **Plenio's Song API directly** (`/plenio/api/v1/jobs`, `?wait`, `DELETE`, `templates`, `briefs`, `uploads`, `from-record`); `/scp/v1` only for info, models (without MiniMax), stems and bars
+  💡 Stopping after lyrics or notes ("stop at lyrics/notes") therefore does not exist as an intermediate stop; lyrics and notes can be changed after every take and made again.
+- [x] ComfyUI supervisor: finds ComfyUI through Plenio's `comfyui-start.json`, an own instance with `--base-directory`, the owner's `--models-directory`, a free port, a log; stops on closing
+  💡 ComfyUI 0.43.0 under `D:\Daten2\ComfyUI`, models under `F:\ComfyUI\models`. Live: ready after about 10 s. No idle stop yet (a stop button in the studio window).
+- [x] Model manager (`/scp/v1/models` + downloads in Rust with progress, resume and a size check; CC-BY-NC models only after the licence is confirmed)
+  💡 A system check through `/plenio/system` (Plenio's route) is possible, not shown in the UI yet.
+- [x] ~~Golden test against a stage chain~~ dropped: songs are made with Plenio's own template through the Song API, so identically to using Plenio
+  💡 Real runs: a 61 s instrumental (133 s), a sung song "Heavy in My Pocket" (93.7 s, through SoundCraft's UI, 238 s).
+- [x] Copied Plenio test suite against the copy: `tools/test_all.ps1 -Plenio <checkout>` (pytest from Plenio's `.devdeps`, read only)
 
-### Phase 2 – MVP „YuE2 Song“
+### Phase 2: MVP "YuE2 Song"
 
-- [x] Dialog „Plenio › Neuer Song…“ (250 Genre-Templates mit Suche, Idee oder eigene Lyrics, Länge, Gesang)
-- [x] Song-Ordner (Routing-Folder) mit Lyrics-, Noten- und Mix-Spur; Rollen in `Session.extensions`
-- [x] Lyrics-Spur: ein Clip je gesungener Zeile (aus Plenios `(lines).srt`), sonst je Abschnitt; Prüfung mit Plenios Regeln (`/plenio/lyrics/analyze`)
-  💡 Token-Budget und Silben zeigt Plenios Prüfung als Hinweise; eine eigene Budget-Anzeige gibt es nicht. Take-Wahl im Inspector (nicht im Spurkopf).
-- [x] Lyrics-Editor-Panel (Abschnitts-Tags als Buttons, Silben, Budget, Status auto/bearbeitet/manuell, Diff zum letzten Take)
-- [x] Inspector mit dynamischem Formular aus `/templates/{id}`
-- [x] Generieren → Take als Playlist; Take-Wahl im Header schaltet alle Spuren gleichzeitig
-- [x] Veraltet-Anzeige („● Lyrics geändert → Noten + Take“), Seeds sperren/würfeln
-- [x] Jobs im Hintergrund mit Fortschritt und Abbrechen; jede Übernahme ist ein Undo-Schritt
-- [ ] ~~Schalter „Bei Lyrics/Noten anhalten“~~ (die Song-API v1 hält nicht an; siehe Phase 1)
+- [x] Dialog "Plenio › New Song…" (250 genre templates with search, idea or own lyrics, length, vocals)
+- [x] Song folder (routing folder) with lyrics, note and mix tracks; roles in `Session.extensions`
+- [x] Lyrics track: one clip per sung line (from Plenio's `(lines).srt`), otherwise per section; checked with Plenio's rules (`/plenio/lyrics/analyze`)
+  💡 Plenio's check shows the token budget and syllables as hints; there is no budget display of its own. The take is chosen in the inspector (not in the track header).
+- [x] Lyrics editor panel (section tags as buttons, syllables, budget, status auto/edited/manual, diff against the last take)
+- [x] Inspector with a dynamic form from `/templates/{id}`
+- [x] Generate → a take as a playlist; choosing a take switches all tracks at once
+- [x] Staleness display ("lyrics changed → notes + take"), lock or re-roll seeds
+- [x] Jobs in the background with progress and cancel; every take taken in is one undo step
+- [ ] ~~Switch "stop at lyrics/notes"~~ (Song API v1 does not stop; see phase 1)
 
-### Phase 3 – Noten und Stems
+### Phase 3: notes and stems
 
-- [x] Score ↔ MIDI (Melodie, Akkorde, Begleitlinie) über `/plenio/score/midi/export|import`; stumme Instrument-Spuren mit Synth zum Vorhören
-- [x] DAW-Pfad: bearbeitete Noten → zurück an Plenio (Conductor-Track mit Layout und unveränderte Spuren byte-genau) → YuE2 singt genau diese Noten
-- [x] Tempo, Takt und Tonart aus dem Score (erster Take einer sonst leeren Session); Abschnitte als farbige Blöcke in der Song-Lane
-  💡 Memory Locations werden nicht angelegt (mehrere Songs in einer Session würden sich mischen).
-- [x] Stems (Vocals, Drums, Bass, Other, Rest) mit Plenios BS-RoFormer über `/scp/v1/stems`, als Spuren mit Take-Playlists; Mix-Spur stumm, solange ein Take mit Stems spielt
-  💡 Live: 61-s-Take in 21,7 s. Stems als MIDI noch nicht.
-- [ ] Browser-Score-Editor (kopiertes Vue-Frontend mit SoundCraft-Adapter im Overlay), Änderungen fließen in die Session zurück
+- [x] Score ↔ MIDI (melody, chords, accompaniment line) through `/plenio/score/midi/export|import`; muted instrument tracks with a synth to preview
+- [x] DAW path: edited notes → back to Plenio (conductor track with layout and unchanged tracks byte for byte) → YuE2 sings exactly these notes
+- [x] Tempo, meter and key from the score (first take of an otherwise empty session); sections as coloured blocks in the song lane
+  💡 No memory locations are created (several songs in one session would mix).
+- [x] Stems (vocals, drums, bass, other, rest) with Plenio's BS-RoFormer through `/scp/v1/stems`, as tracks with take playlists; the mix track is muted while a take with stems plays
+  💡 Live: a 61 s take in 21.7 s. Stems as MIDI not yet.
+- [ ] Browser score editor (copied Vue frontend with a SoundCraft adapter in an overlay), changes flow back into the session
 
-### Phase 4 – YuE2 Cover
+### Phase 4: YuE2 Cover
 
-- [x] „New Cover from Selected Track…“ und im Kontextmenü; Edit-Auswahl = Ausschnitt (`excerpt.start_index/duration`); Upload über `/plenio/api/v1/uploads`
-- [x] Analyse macht Plenios Cover-Template (SheetSage2, Qwen3-ASR); der Take bringt Tempo, Noten und Lyrics des Covers mit
-  💡 Die gehörten Lyrics des Originals und die gesungene Tonhöhe zeigt das Add-in nicht getrennt an (die Song-API liefert sie nicht als eigenes Ergebnis).
-- [x] Alle Cover-Felder der Song-API im Inspector-Formular (Modi, Harmonie, Closeness, original notes); Fit Lyrics macht Plenio im Template
-- [x] A/B gegen das Original: die Aufnahme liegt im Cover-Ordner und wird beim ersten Cover-Take stummgeschaltet (zum Vergleich einschalten)
-- [x] Cover live durch die UI (`examples/plenio_cover_e2e.rs`): Aufnahme importiert → New Cover from Selected Track → Upload nach 23 s → Cover-Take nach 309 s (54,6 s, mit Lyrics und Noten)
+- [x] "New Cover from Selected Track…" and in the context menu; the edit selection = the excerpt (`excerpt.start_index/duration`); upload through `/plenio/api/v1/uploads`
+- [x] Plenio's cover template does the analysis (SheetSage2, Qwen3-ASR); the take brings the cover's tempo, notes and lyrics along
+  💡 The add-in does not show the original's heard lyrics and sung pitch separately (the Song API does not deliver them as a result of their own).
+- [x] All cover fields of the Song API in the inspector form (modes, harmony, closeness, original notes); Plenio does Fit Lyrics in the template
+- [x] A/B against the original: the recording lies in the cover's folder and is muted on the first cover take (unmute to compare)
+- [x] Cover live through the UI (`examples/plenio_cover_e2e.rs`): recording imported → New Cover from Selected Track → uploaded after 23 s → cover take after 309 s (54.6 s, with lyrics and notes)
 
-### Phase 5 – Player und Release
+### Phase 5: player and release
 
-- [x] Player-Sidecar: kopierter Player, eigener Zustandsordner und Port, Bibliothek = Ausgabe der Instanz; Party-Songs gehen an die Instanz (`studio.json`)
-- [x] „Send the mix to the Plenio Player“: `file.bounce_mix` (FLAC 24 bit) + Record aus dem des Takes (Dokumente, Lyrics-Timing als `(lines).srt`)
-  💡 Ohne Plenio-Mastering und ohne PDF; der Mix ist SoundCraft's.
-- [ ] Rückweg „In SoundCraft öffnen“ (Overlay statt „Open in ComfyUI“, über den Control-Channel)
-- [x] „Import Plenio Song…“: der FLAC allein (Plenio legt den Record als `PLNO`-Block hinein) oder `.plenio.json` + Audio daneben → Song mit Feldern und Seeds aus `/from-record`, Take mit Lyrics und Noten (auch Party-Songs aus der Player-Bibliothek); danach neuer Take und Stems wie bei jedem Song
-  💡 Der Import wartet auf ein noch startendes Studio (Noten und Felder kommen von dort). Abgeleitete Dateien (`score.mid`, Stems) liegen im Ordner des Add-ins, nie im Ordner des Songs. FLACs ohne Record (vor Plenio 0.8.0) brauchen die `.plenio.json` daneben.
+- [x] Player sidecar: the copied player, its own state folder and port, library = the instance's output; party songs go to the instance (`studio.json`)
+- [x] "Send the mix to the Plenio Player": `file.bounce_mix` (FLAC 24 bit) + a record from the take's (documents, lyrics timing as `(lines).srt`)
+  💡 Without Plenio's mastering and without a PDF; the mix is SoundCraft's.
+- [ ] The way back, "Open in SoundCraft" (an overlay instead of "Open in ComfyUI", through the control channel)
+- [x] "Import Plenio Song…": the FLAC alone (Plenio puts the record in it as a `PLNO` block) or `.plenio.json` + audio beside it → a song with fields and seeds from `/from-record`, a take with lyrics and notes (also party songs from the player's library); after that a new take and stems like any song
+  💡 The import waits for a studio that is still starting (notes and fields come from it). Derived files (`score.mid`, stems) lie in the add-in's folder, never in the song's. FLACs without a record (before Plenio 0.8.0) need the `.plenio.json` beside them.
 
-### Phase 6 – Härtung
+### Phase 6: hardening
 
-- [x] Parität: Songs entstehen mit Plenios eigenen Templates über die Song-API, also mit allem, was die Templates tun (Best Take, Check Vocals, LoRAs, Creativity, Creative Modes, Master, Cover-Art, Export); im Formular stehen alle Felder der Song-API. Plenios Unit-Tests gegen die Kopie: **1980 bestanden, 1 übersprungen, 0 fehlgeschlagen**.
-  💡 Nicht über die API erreichbar und daher offen: Zwischenstopps zum Prüfen (Review-Modus), LoRA-Auswahl (kein Feld der Song-API v1).
-- [x] Property-Tests mit feindlichen Eingaben: Job, Record, Score, SRT (`backend/tests/hostile.rs`), MIDI-Splicing (`commands/tests/hostile_midi.rs`); Pfadschutz der Stems-Route live geprüft
-- [x] Update-Probelauf SoundCraft: erster echter Merge am 2026-11-06 (5 Commits von `upstream/main`, 1 Konflikt in `crates/engine/src/dirty.rs`), Skript in Wegwerf-Klonen mit erfundenem Upstream geprobt (README, Logos, `Cargo.lock`, zweiter Merge ohne Handarbeit)
-- [x] Update-Probelauf Plenio: Plenio-Sync mehrfach ohne Handarbeit (Kopie um `docs/api`, `docs/design/data`, `docs/user/models.md`, `web/docs` erweitert).
-- [x] ~~Seams upstream einreichen~~: entfällt, der Owner führt einen eigenen Fork (2026-11-06). Branch `extension-api` gelöscht; seine Commits sind in `plenio-addin` enthalten.
-- [x] Fork vorbereitet: eigene `README.md`, ArtCraft-Marken entfernt (ihre Lizenz verlangt das), Update-Quelle der App auf den Fork, `tools/update_soundcraft.ps1` neu (merged statt rebased), [FORK.md](FORK.md)
-  💡 Offen beim Owner: Repo auf GitHub anlegen und hochladen. Offen vor eigenen Installern: `packaging/` nennt noch den Ordner `ArtCraft`.
-- [x] Benutzer- und Entwicklerdoku: `addins/plenio/README.md`, `docs/architecture.md › Extensions`
+- [x] Parity: songs are made with Plenio's own templates through the Song API, so with everything the templates do (best take, check vocals, LoRAs, creativity, creative modes, master, cover art, export); the form has all fields of the Song API. Plenio's unit tests against the copy: **1980 passed, 1 skipped, 0 failed**.
+  💡 Not reachable through the API and therefore open: intermediate stops to review (review mode), LoRA choice (no field in Song API v1).
+- [x] Property tests with hostile input: job, record, score, SRT (`backend/tests/hostile.rs`), MIDI splicing (`commands/tests/hostile_midi.rs`); the stems route's path guard checked live
+- [x] SoundCraft update rehearsal: first real merge on 2026-11-06 (5 commits from `upstream/main`, 1 conflict in `crates/engine/src/dirty.rs`), script rehearsed in throw-away clones with a made-up upstream (README, logos, `Cargo.lock`, a second merge without manual work)
+- [x] Plenio update rehearsal: Plenio sync several times without manual work (copy extended by `docs/api`, `docs/design/data`, `docs/user/models.md`, `web/docs`).
+- [x] ~~Submit the seams upstream~~: dropped, the owner keeps an own fork (2026-11-06). Branch `extension-api` deleted; its commits are in `plenio-addin`.
+- [x] Fork prepared: its own `README.md`, ArtCraft marks removed (their licence requires it), the app's update source pointed at the fork, `tools/update_soundcraft.ps1` rewritten (merges instead of rebasing), [FORK.md](FORK.md)
+  💡 Open with the owner: create the repository on GitHub and upload. Open before own installers: `packaging/` still names the folder `ArtCraft`.
+- [x] User and developer docs: `addins/plenio/README.md`, `docs/architecture.md › Extensions`
 
 ---
 
-## 1. Kernentscheidungen
+## 1. Core decisions
 
-1. **Die Generierung bleibt, wo sie heute funktioniert:** ComfyUI mit dem kopierten Plenio-Code läuft als eigener Hintergrundprozess. YuE2, SheetSage2, ASR und Stems brauchen PyTorch und ComfyUIs Kernel. Plenios eigenes Konzept (`docs/design/standalone-app-concept.md`) schätzt 30–46 Wochen, bis eine Rust-Inferenz so klingt wie heute.
-2. **SoundCraft bekommt ein natives Rust-Add-in** für Oberfläche, Spuren, Takes und Steuerung. Ein Absturz in Python oder CUDA kann SoundCraft nicht mitreißen („Never crash“).
-3. **Der ganze Add-in-Code liegt in `addins/plenio/`.** SoundCraft bekommt nur 6 kleine, allgemeine Erweiterungspunkte („Seams“), weil es heute kein Add-in-System hat:
-   - Die Command-Registry ist ein statisches `OnceLock` (`crates/engine/src/cmd.rs`).
-   - Das Menü wird aus dem Katalog gebaut (`crates/ui-egui/src/menus.rs`, `tree()`).
-   - Die Docking-Panels sind ein festes Enum (`crates/ui-egui/src/docking.rs`, `Panel`).
-   - `Session` hat kein Erweiterungsfeld; fremde Daten gingen beim nächsten Speichern verloren.
-4. **Plenio wird kopiert, nicht verändert.** Ein Sync-Skript kopiert 1:1 nach `addins/plenio/vendor/`; alle Anpassungen liegen außerhalb der Kopie (Wrapper, Overlays).
+1. **Generation stays where it works today:** ComfyUI with the copied Plenio code runs as a background process of its own. YuE2, SheetSage2, ASR and stems need PyTorch and ComfyUI's kernel. Plenio's own concept (`docs/design/standalone-app-concept.md`) estimates 30–46 weeks until a Rust inference sounds as it does today.
+2. **SoundCraft gets a native Rust add-in** for UI, tracks, takes and control. A crash in Python or CUDA cannot take SoundCraft down ("never crash").
+3. **All of the add-in's code lies in `addins/plenio/`.** SoundCraft gets only 6 small, general extension points ("seams"), because it has no add-in system today:
+   - The command registry is a static `OnceLock` (`crates/engine/src/cmd.rs`).
+   - The menu is built from the catalogue (`crates/ui-egui/src/menus.rs`, `tree()`).
+   - The docking panels are a fixed enum (`crates/ui-egui/src/docking.rs`, `Panel`).
+   - `Session` has no extension field; foreign data would be lost on the next save.
+4. **Plenio is copied, not changed.** A sync script copies it 1:1 to `addins/plenio/vendor/`; all adaptations lie outside the copy (wrapper, overlays).
 
-## 2. Architektur
+## 2. Architecture
 
 ```
-┌──────────────────── SoundCraft (Rust, ein Prozess) ─────────────────────┐
-│ Upstream-Crates (unverändert)  ◄─ 6 Seams ─►  addins/plenio/crates/*    │
+┌──────────────────── SoundCraft (Rust, one process) ─────────────────────┐
+│ Upstream crates (unchanged)    ◄─ 6 seams ─►  addins/plenio/crates/*    │
 │ model · engine · mix · ui-egui               project · backend ·        │
 │                                              commands · ui              │
 └──────────────────────────────┬──────────────────────────────────────────┘
-          HTTP 127.0.0.1 (JSON, Long-Poll); Prozesse vom Add-in gestartet und überwacht
+          HTTP 127.0.0.1 (JSON, long poll); processes started and watched by the add-in
         ┌──────────────────────┴─────────────────────┐
         ▼                                            ▼
-ComfyUI (eigene Instanz, headless)          Plenio Player (Kopie, Python stdlib)
+ComfyUI (own instance, headless)            Plenio Player (copy, Python stdlib)
  └ custom_nodes/soundcraft-plenio            127.0.0.1:8765…
-    ├ soundcraft_plenio/  Wrapper: Stage-API /scp/v1, Modellmanager
-    └ vendor/plenio/      1:1-Kopie (core, comfy, player, workers, third_party …)
+    ├ soundcraft_plenio/  wrapper: /scp/v1, model manager
+    └ vendor/plenio/      1:1 copy (core, comfy, player, workers, third_party …)
 ```
 
-## 3. Trennung und Update-Fähigkeit
+## 3. Separation and updates
 
-### 3.1 Verzeichnisse
+### 3.1 Folders
 
 ```
 addins/plenio/
-├─ docs/PLAN.md                 diese Datei
+├─ docs/PLAN.md                 this file
 ├─ crates/
-│  ├─ project/   Datenmodell: Songs, Spur-Rollen, Dokumente, Seeds, Takes (reine Daten)
-│  ├─ backend/   HTTP-Client (ureq), Jobs, Prozess-Supervisor, Modelle
-│  ├─ commands/  Engine-Commands plenio.* (laufen über Engine::execute → Undo gratis)
-│  └─ ui/        egui: Inspector, Lyrics-Editor, Lanes, Take-Wahl, Aktivierungs-Assistent
-├─ backend/soundcraft_plenio/   eigener ComfyUI-Entry-Point + Stage-API (Python, neu)
-├─ vendor/plenio/               1:1-Kopie + VENDOR.toml (Commit, Version, Datei-Hashes)
-├─ frontend/overlay/            ersetzt beim Build z. B. shared/comfy.ts durch einen SoundCraft-Adapter
+│  ├─ project/   data model: songs, track roles, documents, seeds, takes (plain data)
+│  ├─ backend/   HTTP client (ureq), jobs, process supervisor, models
+│  ├─ commands/  engine commands plenio.* (run through Engine::execute → undo for free)
+│  └─ ui/        egui: inspector, lyrics editor, lanes, take choice, activation assistant
+├─ backend/soundcraft_plenio/   own ComfyUI entry point + /scp/v1 (Python, new)
+├─ vendor/plenio/               1:1 copy + VENDOR.toml (commit, version, file hashes)
+├─ frontend/overlay/            replaces e.g. shared/comfy.ts with a SoundCraft adapter at build time
 └─ tools/  sync_plenio.py · update_soundcraft.ps1 · test_all.ps1
 ```
 
-### 3.2 Die einzigen Änderungen an SoundCraft (allgemein, nichts Plenio-Spezifisches)
+### 3.2 The only changes to SoundCraft (general, nothing specific to Plenio)
 
-| # | Wo | Was | Umfang |
+| # | Where | What | Size |
 |---|---|---|---|
-| S1 | `crates/model/src/session.rs` | `extensions: BTreeMap<String, String>` (serde default, leer nicht gespeichert, Größe in `sanitize` gedeckelt). Add-in-Daten sind damit Teil der Session: Undo, Autosave, Crash-Recovery und Bundles funktionieren ohne Zusatzarbeit. | ~30 Z. |
-| S2 | `crates/engine/src/cmd.rs` | `register_extension_commands(Vec<CommandSpec>)`, eingebunden in `command_specs()`/`find_command`. `plenio.*` landet automatisch auch in CLI, MCP und Control-Channel. | ~30 Z. |
-| S3 | `crates/ui-egui/src/extension.rs` (neu) + 5–6 Aufrufstellen | Trait `UiExtension`: Menü, Track-Header, Lane-Zeichnen, Dock-Panel (`Panel::Extension`), Frame-Update, Kontextmenü, Einstellungen, Datei-Drop | ~200–250 Z. |
-| S4 | `apps/soundcraft` | Cargo-Feature `plenio` plus 3 Zeilen Registrierung in `main.rs` | ~10 Z. |
-| S5 | `Cargo.toml` + `xtask` | Workspace-Members `addins/*/crates/*` und Einträge in `LAYERS` (sonst schlägt `cargo xtask layers` fehl) | ~10 Z. |
-| S6 | `ATTRIBUTION.md` | eine Verzeichnis-Zeile für `addins/plenio/vendor/` (`xtask assets` akzeptiert Verzeichnis-Zeilen) | 1–3 Z. |
+| S1 | `crates/model/src/session.rs` | `extensions: BTreeMap<String, String>` (serde default, not saved when empty, size capped in `sanitize`). So the add-in's data is part of the session: undo, autosave, crash recovery and bundles work with no extra work. | ~30 lines |
+| S2 | `crates/engine/src/cmd.rs` | `register_extension_commands(Vec<CommandSpec>)`, included in `command_specs()`/`find_command`. `plenio.*` automatically lands in CLI, MCP and control channel too. | ~30 lines |
+| S3 | `crates/ui-egui/src/extension.rs` (new) + 5–6 call sites | Trait `UiExtension`: menu, track header, lane drawing, dock panel (`Panel::Extension`), frame update, context menu, settings, file drop | ~200–250 lines |
+| S4 | `apps/soundcraft` | Cargo feature `plenio` plus 3 lines of registration in `main.rs` | ~10 lines |
+| S5 | `Cargo.toml` + `xtask` | Workspace members `addins/*/crates/*` and entries in `LAYERS` (otherwise `cargo xtask layers` fails) | ~10 lines |
+| S6 | `ATTRIBUTION.md` | a directory row for `addins/plenio/vendor/` (`xtask assets` accepts directory rows) | 1–3 lines |
 
-**Regel für den Add-in-Code:** Er ändert SoundCraft nur über dessen eigene Command-IDs (z. B. `track.new`, `track.playlist_new`, `track.playlist_select`, `track.move_to_folder`, `event.tempo`, `event.add_key_change`, `file.import_midi`). `session_mut()` nutzt er nur für die eigenen Erweiterungsdaten. Ändert sich die API, zeigt das ein Compile-Fehler in `addins/`.
+**Rule for the add-in's code:** it changes SoundCraft only through its own command ids (e.g. `track.new`, `track.playlist_new`, `track.playlist_select`, `track.move_to_folder`, `event.tempo`, `event.add_key_change`, `file.import_midi`). It uses `session_mut()` only for its own extension data and for what no command does (a take's tempo map with the owner's clips kept on their bars). If the API changes, a compile error in `addins/` shows it.
 
-### 3.3 SoundCraft-Updates einspielen
+### 3.3 Taking in SoundCraft updates
 
-- Remote `upstream` = `storytold/soundcraft`; Branch `plenio` / `plenio-addin` = `upstream/main` + Seam-Commit + `addins/`.
-- `tools/update_soundcraft.ps1`: fetch, **merge** (der Fork ist veröffentlicht, also kein Rebase), `README.md` bleibt, `Cargo.lock` neu auflösen, ArtCraft-Marken raus, dann `tools/test_all.ps1`. Konflikte sind nur an den in [FORK.md](FORK.md) gelisteten Stellen möglich; Lösungen merkt sich `git rerere`.
+- Remote `upstream` = `storytold/soundcraft`; branch `plenio-addin` = `upstream/main` + the seams + `addins/`.
+- `tools/update_soundcraft.ps1`: fetch, **merge** (the fork is published, so no rebase), `README.md` stays, `Cargo.lock` is resolved anew, ArtCraft marks out, then `tools/test_all.ps1`. Conflicts are only possible at the places listed in [FORK.md](FORK.md); `git rerere` remembers solutions.
 
-### 3.4 Plenio-Updates übernehmen
+### 3.4 Taking in Plenio updates
 
-- `tools/sync_plenio.py --from D:\…\Plenio-Music-Production-System` kopiert eine feste Liste 1:1: `plenio/`, `resources/`, die YuE2-Subgraphs, die Templates 0/1/2/4/5, `frontend/src`, `tests/` sowie LICENSE/NOTICE/THIRD_PARTY.
-- Es schreibt `VENDOR.toml`, berichtet geänderte Dateien und führt Plenios Tests und die Wrapper-Tests aus. Ein Hash-Check verhindert Handänderungen an `vendor/`.
-- **MiniMax:** keine Templates, Subgraphs oder Modelle von MiniMax, nichts in der Oberfläche; der Wrapper registriert die MiniMax-Nodes nicht. MiniMax ist in `plenio/core` verwoben (`engines/__init__.py`, `brief.py`, `writing.py`); diese Dateien werden als inaktiver Code mitkopiert, weil Entfernen die Kopie verändern würde.
+- `tools/sync_plenio.py --from D:\…\Plenio-Music-Production-System` copies a fixed list 1:1: `plenio/`, `resources/`, the YuE2 subgraphs, templates 0/1/2/4/5, `frontend/src`, `tests/` and LICENSE/NOTICE/THIRD_PARTY.
+- It writes `VENDOR.toml`, reports changed files and runs Plenio's tests and the wrapper tests. A hash check prevents changes by hand in `vendor/`.
+- **MiniMax:** no templates, subgraphs or models of MiniMax, nothing in the UI; the wrapper does not register MiniMax nodes. MiniMax is woven into `plenio/core` (`engines/__init__.py`, `brief.py`, `writing.py`); these files are copied along as inactive code, because removing it would change the copy.
 
-## 4. Bedienkonzept
+## 4. How it is used
 
-### 4.1 Ein Plenio-Song im Edit-Fenster
+### 4.1 A Plenio song in the edit window
 
 ```
-▼ ✦ Nachtfahrt (Plenio-Song)   Take ◀ 3/5 ▶ ★★★★☆   ● Lyrics geändert   [⟳ Generieren ▾]
-  │Intro│ Verse 1 │Pre│ Chorus │ Verse 2 │ Chorus │Bridge│ Chorus │Outro│  ← Song-Form
-  ├ Lyrics       [verse] Regen auf dem Asphalt … │ [chorus] Wir fahren …
-  ├ Melodie      MIDI, mit SoundCraft-Instrument vorhörbar
-  ├ Akkorde      MIDI
-  ├ Begleitlinie MIDI
-  ├ Song (Mix)   Audio, Takes als Playlists
-  └ (optional) Vocals · Drums · Bass · Other · Rest   ← Stems, Summe = Take
- Audio 1 · MIDI 1 · Instrument …   ← eigene Spuren, überall, auch im Ordner
+▼ Night Drive (Plenio song)   Take ◀ 3/5 ▶ 4 stars   lyrics changed   [Generate]
+  │Intro│ Verse 1 │Pre│ Chorus │ Verse 2 │ Chorus │Bridge│ Chorus │Outro│  ← song form
+  ├ Lyrics       [verse] Rain on the asphalt … │ [chorus] We ride …
+  ├ Melody       MIDI, to preview with a SoundCraft instrument
+  ├ Chords       MIDI
+  ├ Accompaniment MIDI
+  ├ Song (mix)   audio, takes as playlists
+  └ (optional) Vocals · Drums · Bass · Other · Rest   ← stems, their sum = the take
+ Audio 1 · MIDI 1 · Instrument …   ← your own tracks, anywhere, also in the folder
 ```
 
-| Spur | Technisch | Was das Add-in ergänzt |
+| Track | Technically | What the add-in adds |
 |---|---|---|
-| **Song** | Routing-Folder: summiert alle Kinder (Effekte auf den ganzen Song) | Header mit Status, Take-Wahl, Generieren; Lane mit den Abschnitten; Inspector mit allen YuE2-Parametern |
-| **Lyrics** | stumme MIDI-Spur, ein Clip je Abschnitt | Lane zeigt Text statt Noten; YuE2-Regeln live (Abschnitts-Tags, eigene Tags, Silben, Token-Budget 24 576 über Plenios Tokenizer); nach dem Rendern Wörter an der gesungenen Stelle |
-| **Noten** | MIDI-Spuren mit eingebautem Instrument | Projektion von Plenios Score (ABC bleibt Hauptquelle); Bearbeitung → „bearbeitet“ → YuE2 singt genau diese Noten (Pfad „YuE2 · DAW“) |
-| **Ergebnis** | normale Audiospuren | Effekte, Schnitte, Fades, Automation wie immer; Takes = Playlists; Comping mit den vorhandenen Playlist-Lanes |
-| **Cover-Quelle** | normale Audiospur mit dem Original | Analysequelle; A/B über Solo/Mute |
+| **Song** | routing folder: sums all its children (effects on the whole song) | header with status, take choice, generate; a lane with the sections; inspector with all YuE2 parameters |
+| **Lyrics** | muted MIDI track, one clip per section | the lane shows text instead of notes; YuE2's rules live (section tags, own tags, syllables, token budget 24 576 through Plenio's tokenizer); after rendering, words where they are sung |
+| **Notes** | MIDI tracks with a built-in instrument | a projection of Plenio's score (ABC stays the main source); editing → "edited" → YuE2 sings exactly these notes (path "YuE2 · DAW") |
+| **Result** | normal audio tracks | effects, cuts, fades, automation as always; takes = playlists; comping with the existing playlist lanes |
+| **Cover source** | normal audio track with the original | analysis source; A/B through solo/mute |
 
-Tempo-Map und Tonart kommen aus dem Score, sodass eigene MIDI-Spuren sofort im Raster liegen. Abschnitte werden als Memory Locations angelegt (Navigation, Loop pro Abschnitt).
+The tempo map follows the take's audio ([section 10a](#10a-the-audio-is-the-master-the-owners-decision-2026-11-06)), meter and key come from the score, so that your own MIDI tracks lie on the grid at once. Sections are shown in the song lane.
 
 ### 4.2 Takes
 
-- Jede Generierung ist ein **Take** über alle Spuren des Songs: Playlists gleichen Namens auf Lyrics-, Noten- und Audiospuren („Take 4 · neue Lyrics ★4“).
-- Ein Take friert Lyrics, Noten, Parameter und Seeds ein. Wählst du Take 2, siehst du dessen Lyrics und Noten und kannst von dort weiterarbeiten.
-- Alte Takes bleiben mit deinen Bearbeitungen erhalten; Aufräumen mit `track.playlist_delete_unused`.
-- Jede übernommene Generierung ist **ein Undo-Schritt**.
+- Every generation is a **take** over all the song's tracks: playlists of the same name on lyrics, note and audio tracks ("Take 4 · 4 stars").
+- A take freezes lyrics, notes, parameters and seeds. If you choose take 2 you see its lyrics and notes and can go on working from there.
+- Old takes stay with your edits; clean up with `track.playlist_delete_unused`.
+- Every generation taken in is **one undo step**.
 
-### 4.3 Ändern und neu generieren
+### 4.3 Change and generate again
 
-| Du änderst … | Plenio macht neu … | Ergebnis |
+| You change … | Plenio makes anew … | Result |
 |---|---|---|
-| Seed, Anzahl Takes, LoRA, Lyrics-Fidelity | nur rendern | neuer Take |
-| Noten (MIDI oder Score-Editor) | rendern mit deinem Score | neuer Take, singt exakt deine Noten |
-| Lyrics | neu komponieren, dann rendern (neue Worte brauchen neue Noten); beim Cover alternativ auf die Melodie einpassen (Fit Lyrics) | neue Noten und neuer Take |
-| Stil, Tempo, Tonart, Länge | neu planen, dann rendern | dto. |
-| Brief oder Idee | neu schreiben, planen, rendern | dto. |
+| Seed, number of takes, LoRA, lyrics fidelity | only the render | a new take |
+| Notes (MIDI or score editor) | a render with your score | a new take, sings exactly your notes |
+| Lyrics | composing, then rendering (new words need new notes); on a cover alternatively fitting them to the melody (Fit Lyrics) | new notes and a new take |
+| Style, tempo, key, length | planning, then rendering | the same |
+| Brief or idea | writing, planning, rendering | the same |
 
-- Von Hand bearbeitete Dokumente bleiben unangetastet (auto, bearbeitet, manuell).
-- Seeds (draft, plan, arrangement, take) lassen sich sperren oder neu würfeln.
-- Der Song-Header zeigt, was veraltet ist („● Lyrics geändert → Noten + Take“).
-- Generieren-Menü: „Neuer Take“, „Neu komponieren“, „Lyrics neu schreiben“, „×4 Takes, Best Take wählen“.
-- Jobs laufen im Hintergrund; Transport spielt weiter; Fortschritt und Abbrechen im Header und im Jobs-Panel.
+- Documents edited by hand stay untouched (auto, edited, manual).
+- Seeds (draft, plan, arrangement, take) can be locked or re-rolled.
+- The song header shows what is stale ("lyrics changed → notes + take").
+- Generate menu: "New take", "Compose again", "Rewrite lyrics", "×4 takes, choose best take".
+- Jobs run in the background; the transport keeps playing; progress and cancel in the header and in the jobs panel.
 
-### 4.4 Neuer Song
+### 4.4 New song
 
-- **Plenio › Neuer Song…**: Genre aus 250 Templates (Suche), Idee oder eigene Lyrics, Länge, Gesang, „Erstellen“.
-- Die Spuren erscheinen sofort und füllen sich nacheinander: Lyrics, Noten, Take.
-- Schalter **„Bei Lyrics/Noten anhalten“** entspricht Plenios Modus „one song, stop to review“.
+- **Plenio › New Song…**: genre from 250 templates (search), idea or own lyrics, length, vocals, "Create".
+- The tracks appear at once and fill one after the other: lyrics, notes, take.
+- A switch **"stop at lyrics/notes"** would match Plenio's mode "one song, stop to review" (not in Song API v1, see phase 1).
 
 ### 4.5 Cover
 
-- Rechtsklick auf Audiospur oder Auswahl → **„Plenio-Cover daraus…“**; die Edit-Auswahl wird zum Ausschnitt (`excerpt`).
-- Analyse füllt Tempo und Beat-Grid (SheetSage2), Noten-Spuren mit dem Original, Lyrics-Spur mit den gehörten Worten (unsichere markiert), optional die gesungene Tonhöhe.
-- Wählbar: instrumental, original lyrics, new lyrics, Harmonie, song flow closeness, lyrics closeness, original notes. Danach wie beim Song.
+- Right-click on an audio track or selection → **"Plenio cover from this…"**; the edit selection becomes the excerpt (`excerpt`).
+- The analysis fills tempo and beat grid (SheetSage2), the note tracks with the original, the lyrics track with the heard words (uncertain ones marked), optionally the sung pitch.
+- To choose: instrumental, original lyrics, new lyrics, harmony, song flow closeness, lyrics closeness, original notes. After that as with a song.
 
 ### 4.6 Notation
 
-1. **Nativ:** Noten-Spuren im MIDI- und Score-Editor von SoundCraft (Notation, MusicXML, Print Score). Später Lyrics unter den Melodienoten.
-2. **Volle Parität ab Tag 1:** **„Im Plenio-Score-Editor öffnen“** startet den kopierten Vue-Editor im Browser (Overlay-Adapter statt ComfyUI): Akkord-Lane, Bar-Inspector, Arrangieren, MIDI-Keyboard, PDF. Änderungen fließen in die Session zurück.
+1. **Native:** note tracks in SoundCraft's MIDI and score editor (notation, MusicXML, print score). Later lyrics under the melody notes.
+2. **Full parity from day one:** **"Open in Plenio's score editor"** starts the copied Vue editor in the browser (overlay adapter instead of ComfyUI): chord lane, bar inspector, arranging, MIDI keyboard, PDF. Changes flow back into the session.
 
 ### 4.7 Stems
 
-- „In Stems aufteilen“ legt Vocals, Drums, Bass, Other, Rest an; optional automatisch für jeden Take.
-- Optional Stems als MIDI (z. B. Bassline mit eigenem Instrument ersetzen).
-- Standard bleibt eine Mix-Spur (Plenio stuft Stems als experimentell ein).
+- "Split into stems" creates vocals, drums, bass, other, rest; optionally automatically for every take.
+- Optionally stems as MIDI (e.g. to replace the bass line with an own instrument).
+- The default stays one mix track (Plenio rates stems as experimental).
 
 ### 4.8 Player
 
-- **Plenio › An Player senden:** Bounce des Song-Ordners (mit deinen Effekten), dann kopierter Export-Release-Schritt (FLAC/MP3, Tags, Lyrics-Timing auf dem Vocal-Stem, PDF, `.plenio.json`) in die Player-Bibliothek; Plenio-Mastering (-14 LUFS) optional.
-- **Player öffnen** startet den kopierten Player mit eigenem Zustandsordner. „Open in ComfyUI“ wird per Overlay zu „In SoundCraft öffnen“ (Control-Channel).
-- Party-Songs funktionieren weiter; „In SoundCraft übernehmen“ macht daraus einen regenerierbaren Plenio-Song, ebenso eine hineingezogene Plenio-FLAC.
+- **Plenio › Send to Player:** a bounce of the song's folder (with your effects), then the copied export release step (FLAC/MP3, tags, lyrics timing on the vocal stem, PDF, `.plenio.json`) into the player's library; Plenio's mastering (-14 LUFS) optional.
+- **Open Player** starts the copied player with its own state folder. An overlay turns "Open in ComfyUI" into "Open in SoundCraft" (control channel).
+- Party songs keep working; "Take into SoundCraft" makes a Plenio song from them that can be made again, as does a Plenio FLAC dragged in.
 
-### 4.9 Aktivieren und Modelle automatisch laden
+### 4.9 Activation and loading models automatically
 
-**Plenio › Add-in aktivieren…** öffnet einen Assistenten:
+**Plenio › Activate Add-in…** opens an assistant:
 
-1. **Systemcheck** (kopierter `system.py`): GPU, VRAM → Empfehlung int8 (4 GB) oder bf16 (7,8 GB, ab 24 GB VRAM).
-2. **ComfyUI finden:** über Plenios `comfyui-start.json` und `extra_model_paths.yaml`, sonst Download von ComfyUI portable anbieten. Eigene headless Instanz mit eigenem Basisordner; vorhandene ComfyUI- und Plenio-Installationen bleiben unberührt, vorhandene Modelle werden mitbenutzt.
-3. **Modelle** über den kopierten Katalog (`models.toml` ohne MiniMax) und Downloader (fortsetzbar, SHA-256), Fortschritt in SoundCraft:
-   - Profil „Song“: YuE2, Instrumental-LoRA, Writer, UniverSR.
-   - Profil „Cover“ beim ersten Cover: SheetSage2 (1,4 GB), Qwen3-ASR + Aligner (3,8 + 1,7 GB), BS-RoFormer (0,5 GB).
-   - FLUX.2 Klein (Cover-Art) optional.
-   - **Lizenz CC BY-NC 4.0 (nicht kommerziell) von YuE2 und SheetSage2 wird vor dem Download angezeigt und muss bestätigt werden.**
-4. **Testlauf:** kurzer Instrumental-Take.
+1. **System check** (copied `system.py`): GPU, VRAM → recommends int8 (4 GB) or bf16 (7.8 GB, from 24 GB of VRAM).
+2. **Find ComfyUI:** through Plenio's `comfyui-start.json` and `extra_model_paths.yaml`, otherwise offer to download ComfyUI portable. An own headless instance with its own base folder; existing ComfyUI and Plenio installations stay untouched, existing models are shared.
+3. **Models** through the copied catalogue (`models.toml` without MiniMax) and downloader (resumable, SHA-256), with progress in SoundCraft:
+   - Profile "Song": YuE2, instrumental LoRA, writer, UniverSR.
+   - Profile "Cover" on the first cover: SheetSage2 (1.4 GB), Qwen3-ASR + aligner (3.8 + 1.7 GB), BS-RoFormer (0.5 GB).
+   - FLUX.2 Klein (cover art) optional.
+   - **The CC BY-NC 4.0 licence (non-commercial) of YuE2 and SheetSage2 is shown before the download and must be confirmed.**
+4. **Test run:** a short instrumental take.
 
-Deaktivieren blendet die Oberfläche aus und beendet die Prozesse; die Session bleibt voll nutzbar (alles Erzeugte ist normales Audio und MIDI).
+Deactivating hides the UI and ends the processes; the session stays fully usable (everything made is normal audio and MIDI).
 
-## 5. Backend: kopierter Code plus Wrapper
+## 5. Backend: copied code plus a wrapper
 
-Die Song-API v1 läuft immer komplett durch (keine Review-Stopps), ihre Ergebnisrollen enthalten keine Stems. Der Wrapper bietet daher eine **Stage-API `/scp/v1`**. Jede Stufe ist ein ComfyUI-Lauf aus den kopierten Subgraphs, der Workflow wird auf den Ziel-Node gekürzt; ComfyUI hält Modelle und unveränderte Zwischenergebnisse im Cache.
+Song API v1 always runs to the end (no review stops), and its result roles hold no stems. The first plan therefore had the wrapper offer a **stage API under `/scp/v1`**, each stage a ComfyUI run from the copied subgraphs. That was dropped (see phase 1): generation goes straight through the Song API, and `/scp/v1` holds only what the Song API does not offer.
 
-| Endpunkt | Basis (kopiert) |
+| Endpoint planned at first | Basis (copied) |
 |---|---|
-| `draft`: Brief → Titel, Stil, Lyrics | Subgraph *Write Song*, `core.writing` |
-| `lyrics/check`: live prüfen | Routen `lyrics/analyze`, `sheet/resolve` |
-| `plan`: Score, Abschnitte, BPM, Tonart, MIDI | *YuE2 Plan*, Song Form, `score/midi` |
+| `draft`: brief → title, style, lyrics | subgraph *Write Song*, `core.writing` |
+| `lyrics/check`: check live | routes `lyrics/analyze`, `sheet/resolve` |
+| `plan`: score, sections, BPM, key, MIDI | *YuE2 Plan*, Song Form, `score/midi` |
 | `score/from-midi`, `to-midi`, `musicxml` | `score/midi/*`, `musicxml/*` |
-| `render`: Takes, Best Take, Qualität, gesungenes Timing | *YuE2 Render/Takes*, Subtitles |
+| `render`: takes, best take, quality, sung timing | *YuE2 Render/Takes*, Subtitles |
 | `stems` | *Stems* |
-| `cover/analyze`, `cover/fit` | *Transcribe Score*, Lyrics-ASR, Sung Pitch, Fit Lyrics |
+| `cover/analyze`, `cover/fit` | *Transcribe Score*, Lyrics ASR, Sung Pitch, Fit Lyrics |
 | `release` | Export Release, *Master* |
 | `system`, `models` | `system.py`, `assets/fetch.py` |
-| `jobs/{id}?wait`, `DELETE` | Job-Mechanik der Song-API |
+| `jobs/{id}?wait`, `DELETE` | the Song API's job mechanism |
 
-Die Parameterformulare baut das Rust-UI **dynamisch aus `/templates/{id}`**; neue Plenio-Felder erscheinen ohne Rust-Änderung.
+The Rust UI builds the parameter forms **dynamically from `/templates/{id}`**; new Plenio fields appear with no change in Rust.
 
-## 6. Qualität mindestens wie heute
+## 6. Quality at least as good as today
 
-- Gleicher Code, gleiche ComfyUI-Nodes, gleiche Subgraphs.
-- **Golden-Test:** Template 1 bzw. 2 im Original gegen die Stage-Kette, gleiche Seeds und Dokumente; Vergleich von Dokument-Hashes und Audio.
-- Plenios Testsuite läuft nach jedem Sync gegen die Kopie.
-- Paritäts-Checkliste aus Plenios Funktionsinventar (siehe Phase 6).
+- The same code, the same ComfyUI nodes, the same subgraphs.
+- Plenio's test suite runs against the copy after every sync.
+- A parity checklist from Plenio's inventory of functions (see phase 6).
 
-## 7. SoundCraft-Regeln
+## 7. SoundCraft's rules
 
-- Jedes Add-in-Crate: `[lints] workspace = true` und `#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]`; kein `unsafe`.
-- Backend-Antworten sind feindliche Eingaben: Größen deckeln, `get()` statt Index, gecheckte Arithmetik.
-- HTTP nie auf UI- oder Audio-Thread; Ergebnisse per Channel, im Frame-Hook per `execute` angewendet.
-- Add-in nur nativ; Web/WASM-Build bleibt unberührt.
-- CI bleibt unverändert; Python-Tests lokal über `tools/test_all.ps1`.
-- `addins/plenio` unter Apache-2.0 mit NOTICE (passt zu MIT OR Apache-2.0). ComfyUI (GPL) wird nie kopiert oder gebündelt, nur als externer Prozess gestartet.
-- Jedes gebündelte Asset (auch in `vendor/`) braucht eine Zeile in `ATTRIBUTION.md` (S6).
+- Every add-in crate: `[lints] workspace = true` and `#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]`; no `unsafe`.
+- Backend answers are hostile input: cap sizes, `get()` instead of indexing, checked arithmetic.
+- HTTP never on the UI or audio thread; results through a channel, applied by `execute` in the frame hook.
+- The add-in is native only; the web/WASM build stays untouched.
+- CI stays unchanged; Python tests locally through `tools/test_all.ps1`.
+- `addins/plenio` under Apache-2.0 with a NOTICE (fits MIT OR Apache-2.0). ComfyUI (GPL) is never copied or bundled, only started as an external process.
+- Every bundled asset (also in `vendor/`) needs a row in `ATTRIBUTION.md` (S6).
+- Everything in the project is in English: comments, docs, scripts, UI text, commit messages (the owner's rule, 2026-11-06).
 
-## 8. Phasen und Aufwand (grobe Schätzung in Agent-Stunden)
+## 8. Phases and effort (rough estimate in agent hours)
 
-| Phase | Inhalt | Abnahme | h |
+| Phase | Content | Acceptance | h |
 |---|---|---|---|
-| 0 Fundament | Git, Seams S1–S6 mit Tests, leere Crates, Plenio-Menü, Aktivieren-Schalter | `cargo xtask ci` grün | 10–15 |
-| 1 Backend | Sync-Skript, Wrapper mit `draft`/`plan`/`render`, ComfyUI-Supervisor, Systemcheck, Modell-Downloads | Golden-Test Song identisch | 25–40 |
-| 2 MVP Song | Dialog, Ordner und Spuren, Lyrics-Spur und Editor, Inspector, Takes als Playlists, Veraltet-Anzeige, Jobs, Undo | erster Song komplett in SoundCraft | 35–55 |
-| 3 Noten und Stems | Score↔MIDI, DAW-Pfad, Tempo/Tonart, Memory Locations, Stems, Browser-Editor-Adapter | Noten editieren, YuE2 singt sie | 30–45 |
-| 4 Cover | Cover aus Spur/Auswahl, Analyse, drei Vocal-Modi, Fit Lyrics, A/B | Golden-Test Cover | 20–30 |
-| 5 Player | Player-Sidecar, „An Player senden“, Rückweg, FLAC übernehmen | Song im Player mit Lyrics und Noten | 12–20 |
-| 6 Härtung | Paritäts-Checkliste, Fuzzing, Update-Probelauf, Doku | beide Updates ohne Handarbeit | 15–25 |
+| 0 Foundation | Git, seams S1–S6 with tests, empty crates, Plenio menu, activation switch | `cargo xtask ci` green | 10–15 |
+| 1 Backend | sync script, wrapper, ComfyUI supervisor, system check, model downloads | a song identical to Plenio's | 25–40 |
+| 2 MVP song | dialog, folder and tracks, lyrics track and editor, inspector, takes as playlists, staleness display, jobs, undo | a first song entirely in SoundCraft | 35–55 |
+| 3 Notes and stems | score↔MIDI, DAW path, tempo/key, stems, browser editor adapter | edit notes, YuE2 sings them | 30–45 |
+| 4 Cover | cover from a track or selection, analysis, three vocal modes, Fit Lyrics, A/B | a cover like Plenio's | 20–30 |
+| 5 Player | player sidecar, "Send to Player", the way back, taking in a FLAC | a song in the player with lyrics and notes | 12–20 |
+| 6 Hardening | parity checklist, fuzzing, update rehearsal, docs | both updates without manual work | 15–25 |
 
-Bis zum MVP grob 70–110 h, insgesamt etwa 150–230 h.
+Up to the MVP roughly 70–110 h, in all about 150–230 h.
 
-## 9. Risiken
+## 9. Risks
 
-- **Score-Rundweg ABC ↔ MIDI** kann Details verlieren; der Browser-Editor fängt das ab.
-- **Eigene ComfyUI-Instanz:** `--base-directory` in Phase 1 prüfen. Laufen deine ComfyUI und die Add-in-Instanz gleichzeitig, konkurrieren sie um die GPU; die Add-in-Instanz entlädt nach Leerlauf ihre Modelle oder stoppt.
-- **Comping über Takes** klappt gut bei gleichem Score (gleiches Tempo, gleiche Form), bei neuem Score eingeschränkt.
+- **The score round trip ABC ↔ MIDI** can lose details; the browser editor would catch that.
+- **An own ComfyUI instance:** if your ComfyUI and the add-in's instance run at once, they compete for the GPU; the add-in's instance should unload its models or stop when idle.
+- **Comping across takes** works well with the same score (same form), less well with a new score. Takes have tempo maps of their own, so a comp across takes plays against one of them.
 
-## 10. Entscheidungen (alle getroffen am 2026-11-05)
+## 10. Decisions (all made on 2026-11-05)
 
-| # | Frage | Entscheidung |
+| # | Question | Decision |
 |---|---|---|
-| 9.1 | Eigene ComfyUI-Instanz oder bestehende? | **Eigene Instanz** |
-| 9.2 | Seams upstream einreichen? | ~~Ja, erlaubt~~ → **Nein: eigener Fork mit regelmäßigem Merge** (2026-11-06) |
-| 9.3 | `origin` → `upstream`, Branch `plenio-addin`? | **Ja, erlaubt** – erledigt |
-| – | Plenio-Projekt ändern? | **Nein** – Code wird nach SoundCraft kopiert |
+| 9.1 | An own ComfyUI instance or the existing one? | **Own instance** |
+| 9.2 | Submit the seams upstream? | ~~Yes, allowed~~ → **No: an own fork with regular merges** (2026-11-06) |
+| 9.3 | `origin` → `upstream`, branch `plenio-addin`? | **Yes, allowed**: done |
+| – | Change the Plenio project? | **No**: code is copied to SoundCraft |
 
-## 11. Fundstellen für die Umsetzung (geprüft 2026-11-05)
+## 10a. The audio is the master (the owner's decision, 2026-11-06)
+
+Feedback: "one of the two has to be the master", and it should be the audio file, so that it is not changed; bar starts must be exact, so that further MIDI tracks fit later. The ways checked, measured on the owner's real songs:
+
+| Way | Result |
+|---|---|
+| One exact constant BPM | **Impossible.** The tempo of a YuE2 render wanders smoothly over the song: against the best straight line 150–250 ms in the median song, up to 1 s in the worst. Hits on strong onsets (±15 ms): 26 % |
+| Stretching the audio to a constant tempo (MIDI as the master) | Not wanted by the owner: changes the audio file and its length |
+| Forcing the render to a fixed tempo | Not possible: Plenio itself only measures the deviation afterwards |
+| **A tempo map from the audio** (chosen) | One tempo event per bar, bar lines on the sample. Hits on strong onsets: 44.5 % (median over 173 songs); control half a beat off: 18 %; the earlier warp line: 7 % |
+| Tempo events per beat instead of per bar | No gain (82 % against 82 % hits), only more events |
+
+How: `backend/soundcraft_plenio/beats.py` (`POST /scp/v1/beats`) looks for every pulse of the score in the audio: dynamic programming over the onsets, near the warp's line, with even intervals. Onsets alone find the pulse but not which pulse it is (often whole beats off): the score's pitches (weight 16) and the sung words say that. `Take.bars` holds the times per bar, `score::tempo_map` makes the session's tempo map from them, and `songs::conduct` sets it on `take.add` and `take.select` and keeps the owner's MIDI clips on their bars.
+
+💡 On known audio (synthetic clicks with a wandering tempo, mixed meters, 6/8): ±2 ms. The first prototype lay 39 ms early there (window length 1024, time from the window's start); against real songs this did not show, because grid and onsets had the same offset. Now 256 samples and a measured correction of 6.5 ms.
+
+💡 Meters: over 10 % of the 3174 stored songs change meter (4/4 with 9/8, 7/8 …). The map carries every bar's meter; before, one meter held for the whole session.
+
+💡 Limits: only one tempo per session, so it follows the take chosen last. The next take change overwrites tempos changed by hand. Takes from older sessions have no map and stay as they are (import or generate again). Without a warp and an estimate, or when the notes fit clearly worse on the map than on the straight line (by more than 0.05), it stays with the straight line, and the status line says so.
+
+## 11. Where things are, for the implementation (checked 2026-11-05)
 
 **SoundCraft**
 
-- Command-Registry: `crates/engine/src/cmd.rs` – `command_specs()` (statisches `OnceLock`), `find_command`, Makro `cmd!`; `CommandSpec`-Felder sind `pub` (`&'static str`, Funktionszeiger).
-- Engine-API: `crates/engine/src/lib.rs` – `session()`, `session_mut()` (pub), `execute()`, `execute_merged()`.
-- Session: `crates/model/src/session.rs` – `Session` (ohne Erweiterungsfeld), `from_json` parst ohne `Value`-Baum, unbekannte Schlüssel werden ignoriert; `EditState.flags`/`values` (von Score Setup genutzt).
-- Track/Playlist/Clip: `crates/model/src/track.rs`, `crates/model/src/clip.rs` (`ClipContent::Audio|Midi|Video`).
-- Playlist-Lanes mit Comping: `crates/ui-egui/src/edit_window/tracks.rs` (`playlist_lanes`).
-- Menü: `crates/ui-egui/src/menus.rs` (`tree()`, `UI_COMMANDS`, `menu_bar`).
-- Docking: `crates/ui-egui/src/docking.rs` (`Panel`-Enum).
-- App-Einstieg: `apps/soundcraft/src/main.rs` (`SoundApp::new(engine, player, services())`).
+- Command registry: `crates/engine/src/cmd.rs`: `command_specs()` (static `OnceLock`), `find_command`, macro `cmd!`; `CommandSpec` fields are `pub` (`&'static str`, function pointers).
+- Engine API: `crates/engine/src/lib.rs`: `session()`, `session_mut()` (pub), `execute()`, `execute_merged()`.
+- Session: `crates/model/src/session.rs`: `Session`, `from_json` parses without a `Value` tree, unknown keys are ignored; `EditState.flags`/`values` (used by Score Setup).
+- Track/playlist/clip: `crates/model/src/track.rs`, `crates/model/src/clip.rs` (`ClipContent::Audio|Midi|Video`).
+- Playlist lanes with comping: `crates/ui-egui/src/edit_window/tracks.rs` (`playlist_lanes`).
+- Menu: `crates/ui-egui/src/menus.rs` (`tree()`, `UI_COMMANDS`, `menu_bar`).
+- Docking: `crates/ui-egui/src/docking.rs` (`Panel` enum).
+- App entry: `apps/soundcraft/src/main.rs` (`SoundApp::new(engine, player, services())`).
 - Notation: `crates/engine/src/score.rs`, `crates/ui-egui/src/panels/score_editor.rs`.
-- Wiederverwendbare Commands: `track.playlist_new`, `track.playlist_select`, `track.playlist_duplicate`, `track.playlist_delete_unused`, `track.move_to_folder`, `track.rename`, `track.color`, `track.comments`, `event.tempo`, `event.add_key_change`, `file.import_midi`, `clip.rename`, `clip.color`.
-- Layer-Prüfung: `xtask/src/main.rs` (`LAYERS`); Asset-Prüfung: `assets()` (Verzeichnis-Zeilen decken ganze Bäume ab).
-- Schon in `Cargo.lock`: `ureq 3.5.0`, `sha2 0.10.9`, `zip 9.1.3`.
+- Tempo: `crates/time/src/tempo.rs` (`TempoMap`), metronome: `crates/mix/src/click.rs` (every click through the tempo map).
+- Reusable commands: `track.playlist_new`, `track.playlist_select`, `track.playlist_duplicate`, `track.playlist_delete_unused`, `track.move_to_folder`, `track.rename`, `track.color`, `track.comments`, `event.tempo`, `event.add_key_change`, `file.import_midi`, `clip.rename`, `clip.color`.
+- Layer check: `xtask/src/main.rs` (`LAYERS`); asset check: `assets()` (directory rows cover whole trees).
+- Already in `Cargo.lock`: `ureq 3.5.0`, `sha2 0.10.9`, `zip 9.1.3`, `flate2 1.1.10`.
 
 **Plenio**
 
-- Song-API: `plenio/comfy/song_api.py`, `plenio/core/song_api.py`, Doku `docs/api/README.md` (v1.3; keine Review-Stopps).
-- Routen für Editor und Werkzeuge: `plenio/comfy/routes.py` (`ROUTES`: score analyze/transform, midi import/export, musicxml, lyrics analyze, sheet resolve, templates, brief fields, presets, eq, export sheet-music, records, player open).
-- Einstieg: `plenio/comfy/extension.py` (`PlenioExtension.on_load`), Node-Liste `plenio/comfy/nodes/__init__.py` (`NODES`).
+- Song API: `plenio/comfy/song_api.py`, `plenio/core/song_api.py`, docs `docs/api/README.md` (v1.3; no review stops).
+- Routes for editor and tools: `plenio/comfy/routes.py` (`ROUTES`: score analyze/transform, midi import/export, musicxml, lyrics analyze, sheet resolve, templates, brief fields, presets, eq, export sheet-music, records, player open).
+- Entry: `plenio/comfy/extension.py` (`PlenioExtension.on_load`), node list `plenio/comfy/nodes/__init__.py` (`NODES`).
 - Subgraphs: `subgraphs/` (Write Song, YuE2 Plan, YuE2 Render, YuE2 Takes, Stems, Transcribe Score, Fix Misheard Words, Master, Arrange, Cover Art, Refine).
-- Modelle: `resources/models.toml`, Downloader `plenio/core/assets/fetch.py`.
-- ComfyUI starten: `plenio/player/studio.py` (Python finden, Argumente, Log, Leerlauf-Stopp, `comfyui-start.json`), Player-Start: `plenio/player/launch.py`.
-- Stems: `plenio/comfy/nodes/stems.py` (Separate Stems, Stem Mixer, Stems als MIDI).
-- Release-Record: `resources/schemas/record-1.schema.json`.
+- Models: `resources/models.toml`, downloader `plenio/core/assets/fetch.py`.
+- Starting ComfyUI: `plenio/player/studio.py` (finding Python, arguments, log, idle stop, `comfyui-start.json`), player start: `plenio/player/launch.py`.
+- Stems: `plenio/comfy/nodes/stems.py` (Separate Stems, Stem Mixer, Stems as MIDI).
+- Release record: `resources/schemas/record-1.schema.json`; the record inside a FLAC: `plenio/core/release.py` (`read_project`).
 
-## Stand 2026-11-05 abends (Fortsetzungspunkt)
+## State on the evening of 2026-11-05 (point to continue from)
 
-- [x] **Entscheidung:** Generierung läuft direkt über Plenios **Song-API** (`/plenio/api/v1`: jobs, templates, briefs, uploads), nicht über eine eigene Stage-API. Der Wrapper `addins/plenio/backend/soundcraft_plenio` lädt Plenio unverändert und ergänzt nur `/scp/v1` (Info, Modelle ohne MiniMax) und einen Eltern-Wächter (`SCP_PARENT_PID`).
-- [x] Phase 1: Studio (`crates/backend`: discover, instance, client, song, studio). Eigene Instanz mit `--base-directory`, Modellen aus `F:\ComfyUI\models`, `PLENIO_PLAYER_STATE` im Add-in-Ordner. Live geprüft: Start und Stopp in 10 s, echter Job (61-s-Instrumental in 133 s).
-- [x] Phase 2: `plenio.song.new/set/forget`, `plenio.take.add/select`; Plan-Regeln (neue Worte → neue Noten); UI mit Menü, New-Song-Dialog (250 Templates), Inspector (Takes, Generate/More, Lyrics-Editor mit YuE2-Tags und Prüfung über `/plenio/lyrics/analyze`, Brief-Formular dynamisch aus `/templates`, Seeds), Spurkopf-Plakette, Abschnitte in der Song-Lane, Studio- und Modellfenster mit Downloads.
-- [x] Phase 3 (Teil): Score als Plenio-MIDI auf stummen Notenspuren (Melody, Instrument Line, Chords); bearbeitete Noten werden mit Plenios Conductor-Track byte-genau zurückgeschickt (`/plenio/score/midi/import`) und gesungen. Stems noch offen.
-- [x] End-to-End durch die SoundCraft-UI (`cargo run -p soundcraft-plenio-ui --example plenio_e2e -- <Ordner>`): Aktivieren → New Song → Take nach 241 s („The Heavy Air“, 94,8 s, 8 gesungene Zeilen, 4 Abschnitte, 74 BPM) → Noten auf Melody/Instrument Line/Chords → Stems über den Inspector in 21 s (Vocals, Drums, Bass, Other, Rest; Song-Spur stumm) → Mix an den Player gesendet, Player gestartet
-- [ ] Offen: Browser-Score-Editor (Plenios Vue-Editor mit SoundCraft-Adapter), „In SoundCraft öffnen“ aus dem Player, Zwischenstopps (Review) und LoRAs (nicht in Song-API v1), Leerlauf-Stopp des Studios, Inspector als Dock-Panel, `soundcraft-cli` (headless/MCP) mit `plenio.*`
-- 💡 egui_kittest bricht bei fehlenden Glyphen ab, das Programm zeigt dann nur Ersatzkästchen: keine Symbole wie ✦ ★ ● ▾ ✓ in UI-Texten.
+- [x] **Decision:** generation runs straight through Plenio's **Song API** (`/plenio/api/v1`: jobs, templates, briefs, uploads), not through an own stage API. The wrapper `addins/plenio/backend/soundcraft_plenio` loads Plenio unchanged and only adds `/scp/v1` (info, models without MiniMax) and a parent watchdog (`SCP_PARENT_PID`).
+- [x] Phase 1: studio (`crates/backend`: discover, instance, client, song, studio). An own instance with `--base-directory`, models from `F:\ComfyUI\models`, `PLENIO_PLAYER_STATE` in the add-in's folder. Checked live: start and stop in 10 s, a real job (a 61 s instrumental in 133 s).
+- [x] Phase 2: `plenio.song.new/set/forget`, `plenio.take.add/select`; plan rules (new words → new notes); UI with menu, New Song dialog (250 templates), inspector (takes, Generate/More, lyrics editor with YuE2's tags and a check through `/plenio/lyrics/analyze`, brief form dynamically from `/templates`, seeds), a badge in the track header, sections in the song lane, studio and model window with downloads.
+- [x] Phase 3 (part): the score as Plenio's MIDI on muted note tracks (Melody, Instrument Line, Chords); edited notes are sent back with Plenio's conductor track byte for byte (`/plenio/score/midi/import`) and sung. Stems still open.
+- [x] End to end through SoundCraft's UI (`cargo run -p soundcraft-plenio-ui --example plenio_e2e -- <folder>`): activate → New Song → take after 241 s ("The Heavy Air", 94.8 s, 8 sung lines, 4 sections, 74 BPM) → notes on Melody/Instrument Line/Chords → stems through the inspector in 21 s (vocals, drums, bass, other, rest; song track muted) → mix sent to the player, player started
+- [ ] Open: browser score editor (Plenio's Vue editor with a SoundCraft adapter), "Open in SoundCraft" from the player, intermediate stops (review) and LoRAs (not in Song API v1), the studio's idle stop, the inspector as a dock panel, `soundcraft-cli` (headless/MCP) with `plenio.*`
+- 💡 egui_kittest aborts on missing glyphs, and the app then only shows replacement boxes: no symbols like ✦ ★ ● ▾ ✓ in UI texts.
 
-## Änderungsprotokoll
+## Change log
 
-| Datum | Änderung |
+| Date | Change |
 |---|---|
-| 2026-11-05 | Plan erstellt, Entscheidungen 9.1–9.3 eingetragen; Git eingerichtet (`upstream`, Branch `plenio-addin`); fehlende Rust-Toolchain notiert |
-| 2026-11-05 | Rust 1.99.1 installiert; Baseline gemessen (3 Windows-Fehler in `soundcraft-cli`, schon vor dem Add-in); Phase 0 erledigt: Seams S1–S6, vier Add-in-Crates, Plenio-Menü und Aktivierung, Offscreen-Screenshots geprüft; Phase 1 begonnen: Sync-Skript und erste Kopie von Plenio 1.5.0 |
-| 2026-11-05 | Phase 1–3 und 5: Studio, Song-API-Anbindung, Songs/Takes/Noten/Stems, Player, Import; Plenios Unit-Tests gegen die Kopie: 1980 bestanden, 1 übersprungen; End-to-End durch die UI; Branch `extension-api` mit den Seams |
-| 2026-11-06 | Phase 4 live: Cover durch die UI (309 s), Original beim ersten Cover-Take stumm |
-| 2026-11-06 | Rückmeldung des Owners „Import eines FLAC: nichts kommt an“, drei Ursachen: Der Dateidialog ignorierte die Endungen des Aufrufers und bot nur Audio an (`.plenio.json` war nicht wählbar); `import_record` las die Datei als Text; `engine.message` erreicht keine Oberfläche, alle Meldungen des Add-ins landeten nur im Log. Jetzt: FLAC mit eingebettetem Record wird gelesen (`backend/src/release.rs`), Dialog beachtet die Endungen (`open_filter`), Meldungen gehen über `say` auch in die Statuszeile. Live mit „Das Herz kommt an“ (`examples/plenio_import_e2e.rs`): FLAC allein und im Originalordner in 10–12 s nach Studio-Start, 153 s Audio, 25 Zeilen, 7 Abschnitte, 243 + 194 Noten, 22 Felder; neuer Take 193 s; Stems 47 s; Ordner `151 songs` unverändert |
-| 2026-11-06 | Rückmeldungen des Owners: (1) Inspector in der Höhe veränderbar, Lyrics wachsen mit. (2) Audio, Lyrics und Noten liegen zusammen: Plenios gemessener Warp aus dem Release-Record (`timing[0].warp`, ohne Worte Schätzung über `POST /scp/v1/align`); erster Score-Takt auf einem Taktstrich, Audio dagegen versetzt; Stems und Player folgen. Gemessen an „A Winter Shroud“: gesungene Zeilen gegen Noten im Median 0,05 s statt 1,3 s; live an „Sentences in the Shower“ (Warp 1,009/−1,71): Median 0,07 s, schlechteste Zeile 0,38 s. Plenios `follow()`-Pfad war gegen das Gehörte schlechter als die Gerade (Median 0,12 s), daher die Gerade. (3) MIDI-Clips des ersten Takes wurden mit dem alten Session-Tempo vermessen (120 statt 84 BPM: Ende bei 70 %) und nur bis zur letzten Note der eigenen Spur: Tempo zuerst, jeder Clip bis zum Score-Ende. Daten geprüft: Score, MIDI und SoundCrafts Leser haben dieselben 143/240/280 Noten. (4) Eigener Fork statt Upstream-PR, siehe [FORK.md](FORK.md); erster echter Merge von `upstream/main` (5 Commits, 1 Konflikt in `dirty.rs`), Skript zusätzlich in Wegwerf-Klonen geprobt |
+| 2026-11-05 | Plan made, decisions 9.1–9.3 entered; Git set up (`upstream`, branch `plenio-addin`); missing Rust toolchain noted |
+| 2026-11-05 | Rust 1.99.1 installed; baseline measured (3 Windows failures in `soundcraft-cli`, already before the add-in); phase 0 done: seams S1–S6, four add-in crates, Plenio menu and activation, offscreen screenshots checked; phase 1 started: sync script and first copy of Plenio 1.5.0 |
+| 2026-11-05 | Phases 1–3 and 5: studio, Song API connection, songs/takes/notes/stems, player, import; Plenio's unit tests against the copy: 1980 passed, 1 skipped; end to end through the UI; branch `extension-api` with the seams |
+| 2026-11-06 | Phase 4 live: cover through the UI (309 s), original muted on the first cover take |
+| 2026-11-06 | The owner's request: everything in the project in English. This plan and [FORK.md](FORK.md) translated; no German left outside the byte-exact copy in `vendor/` |
+| 2026-11-06 | The owner's feedback "the metronome runs apart": the audio is the master and the session's tempo map follows it, see [section 10a](#10a-the-audio-is-the-master-the-owners-decision-2026-11-06). Live through the app, measured from outside on the audio files: A Winter Shroud 93 % of clicks within 15 ms of an onset, median 2.6 ms (best constant BPM 37 %, up to 308 ms off); Das Herz kommt an 90 %, 3.2 ms (58 %, 164 ms); Wo das Schweigen hält 75 %, 7.2 ms (43 %, 854 ms) |
+| 2026-11-06 | The owner's feedback "importing a FLAC: nothing arrives", three causes: the file dialog ignored the extensions its caller named and offered only audio (`.plenio.json` could not be chosen); `import_record` read the file as text; `engine.message` reaches no UI, so all of the add-in's messages ended up only in the log. Now: a FLAC with an embedded record is read (`backend/src/release.rs`), the dialog honours the extensions (`open_filter`), messages also go to the status line through `say`. Live with "Das Herz kommt an" (`examples/plenio_import_e2e.rs`): the FLAC alone and in its own folder in 10–12 s after the studio's start, 153 s of audio, 25 lines, 7 sections, 243 + 194 notes, 22 fields; a new take in 193 s; stems in 47 s; the folder `151 songs` unchanged |
+| 2026-11-06 | The owner's feedback: (1) inspector height resizable, lyrics grow with it. (2) Audio, lyrics and notes lie together: Plenio's measured warp from the release record (`timing[0].warp`, without words an estimate through `POST /scp/v1/align`, since replaced by `/scp/v1/beats`); the score's first bar on a bar line, the audio placed against it; stems and player follow. Measured on "A Winter Shroud": sung lines against notes median 0.05 s instead of 1.3 s; live on "Sentences in the Shower" (warp 1.009/−1.71): median 0.07 s, worst line 0.38 s. Plenio's `follow()` path was worse than the straight line against what is heard (median 0.12 s), hence the straight line. (3) The first take's MIDI clips were measured with the old session tempo (120 instead of 84 BPM: ending at 70 %) and only to the last note of their own track: tempo first, every clip to the score's end. Data checked: score, MIDI and SoundCraft's reader have the same 143/240/280 notes. (4) An own fork instead of an upstream PR, see [FORK.md](FORK.md); first real merge of `upstream/main` (5 commits, 1 conflict in `dirty.rs`), script also rehearsed in throw-away clones |

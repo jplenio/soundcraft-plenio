@@ -1,128 +1,125 @@
-# Der Fork „SoundCraft with Plenio“
+# The fork "SoundCraft with Plenio"
 
-Dieser Fork wird dauerhaft eigenständig geführt und nimmt regelmäßig SoundCrafts Änderungen auf. Es gibt
-keinen Weg zurück zu SoundCraft (Entscheidung des Eigentümers vom 2026-11-06, ersetzt die frühere
-Entscheidung 9.2 „Seams upstream einreichen“).
+This fork is kept on its own for good and takes in SoundCraft's changes regularly. Nothing goes back to SoundCraft
+(the owner's decision of 2026-11-06, which replaces the earlier decision 9.2, "submit the seams upstream").
 
-## Aufbau
+## Layout
 
-| | Wo | Was |
+| | Where | What |
 |---|---|---|
-| Remote `upstream` | `github.com/storytold/soundcraft` | SoundCraft; nur lesen |
-| Remote `origin` | `github.com/jplenio/soundcraft-plenio` | dieser Fork |
-| Branch `plenio-addin` | Standard-Branch des Forks | SoundCraft plus Add-in: hier wird gearbeitet |
-| Branch `main` | im Fork | reine Kopie von `upstream/main`, ohne eigene Commits |
+| Remote `upstream` | `github.com/storytold/soundcraft` | SoundCraft; read only |
+| Remote `origin` | `github.com/jplenio/soundcraft-plenio` | this fork |
+| Branch `plenio-addin` | the fork's default branch | SoundCraft plus the add-in: the work happens here |
+| Branch `main` | in the fork | a plain copy of `upstream/main`, with no commits of its own |
 
-`git diff main plenio-addin -- . ":(exclude)addins"` zeigt damit jederzeit genau, was der Fork an SoundCraft
-ändert. Ein Commit mit Fork-eigenem Code gehört nie auf `main`.
+So `git diff main plenio-addin -- . ":(exclude)addins"` always shows exactly what the fork changes in SoundCraft. A
+commit with the fork's own code never goes on `main`.
 
-## Was auf GitHub zu tun ist (einmalig)
+## What to do on GitHub (once)
 
-1. **Fork anlegen:** `github.com/storytold/soundcraft` → **Fork** → Name `soundcraft-plenio`, Haken bei „Copy the
-   `main` branch only“ lassen → **Create fork**.
-   - Ein GitHub-Fork eines öffentlichen Repos ist immer öffentlich. Soll er privat sein: stattdessen unter
-     **New repository** ein leeres privates Repo `soundcraft-plenio` anlegen (ohne README, Lizenz und .gitignore).
-   - Bei einem anderen Namen oder Konto müssen `repo:` in `crates/ui-egui/src/lib.rs` (Update-Quelle), der Link in
-     `crates/ui-egui/src/panels/about.rs` und der Klon-Befehl in `README.md` angepasst werden.
-2. **Hochladen,** lokal in diesem Ordner:
+1. **Create the fork:** `github.com/storytold/soundcraft` → **Fork** → name `soundcraft-plenio`, keep "Copy the `main`
+   branch only" ticked → **Create fork**.
+   - A GitHub fork of a public repository is always public. For a private one, create an empty private repository
+     `soundcraft-plenio` under **New repository** instead (without README, licence or .gitignore).
+   - With another name or account, change `repo:` in `crates/ui-egui/src/lib.rs` (the update source), the link in
+     `crates/ui-egui/src/panels/about.rs` and the clone command in `README.md`.
+2. **Upload,** locally in this folder:
    ```sh
    git remote add origin https://github.com/jplenio/soundcraft-plenio.git
    git push -u origin plenio-addin
    git push origin upstream/main:refs/heads/main
    ```
-3. **Standard-Branch:** Repo → **Settings → General → Default branch** → `plenio-addin`.
-4. **Actions aus lassen:** In einem Fork sind die Workflows zunächst aus; im Tab **Actions** nichts aktivieren. Sie
-   rufen `storytold/craft-common-actions` mit Secrets auf, die der Fork nicht hat. Geprüft wird lokal mit
-   `tools/test_all.ps1`. Die Workflow-Dateien bleiben unverändert im Repo, damit sie beim Merge nie stören.
+3. **Default branch:** repository → **Settings → General → Default branch** → `plenio-addin`.
+4. **Leave Actions off:** in a fork the workflows start out off; enable nothing in the **Actions** tab. They call
+   `storytold/craft-common-actions` with secrets the fork does not have. Checks run locally with `tools/test_all.ps1`.
+   The workflow files stay in the repository unchanged, so that they never get in the way of a merge.
 
-**„Sync fork“ auf GitHub nicht für `plenio-addin` benutzen:** Es würde ungeprüft mergen. Für `main` ist es harmlos,
-aber auch unnötig, weil das Skript `main` mitschiebt.
+**Do not use "Sync fork" on GitHub for `plenio-addin`:** it would merge unchecked. For `main` it is harmless but also
+needless, because the script moves `main` along.
 
-## Regelmäßig SoundCraft aufnehmen
+## Taking in SoundCraft regularly
 
 ```powershell
-pwsh addins/plenio/tools/update_soundcraft.ps1 -Preview    # was käme, und gäbe es Konflikte? Ändert nichts
-pwsh addins/plenio/tools/update_soundcraft.ps1 -Full -Push # mergen, alles prüfen, hochladen
+pwsh addins/plenio/tools/update_soundcraft.ps1 -Preview    # what would come, and would it conflict? Changes nothing
+pwsh addins/plenio/tools/update_soundcraft.ps1 -Full -Push # merge, check everything, upload
 ```
 
-Das Skript merged immer und rebased nie, denn die Historie des Forks ist veröffentlicht. Es entscheidet selbst, was
-keine Entscheidung braucht:
+The script always merges and never rebases, because the fork's history is published. It decides by itself what needs
+no decision:
 
-- `README.md` bleibt die des Forks (`merge=ours`, eingetragen in `.git/info/attributes` dieses Klons).
-- `Cargo.lock` wird die von SoundCraft, cargo trägt die Add-in-Crates wieder ein.
-- ArtCraft-Marken, die SoundCraft neu mitbringt, fliegen wieder raus.
-- Von Hand gelöste Konflikte merkt sich `git rerere` und wendet sie beim nächsten Mal selbst an.
+- `README.md` stays the fork's (`merge=ours`, set in `.git/info/attributes` of this clone).
+- `Cargo.lock` becomes SoundCraft's, and cargo adds the add-in's crates back.
+- ArtCraft marks that SoundCraft newly brings in are removed again.
+- `git rerere` remembers conflicts solved by hand and applies them itself the next time.
 
-`-Full` lässt zusätzlich SoundCrafts ganze Testsuite laufen. Unter Windows überspringt es dabei drei Tests von
-`soundcraft-cli`: Dort läuft eine Verbindung auf einen geschlossenen Port in ein Timeout, statt abgewiesen zu werden.
-Sie schlagen hier auch ohne das Add-in fehl.
+`-Full` also runs SoundCraft's whole test suite. On Windows it skips three tests of `soundcraft-cli` there: a
+connection to a closed port times out instead of being refused. They fail here without the add-in too.
 
-### Wenn ein Konflikt stehen bleibt
+### When a conflict remains
 
-Das Skript listet die Dateien und hält an. Es können nur Stellen aus der Tabelle unten sein, denn SoundCraft fasst
-`addins/` nie an. Beide Seiten behalten, dann:
+The script lists the files and stops. They can only be places from the table below, because SoundCraft never touches
+`addins/`. Keep both sides, then:
 
 ```powershell
-git add <datei>; git commit --no-edit
+git add <file>; git commit --no-edit
 pwsh addins/plenio/tools/update_soundcraft.ps1 -Continue -Full -Push
 ```
 
-Abbrechen geht jederzeit mit `git merge --abort`. Nach einem fertigen Merge führt `git reset --hard ORIG_HEAD` zurück,
-solange nichts hochgeladen ist.
+`git merge --abort` cancels at any time. After a finished merge, `git reset --hard ORIG_HEAD` goes back, as long as
+nothing has been uploaded.
 
-Typischer Fall (beim ersten echten Merge am 2026-11-06 aufgetreten): SoundCraft ändert die Feldliste von `Session` in
-`crates/engine/src/dirty.rs`, wo der Fork `extensions` ergänzt hat. Lösung: SoundCrafts Änderung übernehmen und
-`extensions` in der Liste lassen. Fehlt das Feld danach, meldet es der Compiler.
+A typical case (it happened in the first real merge, on 2026-11-06): SoundCraft changes the field list of `Session` in
+`crates/engine/src/dirty.rs`, where the fork added `extensions`. The solution: take SoundCraft's change and keep
+`extensions` in the list. If the field goes missing afterwards, the compiler says so.
 
-## Warum Plenio von SoundCrafts Änderungen nicht betroffen ist
+## Why SoundCraft's changes do not affect Plenio
 
-Alles vom Add-in liegt in `addins/plenio/`, und SoundCraft kennt diesen Ordner nicht. Die Kopie von Plenio in
-`vendor/plenio` ist nur durch `tools/sync_plenio.py` zu ändern und wird gegen `VENDOR.sha256` geprüft. Bricht eine
-SoundCraft-Änderung eine Schnittstelle, die das Add-in nutzt, schlägt das in `test_all.ps1` beim Merge an, nicht erst
-bei der Benutzung.
+Everything of the add-in lies in `addins/plenio/`, and SoundCraft does not know that folder. The copy of Plenio in
+`vendor/plenio` can only be changed by `tools/sync_plenio.py` and is checked against `VENDOR.sha256`. If a SoundCraft
+change breaks an interface the add-in uses, `test_all.ps1` reports it at the merge, not only when the app is used.
 
-## Was der Fork an SoundCraft ändert
+## What the fork changes in SoundCraft
 
-| Datei | Änderung | Warum |
+| File | Change | Why |
 |---|---|---|
-| `crates/model/src/session.rs`, `crates/engine/src/dirty.rs` | Feld `extensions` | Daten des Add-ins in der Session |
-| `crates/engine/src/cmd.rs`, `cmd/extensions.rs` (neu) | `register_extension_commands` | Befehle des Add-ins |
-| `crates/ui-egui/src/extension.rs` (neu), wenige Aufrufe in `lib.rs`, `app.rs`, `menus.rs`, `edit_window/tracks.rs` | `UiExtension` | Oberfläche des Add-ins |
-| `apps/soundcraft/` | Feature `plenio`, zwei Zeilen in `main.rs` | schaltet das Add-in ein |
-| `apps/soundcraft/src/main.rs` | `open_filter`: der Dateidialog bietet die Endungen an, die der Aufrufer nennt | sonst bietet „Import Plenio Song…“ nur Audio an |
-| `Cargo.toml`, `xtask/src/main.rs` | Workspace-Mitglieder, Layer aus dem Manifest | baut und prüft `addins/` |
-| `docs/architecture.md`, `ATTRIBUTION.md` | Abschnitt „Extensions“, Zeile für `vendor/` | Doku und Herkunft |
-| `crates/ui-egui/src/lib.rs` | `UPDATE_APP`: `repo` und `developer` | siehe unten: Updates |
-| `crates/ui-egui/src/panels/about.rs` | Text und Links im About-Fenster | siehe unten: Marken |
-| `README.md` | eigene Fassung | siehe unten: Marken |
-| `docs/brand/` | Logos entfernt, `LICENSE-brand.txt` bleibt | siehe unten: Marken |
+| `crates/model/src/session.rs`, `crates/engine/src/dirty.rs` | field `extensions` | the add-in's data in the session |
+| `crates/engine/src/cmd.rs`, `cmd/extensions.rs` (new) | `register_extension_commands` | the add-in's commands |
+| `crates/ui-egui/src/extension.rs` (new), a few calls in `lib.rs`, `app.rs`, `menus.rs`, `edit_window/tracks.rs` | `UiExtension` | the add-in's UI |
+| `apps/soundcraft/` | feature `plenio`, two lines in `main.rs` | turns the add-in on |
+| `apps/soundcraft/src/main.rs` | `open_filter`: the file dialog offers the extensions its caller names | otherwise "Import Plenio Song…" offers only audio |
+| `Cargo.toml`, `xtask/src/main.rs` | workspace members, layers from the manifest | builds and checks `addins/` |
+| `docs/architecture.md`, `ATTRIBUTION.md` | section "Extensions", a row for `vendor/` | docs and provenance |
+| `crates/ui-egui/src/lib.rs` | `UPDATE_APP`: `repo` and `developer` | see Updates below |
+| `crates/ui-egui/src/panels/about.rs` | text and links in the About window | see ArtCraft marks below |
+| `README.md` | the fork's own version | see ArtCraft marks below |
+| `docs/brand/` | logos removed, `LICENSE-brand.txt` stays | see ArtCraft marks below |
 
 ### Updates
 
-Die App sucht beim Start nach neuen Releases. Unverändert hätte sie das offizielle SoundCraft-Release angeboten, und
-ein Klick hätte die Plenio-Version durch eine Version ohne Add-in ersetzt. Deshalb zeigt `UPDATE_APP` auf die Releases
-dieses Forks. Solange der Fork keine Releases hat, bleibt das still; **Help › Check for Updates** meldet dann nichts
-Neues oder einen Fehler.
+The app looks for new releases when it starts. Left unchanged it would have offered the official SoundCraft release,
+and one click would have replaced the Plenio version with one without the add-in. So `UPDATE_APP` points at this fork's
+releases. As long as the fork has no releases this stays silent; **Help › Check for Updates** then reports nothing new
+or an error.
 
-### ArtCraft-Marken
+### ArtCraft marks
 
-`docs/brand/LICENSE-brand.txt` schreibt vor: Wer eine veränderte Fassung veröffentlicht oder weitergibt, muss die
-ArtCraft-Marken entfernen und darf sie nicht als ArtCraft-Produkt darstellen; im Klartext darf stehen, dass sie auf
-SoundCraft vom ArtCraft-Team beruht. Die Ausnahme für Forks gilt nur für Forks, die Änderungen zurückschlagen sollen,
-also nicht für diesen. Die Copyright-Zeilen in `LICENSE-MIT` und `NOTICE` müssen dagegen bleiben.
+`docs/brand/LICENSE-brand.txt` requires this: whoever publishes or distributes a modified version must remove the
+ArtCraft marks and must not present it as an ArtCraft product; plain text may say that it is based on SoundCraft by
+the ArtCraft team. The exception for forks only covers forks kept to propose changes back, so not this one. The
+copyright lines in `LICENSE-MIT` and `NOTICE`, on the other hand, must stay.
 
-**Noch offen, bevor Installer oder fertige Programme verteilt werden** (für Klonen und Selberbauen nicht relevant):
+**Still open before installers or finished programs are distributed** (not relevant for cloning and building yourself):
 
-- `packaging/windows/*` installiert nach `Programs\ArtCraft\SoundCraft`,
-- `packaging/linux/flatpak/*` liest `xdg-data/ArtCraft/versions`,
-- `.github/workflows/windows-arm64.yml` prüft diesen Installationsordner.
+- `packaging/windows/*` installs to `Programs\ArtCraft\SoundCraft`,
+- `packaging/linux/flatpak/*` reads `xdg-data/ArtCraft/versions`,
+- `.github/workflows/windows-arm64.yml` checks that install folder.
 
-Das ist bewusst noch unverändert: Es wird erst gebraucht, wenn der Fork eigene Releases baut, und jede Änderung dort
-wäre eine zusätzliche Stelle für Merge-Konflikte. Diese Einschätzung der Lizenztexte ist keine Rechtsberatung; bei
-Zweifeln oder für eine Erlaubnis ist das ArtCraft-Team über getartcraft.com erreichbar.
+This is deliberately still unchanged: it is only needed once the fork builds its own releases, and every change there
+would be one more place for merge conflicts. This reading of the licence texts is not legal advice; for doubts or for
+a permission, the ArtCraft team can be reached through getartcraft.com.
 
-## Was mit dem Repo öffentlich wird
+## What becomes public with the repository
 
-Bei einem öffentlichen Fork: die Kopie von Plenio samt seinen Tests und Docs (1073 Dateien), dieser Plan mit den
-lokalen Pfaden dieses Rechners, und die E-Mail-Adresse in den Commits (`git log`). Ist auf GitHub „Block command line
-pushes that expose my email“ aktiv, lehnt GitHub den ersten Push ab.
+With a public fork: the copy of Plenio with its tests and docs (1073 files), the plan with the local paths of this
+computer, and the email address in the commits (`git log`). If "Block command line pushes that expose my email" is on
+at GitHub, GitHub rejects the first push.
