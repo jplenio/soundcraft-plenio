@@ -24,10 +24,11 @@ pub(super) fn about(app: &mut SoundApp, ctx: &egui::Context) {
             _ => {
                 ui.label(egui::RichText::new("SoundCraft").font(bold(22.0)));
                 ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
-                ui.label("An open-source digital audio workstation from the ArtCraft team.");
+                ui.label("An open-source digital audio workstation, with the Plenio add-in.");
+                ui.label("Based on SoundCraft by the ArtCraft team; not made or endorsed by them.");
                 ui.label("Dual-licensed MIT OR Apache-2.0. Made with Rust and egui.");
-                ui.hyperlink_to("getartcraft.com/apps/soundcraft", "https://getartcraft.com/apps/soundcraft");
-                ui.hyperlink_to("Join us on Discord", "https://discord.gg/artcraft");
+                ui.hyperlink_to("This fork on GitHub", "https://github.com/jplenio/soundcraft-plenio");
+                ui.hyperlink_to("SoundCraft on GitHub", "https://github.com/storytold/soundcraft");
             }
         }
     });

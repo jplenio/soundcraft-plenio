@@ -4,7 +4,8 @@ YuE2 · Song, YuE2 · Cover and the Plenio Player from the
 [Plenio Music Production System](https://github.com/jplenio/Plenio-Music-Production-System) by
 Johannes Plenio, built into SoundCraft. MiniMax is not part of it.
 
-The plan, the decisions and the progress are in [docs/PLAN.md](docs/PLAN.md).
+The plan, the decisions and the progress are in [docs/PLAN.md](docs/PLAN.md); how this fork is kept
+up to date with SoundCraft is in [docs/FORK.md](docs/FORK.md).
 
 ## Using it
 
@@ -18,7 +19,15 @@ The plan, the decisions and the progress are in [docs/PLAN.md](docs/PLAN.md).
    - the **song lane** (the folder) shows the song's sections; its header the take and what changed,
    - **Lyrics**: one clip per line, where it is sung,
    - **Song**: the take's audio - every take on a playlist of its own,
-   - **Melody**, **Instrument Line**, **Chords**: the score as MIDI (muted; unmute to hear the notes).
+   - **Melody**, **Instrument Line**, **Chords**: the score as MIDI (muted; unmute to hear the notes),
+     over the whole length of the score.
+
+   Audio, words and notes meet. A YuE2 render is shifted against its score, each take by its own
+   amount, and Plenio measures it from the sung words (for a song without words: from the music). The
+   score's first bar lies on a bar line of the session, so the session's bars are the score's, and the
+   take's audio is placed against it; a take that runs a little faster or slower than its score gets
+   its notes stretched to match, and they go back to Plenio as written. Takes and stems keep their own
+   place on their own playlists.
 3. The **Plenio Song** inspector: choose a take, change the lyrics (YuE2's section tags as buttons;
    *Check* runs Plenio's own rules), the brief (every field of the Song API's template), lock seeds.
    **Generate** does what the changes call for: new words get new notes, notes you changed on the score
@@ -46,12 +55,12 @@ for add-ins (see [docs/architecture.md › Extensions](../../docs/architecture.m
 | `UiExtension` | `crates/ui-egui` | the Plenio menu, its windows, its drawing on tracks |
 
 The app turns the add-in on with the Cargo feature `plenio` of `apps/soundcraft` (on by default in
-this branch): `cargo build -p soundcraft --no-default-features` builds SoundCraft without it.
+this fork): `cargo build -p soundcraft --no-default-features` builds SoundCraft without it.
 
 Songs are made by Plenio's **Song API** (`/plenio/api/v1`) in the add-in's own ComfyUI instance;
 the editor's routes (`/plenio/score/midi/*`, `/plenio/lyrics/analyze`) and `/plenio/api/v1/from-record`
 serve the notes, the lyrics check and imports. The add-in's wrapper adds only `/scp/v1` (who it is,
-the models without MiniMax, stems).
+the models without MiniMax, stems, and where a score sits in a take without measured times).
 
 ## Folders
 
