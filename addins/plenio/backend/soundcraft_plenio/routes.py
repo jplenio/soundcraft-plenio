@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 BASE = "/scp/v1"
-WRAPPER_VERSION = "0.4.0"
+WRAPPER_VERSION = "0.4.1"
 MAX_ANCHORS = 20_000
 PACKAGE_ROOT = Path(__file__).resolve().parent
 VENDOR_ROOT = PACKAGE_ROOT / "plenio_vendor"

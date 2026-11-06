@@ -9,6 +9,11 @@ Onsets alone find the pulse but not which pulse it is: on the owner's songs they
 the score's notes no longer on the music. Two things say which it is: the pitch classes the score has on each
 pulse against those of the audio there, and the sung words where they were measured.
 
+The start of a song is the hard part, and the bars of a whole session hang on it: an intro is often quiet or free,
+and strong onsets at another tempo there pull the search away from the song's bars until it finds them again later.
+So the measures before the first stretch of the song that is sure are reckoned back from that stretch, at its tempo.
+They are kept as first found only where the score's pitches say so: a beginning that really is slower is music.
+
 Only numpy here, and only the arrays the caller gives: :func:`find_bars` needs neither ComfyUI nor Plenio.
 """
 
@@ -26,8 +31,11 @@ they come out alike, whatever the sound."""
 ONSET_OFFSET = 0.0065
 """A frame's time is its window's start and an onset shows as soon as it enters the window: measured on kicks,
 snares and noise bursts, this much early, with a spread of 1.5 ms."""
-BAND_SECONDS = 2.5
-"""How far from the warp's straight line a pulse is looked for (the worst wander measured: about a second)."""
+BAND_SECONDS = 5.0
+"""How far from the warp's straight line a pulse is looked for. Not only the wander (about a second at worst): the
+line itself can lie far off at the song's start. With 2.5 s the true place of one of the owner's songs lay outside
+this, and its first six bars lay a beat off. On 108 songs none lost more than 5 points of its hits on strong onsets
+by the wider search."""
 INTERVAL = 0.14
 """How far one interval between pulses may differ from what is expected there, as a share of it."""
 FIRST_TIGHTNESS, THEN_TIGHTNESS = 300.0, 800.0
@@ -42,6 +50,28 @@ LINE_PULL = 0.05
 """What a whole pulse away from the warp's line costs: too little to stop the real wander (a second, in a song's
 hundreds of pulses, is outweighed by their onsets), enough that a steady rhythm, the same a beat later, stays
 where the song was measured to lie."""
+START_TIGHTNESS = 2000.0
+"""The cost of an uneven interval in the measures reckoned back: they may follow a tempo that drifts, but not strong
+onsets at another tempo (8 % off costs more there than an onset can give)."""
+START_BAND = 0.3
+"""How far from the reckoned line a pulse may lie, as a share of a pulse: too little to lock between the pulses."""
+SURE_TEMPO = 0.025
+"""How far a measure's tempo may lie from the median of the song around it, for the measure to be sure. Clear onsets
+alone say nothing: an intro at another tempo has them too."""
+SURE_REACH = 24
+"""Measures on each side that make up "the song around it"."""
+SURE_MEASURES = 4
+"""How many sure measures in a row make a stretch to reckon from."""
+SURE_LOOK = 40
+"""How far into the song a sure stretch is looked for; a song with none by then keeps what was found."""
+SURE_ONSET, SURE_COMB = 2.0, 1.15
+"""A pulse shows when the onsets on the pulses are this strong, and this much stronger than those between them."""
+SURE_PITCH, AGAINST_PITCH = 0.02, 0.05
+"""How much better than some beats off the score's pitches must match to confirm a place, or worse to speak against."""
+FIT_MEASURES = 6
+"""How many measures of the sure stretch give the tempo to reckon back with."""
+PITCH_DECIDES = 0.02
+"""How much better the pitches must match on what was first found, to keep it instead of the reckoned measures."""
 SMOOTH_PULSES = 4
 """A pulse's time comes from the pulses this near: without the jitter of single onsets."""
 TEMPO_SWING = 0.25
@@ -136,11 +166,13 @@ class _Emission:
         return out
 
 
-def _path(emission: _Emission, line: Any, intervals: Any, tightness: float) -> Any:
-    """The best time for every pulse, near ``line``, its intervals near ``intervals``."""
+def _path(emission: _Emission, line: Any, intervals: Any, tightness: Any, band_seconds: float = BAND_SECONDS) -> Any:
+    """The best time for every pulse, near ``line``, its intervals near ``intervals``. ``tightness``: the cost of an
+    uneven interval, for all pulses or for each."""
     import numpy as np
 
-    band = int(BAND_SECONDS * FRAMES_PER_SECOND)
+    tightness = np.broadcast_to(tightness, np.shape(line))
+    band = int(band_seconds * FRAMES_PER_SECOND)
     size = 2 * band + 1
     centres = np.round(line * FRAMES_PER_SECOND).astype(np.int64)
     best = emission.at(0, int(centres[0]) - band, int(centres[0]) + band + 1, float(intervals[1]))
@@ -148,7 +180,7 @@ def _path(emission: _Emission, line: Any, intervals: Any, tightness: float) -> A
     for j in range(1, len(line)):
         expected = float(intervals[j]) * FRAMES_PER_SECOND
         steps = np.arange(max(1, int(expected * (1 - INTERVAL))), int(expected * (1 + INTERVAL)) + 2)
-        cost = -tightness * np.log(steps / expected) ** 2
+        cost = -float(tightness[j]) * np.log(steps / expected) ** 2
         moved = int(centres[j] - centres[j - 1])
         candidates = np.full((len(steps), size), -np.inf)
         for i, step in enumerate(steps):
@@ -192,14 +224,99 @@ def _smooth(x: Any, times: Any, reach: int) -> Any:
 
 
 class Harmony:
-    """The audio's pitch classes: ``chroma`` (frames, 12) at ``rate`` frames a second."""
+    """The audio's pitch classes: ``chroma`` (frames, 12) at ``rate`` frames a second, and, if given, the score's as
+    ``notes`` (frames of the score at its own tempo, 12), to judge a stretch of the song by."""
 
-    def __init__(self, chroma: Any, rate: float) -> None:
+    def __init__(self, chroma: Any, rate: float, notes: Any = None) -> None:
         self.chroma = chroma
         self.rate = rate
+        self.notes = notes
 
     def __len__(self) -> int:
         return len(self.chroma)
+
+    def match(self, score_seconds: Any, times: Any, low: float, high: float, shift: float = 0.0) -> float | None:
+        """How well the score's pitch classes from ``low`` to ``high`` (seconds of the score) lie on the recording's
+        along the path ``score_seconds`` → ``times``; nothing where too little of them sounds there."""
+        import numpy as np
+
+        if self.notes is None:
+            return None
+        index = np.arange(int(low * self.rate), min(int(high * self.rate), len(self.notes)))
+        if len(index) < 8:
+            return None
+        frames = np.round((np.interp(index / self.rate, score_seconds, times) + shift) * self.rate).astype(int)
+        use = (frames >= 0) & (frames < len(self.chroma)) & (np.abs(self.notes[index]).sum(axis=1) > 0)
+        if int(use.sum()) < max(8, 0.3 * len(index)):
+            return None
+        return float((self.chroma[frames[use]] * self.notes[index][use]).sum(axis=1).mean())
+
+
+def _onset_at(envelope: Any, seconds: float) -> float:
+    frame = int(seconds * FRAMES_PER_SECOND)
+    if frame < 2 or frame >= len(envelope) - 3:
+        return 0.0
+    return float(envelope[frame - 2 : frame + 3].max())
+
+
+def _first_sure_measure(
+    envelope: Any, harmony: Harmony | None, score_seconds: Any, firsts: Any, tempo: Any, times: Any, beat: float
+) -> int | None:
+    """The first measure of the first stretch of the song that is sure: its tempo fits the song around it, the score's
+    pitches do not say it lies some beats off, and its pulse shows in the onsets or the pitches confirm it."""
+    import numpy as np
+
+    measures = len(firsts) - 1
+    on = np.array([_onset_at(envelope, t) for t in times])
+    between = np.array([_onset_at(envelope, t) for t in (times[:-1] + times[1:]) / 2] + [0.0])
+    bar_seconds = score_seconds[firsts]
+    run = 0
+    for k in range(min(measures, SURE_LOOK)):
+        around = tempo[max(0, k - SURE_REACH) : k + SURE_REACH + 1]
+        steady = abs(float(tempo[k]) / float(np.median(around)) - 1) <= SURE_TEMPO
+        a, b = firsts[max(0, k - 1)], firsts[min(measures, k + 2)]
+        strength = float(on[a:b].mean())
+        pulse_shows = strength >= SURE_ONSET and strength / max(0.2, float(between[a:b].mean())) >= SURE_COMB
+        lead = None
+        if harmony is not None:
+            low, high = bar_seconds[k], bar_seconds[min(k + SURE_MEASURES, measures)]
+            here = harmony.match(score_seconds, times, low, high)
+            others = [harmony.match(score_seconds, times, low, high, n * beat) for n in (-4, -3, -2, -1, 1, 2, 3, 4)]
+            others = [m for m in others if m is not None]
+            if here is not None and others:
+                lead = here - max(others)
+        against = lead is not None and lead <= -AGAINST_PITCH
+        confirmed = lead is not None and lead >= SURE_PITCH
+        run = run + 1 if steady and not against and (pulse_shows or confirmed) else 0
+        if run >= SURE_MEASURES:
+            return k - SURE_MEASURES + 1
+    return None
+
+
+def _reckon_start(
+    emission: _Emission, harmony: Harmony | None, score_seconds: Any, firsts: Any, nominal: Any, times: Any, start: int
+) -> Any:
+    """The measures before ``start`` reckoned back from there, at the tempo of the stretch that starts there."""
+    import numpy as np
+
+    first_sure = firsts[start]
+    fit_to = firsts[min(len(firsts) - 1, start + FIT_MEASURES)]
+    slope, cut = np.polyfit(score_seconds[first_sure:fit_to], times[first_sure:fit_to], 1)
+    guide = times.copy()
+    guide[:first_sure] = slope * score_seconds[:first_sure] + cut
+    slopes = np.gradient(_smooth(score_seconds, guide, 8), score_seconds)
+    slopes = np.convolve(np.pad(slopes, 8, mode="edge"), np.ones(17) / 17, mode="valid")
+    tightness = np.where(np.arange(len(times)) < first_sure, START_TIGHTNESS, THEN_TIGHTNESS)
+    band = START_BAND * float(np.median(np.abs(np.diff(times))))
+    # only what lies before the sure stretch changes: from there on the song stays as it was found
+    reckoned = times.copy()
+    reckoned[:first_sure] = _path(emission, guide, slopes * nominal, tightness, band)[:first_sure]
+    if harmony is not None:
+        high = score_seconds[first_sure]
+        found, now = harmony.match(score_seconds, times, 0.0, high), harmony.match(score_seconds, reckoned, 0.0, high)
+        if found is not None and now is not None and found > now + PITCH_DECIDES:
+            return times
+    return reckoned
 
 
 def find_bars(
@@ -238,6 +355,11 @@ def find_bars(
         slopes = np.gradient(_smooth(score_seconds, times, 8), score_seconds)
         slopes = np.convolve(np.pad(slopes, 8, mode="edge"), np.ones(17) / 17, mode="valid")
         times = _path(emission, line, slopes * nominal, THEN_TIGHTNESS)
+    quarters = np.array([n * 4 / d for n, d in meters])
+    tempo = quarters * 60.0 / np.maximum(1e-3, np.diff(_smooth(score_seconds, times, SMOOTH_PULSES)[firsts]))
+    start = _first_sure_measure(envelope, harmony, score_seconds, firsts, tempo, times, 60.0 / bpm)
+    if start:
+        times = _reckon_start(emission, harmony, score_seconds, firsts, nominal, times, start)
     return _smooth(score_seconds, times, SMOOTH_PULSES)[firsts] + ONSET_OFFSET
 
 
@@ -321,7 +443,7 @@ def measure(path: Any, score_text: str, warp: Sequence[float] | None, anchors: S
     chroma = align._audio_chroma(path)
     notes = align._score_chroma(score, int(seconds[-1] * align.RATE) + 1)
     marks = np.array([[float(x[0]), float(x[1])] for x in anchors or []]).reshape(-1, 2)
-    bars = find_bars(envelope, meters, bpm, warp, Harmony(chroma, align.RATE), _beat_chroma(notes, seconds, align.RATE), marks)
+    bars = find_bars(envelope, meters, bpm, warp, Harmony(chroma, align.RATE, notes), _beat_chroma(notes, seconds, align.RATE), marks)
     if not believable(bars, meters, bpm):
         return answer
     bar_seconds = seconds[firsts]

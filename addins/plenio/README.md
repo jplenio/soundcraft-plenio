@@ -27,7 +27,9 @@ up to date with SoundCraft is in [docs/FORK.md](docs/FORK.md).
    second in the worst, so no BPM value, however exact, keeps a metronome on it. Every measure of the
    score is found in the audio (its onsets, the score's pitch classes, the sung words), and each becomes
    a tempo change on its bar line. The session's bars are then the take's: metronome, grid and any MIDI
-   you add stay on the audio, the audio is not changed, and the notes stay on the grid as written. Meter
+   you add stay on the audio, the audio is not changed, and the notes stay on the grid as written. An
+   intro is often quiet or free, so the bars before the first stretch of the song that is sure are
+   reckoned back from it at its tempo, unless the score's pitches say the intro really runs slower. Meter
    changes in the score become meter changes in the session. Each take brings its own tempo map when
    you choose it; your own MIDI clips keep their bar and beat. Takes and stems keep their own place on
    their own playlists. A take whose bars cannot be measured (the status line says so) lies on the

@@ -40,12 +40,6 @@ def clicks(times: np.ndarray, seconds: float, accent_every: int = 4) -> np.ndarr
     return audio
 
 
-def tone(frames: int, rate: float, chord: list[int]) -> np.ndarray:
-    v = np.zeros(12)
-    v[chord] = 1
-    return np.tile((v - v.mean()) / np.linalg.norm(v - v.mean()), (frames, 1))
-
-
 class Pulses(unittest.TestCase):
     def test_a_pulse_is_what_the_meter_feels(self) -> None:
         pulses, firsts = beats.pulses_of([(4, 4), (2, 4)])
@@ -156,6 +150,101 @@ class FindBars(unittest.TestCase):
         found = beats.find_bars(beats.onset_envelope(audio), meters, bpm, [1.0, -1.5])
         self.assertLess(np.abs(found - truth[firsts])[2:-2].max(), 0.05)
         self.assertTrue(beats.believable(found, meters, bpm))
+
+
+def bar_chord(pulse: int, pulses_per_bar: int) -> np.ndarray:
+    """Two chords in turn, bar by bar, as pitch classes: a unit vector without its mean."""
+    v = np.zeros(12)
+    v[[0, 4, 7] if (pulse // pulses_per_bar) % 2 == 0 else [2, 5, 9]] = 1
+    return (v - v.mean()) / np.linalg.norm(v - v.mean())
+
+
+def bar_chords(truth: np.ndarray, pulses_per_bar: int, total: float, rate: float = 20.0):
+    """The chords where the truth has them: the audio's pitch classes, and the score's on each pulse."""
+    chroma = np.zeros((int(total * rate), 12))
+    wanted = np.zeros((len(truth), 12))
+    for j, t in enumerate(truth):
+        wanted[j] = bar_chord(j, pulses_per_bar)
+        if j + 1 < len(truth):
+            chroma[int(max(0, t) * rate) : int(truth[j + 1] * rate) + 1] = wanted[j]
+    return chroma, wanted
+
+
+def score_frames(score: np.ndarray, pulses_per_bar: int, rate: float = 20.0) -> np.ndarray:
+    """The score's pitch classes as frames at its own tempo."""
+    notes = np.zeros((int(score[-1] * rate) + 1, 12))
+    for j in range(len(score) - 1):
+        notes[int(score[j] * rate) : int(score[j + 1] * rate) + 1] = bar_chord(j, pulses_per_bar)
+    return notes
+
+
+class TheStart(unittest.TestCase):
+    """A song's first bars, where the session's bars begin: reckoned from where the song is sure."""
+
+    meters = [(4, 4)] * 40
+    bpm = 84.0
+
+    def setUp(self) -> None:
+        self.pulses, self.firsts = beats.pulses_of(self.meters)
+        self.score = self.pulses * 60.0 / self.bpm
+        self.beat = 60.0 / self.bpm
+
+    def free_beginning(self, truth: np.ndarray, measures: int = 8) -> np.ndarray:
+        """Strong onsets at 8 % slower than the song in the first measures, then the song."""
+        cut = float(truth[self.firsts[measures]])
+        audio = clicks(truth[truth >= cut], float(truth[-1]) + 2.0)
+        burst = clicks(np.arange(0.0, cut, self.beat * 1.08), cut + 0.05)
+        audio[: len(burst)] += burst
+        return audio
+
+    def test_onsets_at_another_tempo_do_not_pull_the_first_bars_away(self) -> None:
+        truth = self.score + 0.3
+        envelope = beats.onset_envelope(self.free_beginning(truth))
+        found = beats.find_bars(envelope, self.meters, self.bpm, [1.0, 0.3])
+        # These clicks pull far harder than a song's onsets do; the first search alone lies 1.8 s off here.
+        self.assertLess(np.abs(found - truth[self.firsts]).max(), 0.12)
+        self.assertLess(np.abs(found - truth[self.firsts])[9:-1].max(), 0.01)
+
+    def test_the_tempo_stays_even_through_them(self) -> None:
+        truth = self.score + 0.3
+        found = beats.find_bars(beats.onset_envelope(self.free_beginning(truth)), self.meters, self.bpm, [1.0, 0.3])
+        tempo = 4 * 60.0 / np.diff(found)
+        self.assertLess(np.abs(tempo[:9] / self.bpm - 1).max(), 0.02)
+
+    def test_a_beginning_that_really_is_slower_stays_when_the_pitches_say_so(self) -> None:
+        # Six per cent slower for eight bars, then the song, with the chords where this take has them.
+        stretch = np.where(self.score < self.score[self.firsts[8]], 1.06, 1.0)
+        truth = np.concatenate([[0.0], np.cumsum(np.diff(self.score) * stretch[:-1])]) + 0.3
+        total = float(truth[-1]) + 2.0
+        chroma, wanted = bar_chords(truth, 4, total)
+        harmony = beats.Harmony(chroma, 20.0, score_frames(self.score, 4))
+        found = beats.find_bars(beats.onset_envelope(clicks(truth, total)), self.meters, self.bpm, [1.03, 0.3], harmony, wanted)
+        errors = np.abs(found - truth[self.firsts])[1:-1]
+        # The bar line of the sudden change is smoothed a little; no song changes tempo at a stroke.
+        self.assertLess(errors[7], 0.06)
+        self.assertLess(np.delete(errors, 7).max(), 0.01)
+
+    def test_a_song_sure_from_its_first_bar_is_left_alone(self) -> None:
+        truth = wandering(self.score, 0.05) + 0.3
+        envelope = beats.onset_envelope(clicks(truth, float(truth[-1]) + 2.0))
+        found = beats.find_bars(envelope, self.meters, self.bpm, [1.0, 0.3])
+        self.assertLess(np.abs(found - truth[self.firsts])[1:-1].max(), 0.01)
+
+    def test_a_line_seconds_off_at_the_start_still_finds_the_song(self) -> None:
+        # As one of the owner's songs: the true place lies more than 2.5 s from where the warp puts it.
+        truth = wandering(self.score, 0.05) - 2.7
+        total = float(truth[-1]) + 2.0
+        chroma, wanted = bar_chords(truth, 4, total)
+        harmony = beats.Harmony(chroma, 20.0, score_frames(self.score, 4))
+        envelope = beats.onset_envelope(clicks(truth[truth >= 0], total))
+        found = beats.find_bars(envelope, self.meters, self.bpm, [1.0, 0.3], harmony, wanted)
+        self.assertLess(np.abs(found - truth[self.firsts])[1:-1].max(), 0.02)
+
+    def test_a_song_with_nothing_sure_keeps_what_was_found(self) -> None:
+        # Silence: no error, and bars that go on at the score's tempo.
+        envelope = np.zeros(int(self.score[-1] * beats.FRAMES_PER_SECOND) + 400)
+        found = beats.find_bars(envelope, self.meters, self.bpm, [1.0, 0.0])
+        self.assertTrue(beats.believable(found, self.meters, self.bpm))
 
 
 class Measure(unittest.TestCase):

@@ -389,6 +389,34 @@ How: `backend/soundcraft_plenio/beats.py` (`POST /scp/v1/beats`) looks for every
 
 💡 Limits: only one tempo per session, so it follows the take chosen last. The next take change overwrites tempos changed by hand. Takes from older sessions have no map and stay as they are (import or generate again). Without a warp and an estimate, or when the notes fit clearly worse on the map than on the straight line (by more than 0.05), it stays with the straight line, and the status line says so.
 
+### The start of a song (the owner's feedback, 2026-11-06)
+
+Feedback: the beginning is sometimes bumpy, above all in songs that begin slowly: the "1" is not found at once, and the sync comes only later or not at all. The owner's idea: first find a place in the song that is unambiguous, then reckon back to the start. That is what was built.
+
+Two causes, measured on the owner's songs and with a stress test (71 songs with a sure map, whose first 8 bars were made hard in known ways, so that the true bars are known):
+
+| Cause | Fix | Result |
+|---|---|---|
+| The search window hung on the warp's line, and the true place can lie outside it. "Das Zentrum": bar 0 searched down to −1.75 s, the true place −2.69 s, so the first 6 bars lay a beat off, with a tempo of 83 to 88 BPM | Window of ±5 s instead of ±2.5 s | The first bars of that song in sync, at 83.2 to 84.0 BPM. Over 108 songs bars off 504 → 458, none loses more than 5 points of its hits on strong onsets |
+| Onsets at another tempo in a free intro pull the search away | The measures before the first sure stretch are reckoned back from it | See below; on 108 normal songs only 8 move by more than a quarter of a beat, all at their start. By construction only what lies before the sure stretch changes |
+
+The stress test, first 8 bars with strong onsets 8 % off the song's tempo. "Wrong 1" = the first bar line more than 150 ms off:
+
+| | Songs with a wrong 1 | Median error | Worst | Tempo bump |
+|---|---|---|---|---|
+| Before | 61 of 71 | 160 ms | 571 ms | 7.4 % |
+| Now | 17 of 71 | 52 ms | 106 ms | 2.1 % |
+| Before, without usable pitches | 71 of 71 | 544 ms | 1159 ms | 7.5 % |
+| Now, without usable pitches | 20 of 71 | 25 ms | 64 ms | 0.7 % |
+
+What makes a stretch sure: four measures in a row whose tempo lies within 2.5 % of the song around them, which the score's pitches do not contradict, and whose pulse shows in the onsets or is confirmed by the pitches. **The tempo condition is the decisive one:** without it a free intro counts as sure, because its onsets are clear.
+
+Tried and rejected, each with numbers on the same songs: a coarse search over the pitches alone, trusting the sung words (their times lie over a second off in some older records: one song went from 1 to 67 bars off, at 116 to 136 BPM); comparing pitches over 4 or 8 pulses instead of one (bars off 458 → 959 and more, because the chord changes at the pulse carry the information); deriving unsure stretches in the middle and at the end of a song as well (it overwrites a real ritardando, and one song went off the beat in its last bars); a weaker pull to the warp's line (better in made-up cases, but it moved paths that were right in the middle of songs); a rule to keep the first search when it lies on the pulse (rescues one normal song and costs the free intro: 20 → 29 songs).
+
+💡 Is the "1" right? Measured from the audio alone, independent of the score: on 149 of 179 songs (83 %) the harmony changes most on the map's 1, clearly so on 102; clearly elsewhere on only 7 (4 %), mostly by small margins, which also fits chords that come a beat early. No systematic error. A song with hardly any change of harmony gives no evidence either way ("Peaceful Electric Current").
+
+💡 Limits: where a start gives no hint at all (no onsets, no pitches), its first bars can only be reckoned at the tempo that follows: 15 of 71 songs more than 150 ms off at the first bar line, 36 ms in the median, a little worse than the first search there (12 of 71, 29 ms). A real change of tempo at a stroke is smoothed by about 50 ms at its bar line.
+
 ## 11. Where things are, for the implementation (checked 2026-11-05)
 
 **SoundCraft**
@@ -436,6 +464,7 @@ How: `backend/soundcraft_plenio/beats.py` (`POST /scp/v1/beats`) looks for every
 | 2026-11-05 | Rust 1.99.1 installed; baseline measured (3 Windows failures in `soundcraft-cli`, already before the add-in); phase 0 done: seams S1–S6, four add-in crates, Plenio menu and activation, offscreen screenshots checked; phase 1 started: sync script and first copy of Plenio 1.5.0 |
 | 2026-11-05 | Phases 1–3 and 5: studio, Song API connection, songs/takes/notes/stems, player, import; Plenio's unit tests against the copy: 1980 passed, 1 skipped; end to end through the UI; branch `extension-api` with the seams |
 | 2026-11-06 | Phase 4 live: cover through the UI (309 s), original muted on the first cover take |
+| 2026-11-06 | The owner's feedback "the start of a song is bumpy, the 1 is not found at once": a wider search, and the bars before the first sure stretch reckoned back from it, see [The start of a song](#the-start-of-a-song-the-owners-feedback-2026-11-06). Checked through the app on the owner's four songs, and with a stress test with a known truth |
 | 2026-11-06 | The owner's request: everything in the project in English. This plan and [FORK.md](FORK.md) translated; no German left outside the byte-exact copy in `vendor/` |
 | 2026-11-06 | The owner's feedback "the metronome runs apart": the audio is the master and the session's tempo map follows it, see [section 10a](#10a-the-audio-is-the-master-the-owners-decision-2026-11-06). Live through the app, measured from outside on the audio files: A Winter Shroud 93 % of clicks within 15 ms of an onset, median 2.6 ms (best constant BPM 37 %, up to 308 ms off); Das Herz kommt an 90 %, 3.2 ms (58 %, 164 ms); Wo das Schweigen hält 75 %, 7.2 ms (43 %, 854 ms) |
 | 2026-11-06 | The owner's feedback "importing a FLAC: nothing arrives", three causes: the file dialog ignored the extensions its caller named and offered only audio (`.plenio.json` could not be chosen); `import_record` read the file as text; `engine.message` reaches no UI, so all of the add-in's messages ended up only in the log. Now: a FLAC with an embedded record is read (`backend/src/release.rs`), the dialog honours the extensions (`open_filter`), messages also go to the status line through `say`. Live with "Das Herz kommt an" (`examples/plenio_import_e2e.rs`): the FLAC alone and in its own folder in 10–12 s after the studio's start, 153 s of audio, 25 lines, 7 sections, 243 + 194 notes, 22 fields; a new take in 193 s; stems in 47 s; the folder `151 songs` unchanged |
