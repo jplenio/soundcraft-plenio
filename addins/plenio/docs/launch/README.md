@@ -25,11 +25,14 @@ music is a YuE2 song, CC BY-NC 4.0, which the repository's asset rules do not ta
 | `release/plenio-comes-to-soundcraft-vertical.mp4` | the teaser for Shorts, Reels and TikTok, 1080 x 1920 |
 | `release/plenio-tutorial.mp4` | the tutorial as a video, 1920 x 1080, 1:52 |
 | `release/SHA256SUMS.txt` | the checksums of the four |
+| `web/` | 720p copies of the three videos (8.9 to 11.3 MB): small enough for Discord's 10 MB and for a player in the release's text |
 | `tour/session/Plenio Demo.scraft` | the demo session the screenshots and the teaser come from (open it in SoundCraft) |
 | `tour/shots/`, `tour/frames/` | every screenshot and frame of the tour |
 
 Make them again: `examples/plenio_tour.rs`, then `tools/media/make_media.py`, `make_teaser.py` and
-`make_tutorial.py`, and `tools/package_windows.ps1` ([DEVELOPMENT.md](../DEVELOPMENT.md#media)).
+`make_tutorial.py`, and `tools/package_windows.ps1` ([DEVELOPMENT.md](../DEVELOPMENT.md#media)). The 720p
+copies are two-pass H.264 at 900 kbit/s (the tutorial at 700) with AAC at 128 kbit/s, scaled to 1280 x 720
+(the vertical one to 720 x 1280), `-movflags +faststart`.
 
 ## Order
 
@@ -41,7 +44,9 @@ Make them again: `examples/plenio_tour.rs`, then `tools/media/make_media.py`, `m
 2. **Release:** GitHub › Releases › *Draft a new release* › tag `plenio-v0.1.0-alpha`, title
    `Plenio for SoundCraft 0.1.0-alpha`, the text of `docs/release/plenio-v0.1.0-alpha.md` (without its first
    comment), attach the five files of `release/`, tick **Set as a pre-release**, publish. The README's teaser link
-   and the release text point at this release.
+   and the release text point at this release. For a player at the top of the text, drag
+   `web/plenio-comes-to-soundcraft-720p.mp4` onto an empty line after its first paragraph: GitHub plays videos
+   of up to 10 MB in place.
 3. **Repository settings:** description, website and topics from `ANNOUNCEMENTS.md › GitHub`; the social
    preview image; Discussions on, if you want questions there rather than in issues.
 4. **Video:** upload the teaser to YouTube (title and description in `ANNOUNCEMENTS.md`), the vertical one
