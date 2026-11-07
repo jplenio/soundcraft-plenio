@@ -22,7 +22,7 @@ pub fn badge(ui_state: &PlenioUi, song: &Song) -> String {
         let percent = p.job.as_ref().and_then(|j| j.progress).map(|f| format!(" {:.0} %", f * 100.0)).unwrap_or_default();
         return format!("Plenio · {stage}{percent}");
     }
-    if ui_state.waiting.iter().any(|(s, _)| *s == song.id) {
+    if ui_state.waiting.iter().any(|(s, _, _)| *s == song.id) {
         return "Plenio · waiting for the studio".into();
     }
     let take = match (song.active_take(), song.takes.len()) {

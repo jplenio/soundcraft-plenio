@@ -58,15 +58,22 @@ pub fn digest(seq: &Sequence) -> u64 {
     h
 }
 
+/// The tempo a take's notes were laid out in: its own, from its bars, else the session's. Another
+/// song's take may conduct the session later; the notes of this one are still read in its own bars,
+/// so that a tempo it did not choose is not taken for an edit of its notes.
+fn take_tempo(s: &Session, take: &Take) -> TempoMap {
+    tempo_map(take).unwrap_or_else(|| s.tempo.clone())
+}
+
 /// The notes on a track's playlist of a take: its clips' sequences, laid end to end at their
-/// places (in ticks from the take's start).
-fn playlist_sequence(s: &Session, r: &PlaylistRef) -> Option<Sequence> {
+/// places (in ticks of `tempo` from the take's start).
+fn playlist_sequence(s: &Session, tempo: &TempoMap, r: &PlaylistRef) -> Option<Sequence> {
     let t = s.track(r.track)?;
     let pl = t.playlists.get(r.index)?;
     let mut out = Sequence::default();
     for clip in &pl.clips {
         if let soundcraft_model::ClipContent::Midi { sequence } = &clip.content {
-            let offset = s.tempo.samples_to_ticks(clip.start, s.sample_rate);
+            let offset = tempo.samples_to_ticks(clip.start, s.sample_rate);
             out.notes.extend(sequence.notes.iter().map(|n| {
                 let mut n = *n;
                 n.start = n.start.saturating_add(offset);
@@ -132,8 +139,9 @@ fn laid_out(s: &Session, take: &Take, bpm: f64, seq: &Sequence) -> Sequence {
 /// Notes of the session's timeline (ticks from its start) as the score's: the way back of [`laid_out`].
 fn back_to_score(s: &Session, take: &Take, seq: &Sequence) -> Sequence {
     let bpm = take.bpm.filter(|b| *b > 0.0).unwrap_or(120.0);
+    let tempo = take_tempo(s, take);
     let tick = |t: i64| -> i64 {
-        let seconds = s.sample_rate.seconds(s.tempo.tick_to_samples(t, s.sample_rate));
+        let seconds = s.sample_rate.seconds(tempo.tick_to_samples(t, s.sample_rate));
         (take.session_to_score(seconds) * bpm / 60.0 * f64::from(soundcraft_midi::PPQ)).round() as i64
     };
     let mut out = seq.clone();
@@ -204,8 +212,9 @@ pub fn place_score(e: &mut Engine, song: &Song, bytes: &[u8], playlist: &str, ta
         take.midi_tracks.insert(role_key(role).into(), index);
     }
     // What the tracks hold now, to tell an edit later.
+    let tempo = take_tempo(e.session(), take);
     for (role, track, i) in &used {
-        if let Some(seq) = playlist_sequence(e.session(), &PlaylistRef { track: *track, index: *i }) {
+        if let Some(seq) = playlist_sequence(e.session(), &tempo, &PlaylistRef { track: *track, index: *i }) {
             take.midi_digests.insert(role_key(*role).into(), digest(&seq));
         }
     }
@@ -224,12 +233,13 @@ pub fn role_key(role: Role) -> &'static str {
 /// The score tracks of the active take whose notes the owner changed: role key → the notes now.
 pub fn changed_notes(s: &Session, song: &Song) -> Vec<(String, Sequence)> {
     let Some(take) = song.active_take() else { return Vec::new() };
+    let tempo = take_tempo(s, take);
     let mut out = Vec::new();
     for (role, _) in SCORE_ROLES {
         let key = role_key(role);
         let Some(track) = song.track(role) else { continue };
         let Some(r) = take.playlists.iter().find(|p| p.track == track) else { continue };
-        let Some(seq) = playlist_sequence(s, r) else { continue };
+        let Some(seq) = playlist_sequence(s, &tempo, r) else { continue };
         if take.midi_digests.get(key).is_some_and(|d| *d != digest(&seq)) {
             out.push((key.to_string(), seq));
         }

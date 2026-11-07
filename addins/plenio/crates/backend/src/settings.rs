@@ -1,5 +1,7 @@
 //! The add-in's settings for this computer (not for one session): whether it is activated. Kept as
-//! `Plenio/settings.json` in SoundCraft's settings folder.
+//! `Plenio/settings.json` in SoundCraft's settings folder. Beside it, `Plenio/api-cache.json` keeps
+//! the studio's last description of its templates and styles, so the dialogs are complete before
+//! the studio is ready ([`load_cache`], [`save_cache`]).
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -31,6 +33,8 @@ pub struct Settings {
     pub licences_accepted: bool,
     /// Start the studio with SoundCraft when the add-in is activated.
     pub start_with_soundcraft: bool,
+    /// The last choice of "split every take into stems right away": what a new song starts with.
+    pub stems_right_away: bool,
 }
 
 impl Settings {
@@ -69,9 +73,51 @@ impl Settings {
     }
 }
 
+/// The cache of the studio's answers in the add-in's folder.
+pub const CACHE_FILE: &str = "api-cache.json";
+/// The largest cache read: the templates and the 250 styles take about 250 kB.
+pub const MAX_CACHE_BYTES: u64 = 8 * 1024 * 1024;
+
+/// The cached answers (`{"templates": {id: answer}, "briefs": {kind: answer}}`), or nothing when there
+/// is no cache or it is not readable: it is only a convenience.
+pub fn load_cache(config_dir: &Path) -> Option<serde_json::Value> {
+    let path = config_dir.join(FOLDER).join(CACHE_FILE);
+    if std::fs::metadata(&path).ok()?.len() > MAX_CACHE_BYTES {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).ok()?).ok()?;
+    value.is_object().then_some(value)
+}
+
+/// Write the cache like the settings: a temporary file first, then over the old one.
+pub fn save_cache(config_dir: &Path, value: &serde_json::Value) -> Result<(), SettingsError> {
+    let path = config_dir.join(FOLDER).join(CACHE_FILE);
+    let io = |e: std::io::Error| SettingsError::Io(path.clone(), e.to_string());
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder).map_err(io)?;
+    }
+    let temp = path.with_extension("json.tmp");
+    std::fs::write(&temp, value.to_string()).map_err(io)?;
+    std::fs::rename(&temp, &path).map_err(io)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_cache_round_trips_and_a_broken_one_is_no_cache() {
+        let dir = folder("cache");
+        assert!(load_cache(&dir).is_none());
+        let value = serde_json::json!({"templates": {"yue2-song": {"fields": []}}});
+        save_cache(&dir, &value).unwrap();
+        assert_eq!(load_cache(&dir), Some(value));
+        std::fs::write(dir.join(FOLDER).join(CACHE_FILE), "[1, 2").unwrap();
+        assert!(load_cache(&dir).is_none());
+        std::fs::write(dir.join(FOLDER).join(CACHE_FILE), "[1, 2]").unwrap();
+        assert!(load_cache(&dir).is_none(), "only an object is a cache");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     /// A fresh, empty folder for one test.
     fn folder(name: &str) -> PathBuf {

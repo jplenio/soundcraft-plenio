@@ -22,7 +22,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "New Plenio Song",
             [],
             None,
-            "{kind?: song|cover, title?, template?: yue2-song|yue2-cover, fields?: {name: value}, source_track?: id (a cover's recording)}",
+            "{kind?: song|cover, title?, template?: yue2-song|yue2-cover, fields?: {name: value}, source_track?: id (a cover's recording), stems_right_away?: bool}",
             when_activated,
             song_new
         ),
@@ -31,7 +31,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Change Plenio Song",
             [],
             None,
-            "{song, title?, fields?: {name: value | null}, documents?: {title|style|lyrics|score|artwork_prompt: text | null}, seeds?: {name: n | null}, unmastered?: bool, source?: uploaded name}",
+            "{song, title?, fields?: {name: value | null}, documents?: {title|style|lyrics|score|artwork_prompt: text | null}, seeds?: {name: n | null}, unmastered?: bool, source?: uploaded name, stems_right_away?: bool}",
             always,
             song_set
         ),
@@ -152,9 +152,22 @@ fn song_new(e: &mut Engine, p: &Value) -> Result<Value> {
     if let Some(s) = source {
         tracks.push(RoleTrack { role: Role::Source, track: s });
     }
-    project.songs.push(Song { id, kind, title: title.clone(), tracks, template: template.into(), fields, ..Song::default() });
+    let stems_right_away = p.get("stems_right_away").and_then(Value::as_bool).unwrap_or(false);
+    let uid = fresh_uid(id);
+    project.songs.push(Song { id, kind, title: title.clone(), tracks, template: template.into(), fields, stems_right_away, uid, ..Song::default() });
     store(e, &project)?;
     Ok(json!({"song": id, "title": title, "tracks": {"song": folder.0, "lyrics": lyrics.0, "mix": mix.0, "source": source.map(|s| s.0)}}))
+}
+
+/// A number that tells a new song apart from songs of other sessions with the same id (never 0).
+fn fresh_uid(id: u64) -> u64 {
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| u64::try_from(d.as_nanos()).unwrap_or(u64::MAX));
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325 ^ nanos;
+    for b in id.to_le_bytes().into_iter().chain(std::process::id().to_le_bytes()) {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h.max(1)
 }
 
 fn song_set(e: &mut Engine, p: &Value) -> Result<Value> {
@@ -215,6 +228,9 @@ fn song_set(e: &mut Engine, p: &Value) -> Result<Value> {
     }
     if let Some(s) = p.get("source").and_then(Value::as_str) {
         song.source = Some(s.chars().take(512).collect());
+    }
+    if let Some(on) = p.get("stems_right_away").and_then(Value::as_bool) {
+        song.stems_right_away = on;
     }
     let changes = song.changes();
     store(e, &project)?;

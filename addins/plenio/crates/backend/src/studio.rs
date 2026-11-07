@@ -7,7 +7,7 @@ use crate::instance::{self, Instance, Layout};
 use crate::song::{Cue, Job, Record, parse_srt};
 use serde_json::{Value, json};
 use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::time::{Duration, Instant};
 
 /// How long a starting ComfyUI may take before the add-in gives up (the first start loads every
@@ -15,6 +15,8 @@ use std::time::{Duration, Instant};
 pub const START_TIMEOUT: Duration = Duration::from_secs(300);
 /// How long one long-poll of a job waits on the server.
 const WAIT_S: u32 = 30;
+/// How often the worker looks whether its ComfyUI still runs while nothing is asked of it.
+const HEALTH_CHECK: Duration = Duration::from_secs(2);
 
 /// What the studio is doing.
 #[derive(Debug, Clone, PartialEq)]
@@ -193,67 +195,78 @@ impl Worker {
     }
 
     fn run(mut self, requests: Receiver<Request>) {
-        while let Ok(request) = requests.recv() {
-            match request {
-                Request::Start { config_dir, comfyui } => self.start(&config_dir, comfyui.as_deref()),
-                Request::Attach { port } => self.attach(port),
-                Request::Stop => {
-                    self.stop();
-                    self.emit(Event::State(State::Stopped));
-                }
-                Request::Get { tag, path } => {
-                    let result = self.client().and_then(|c| c.get(&path).map_err(|e| e.to_string()));
-                    self.emit(Event::Answer { tag, result });
-                }
-                Request::Post { tag, path, body } => {
-                    let result = self.client().and_then(|c| c.post(&path, &body, None).map_err(|e| e.to_string()));
-                    self.emit(Event::Answer { tag, result });
-                }
-                Request::Submit { tag, body, into } => match self.client() {
-                    Ok(client) => {
-                        let events = self.events.clone();
-                        let _ = std::thread::Builder::new().name("plenio-job".into()).spawn(move || follow(&client, &events, tag, &body, &into));
-                    }
-                    Err(message) => self.emit(Event::Failed { tag: Some(tag), message }),
-                },
-                Request::Cancel { job } => {
-                    if let Ok(client) = self.client()
-                        && let Err(e) = client.delete(&format!("/plenio/api/v1/jobs/{}", encode_segment(&job)))
-                    {
-                        self.emit(Event::Failed { tag: None, message: e.to_string() });
-                    }
-                }
-                Request::Upload { tag, path } => {
-                    let result = self.client().and_then(|c| {
-                        c.upload(&path)
-                            .map_err(|e| e.to_string())
-                            .and_then(|v| v.get("name").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "the upload has no name".into()))
-                    });
-                    self.emit(Event::Uploaded { tag, result });
-                }
-                Request::Player { config_dir, comfyui } => {
-                    let answer = self.player(&config_dir, comfyui.as_deref());
-                    self.emit(Event::Player(answer));
-                }
-                Request::DownloadModels { files } => {
-                    let events = self.events.clone();
-                    let _ = std::thread::Builder::new().name("plenio-models".into()).spawn(move || download_models(&events, files));
-                }
+        loop {
+            match requests.recv_timeout(HEALTH_CHECK) {
+                Ok(request) => self.handle(request),
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => break,
             }
-            // A studio that ended by itself (out of memory, closed from outside) is reported.
+            // A studio that ended by itself (out of memory, closed from outside) is reported, also
+            // while nothing is asked of it.
             if let Some(instance) = &mut self.instance
                 && let Some(how) = instance.ended()
             {
                 self.instance = None;
                 self.client = None;
-                self.emit(Event::State(State::Failed(format!("ComfyUI ended ({how}); see the log in the Plenio settings folder"))));
+                self.emit(Event::State(State::Failed(format!(
+                    "ComfyUI ended ({how}); its log is comfyui.log in the add-in's folder. Start it again in Plenio › Studio and Models…"
+                ))));
             }
         }
         self.stop();
     }
 
+    fn handle(&mut self, request: Request) {
+        match request {
+            Request::Start { config_dir, comfyui } => self.start(&config_dir, comfyui.as_deref()),
+            Request::Attach { port } => self.attach(port),
+            Request::Stop => {
+                self.stop();
+                self.emit(Event::State(State::Stopped));
+            }
+            Request::Get { tag, path } => {
+                let result = self.client().and_then(|c| c.get(&path).map_err(|e| e.to_string()));
+                self.emit(Event::Answer { tag, result });
+            }
+            Request::Post { tag, path, body } => {
+                let result = self.client().and_then(|c| c.post(&path, &body, None).map_err(|e| e.to_string()));
+                self.emit(Event::Answer { tag, result });
+            }
+            Request::Submit { tag, body, into } => match self.client() {
+                Ok(client) => {
+                    let events = self.events.clone();
+                    let _ = std::thread::Builder::new().name("plenio-job".into()).spawn(move || follow(&client, &events, tag, &body, &into));
+                }
+                Err(message) => self.emit(Event::Failed { tag: Some(tag), message }),
+            },
+            Request::Cancel { job } => {
+                if let Ok(client) = self.client()
+                    && let Err(e) = client.delete(&format!("/plenio/api/v1/jobs/{}", encode_segment(&job)))
+                {
+                    self.emit(Event::Failed { tag: None, message: e.to_string() });
+                }
+            }
+            Request::Upload { tag, path } => {
+                let result = self.client().and_then(|c| {
+                    c.upload(&path)
+                        .map_err(|e| e.to_string())
+                        .and_then(|v| v.get("name").and_then(Value::as_str).map(str::to_string).ok_or_else(|| "the upload has no name".into()))
+                });
+                self.emit(Event::Uploaded { tag, result });
+            }
+            Request::Player { config_dir, comfyui } => {
+                let answer = self.player(&config_dir, comfyui.as_deref());
+                self.emit(Event::Player(answer));
+            }
+            Request::DownloadModels { files } => {
+                let events = self.events.clone();
+                let _ = std::thread::Builder::new().name("plenio-models".into()).spawn(move || download_models(&events, files));
+            }
+        }
+    }
+
     fn client(&self) -> Result<Client, String> {
-        self.client.clone().ok_or_else(|| "the Plenio studio is not running (Plenio › Start Studio)".into())
+        self.client.clone().ok_or_else(|| "the Plenio studio is not running (start it in Plenio › Studio and Models…)".into())
     }
 
     fn attach(&mut self, port: u16) {
@@ -275,7 +288,7 @@ impl Worker {
         self.emit(Event::State(State::Starting("looking for ComfyUI".into())));
         let Some(install) = discover::find(chosen) else {
             self.emit(Event::State(State::Failed(
-                "no ComfyUI found: install ComfyUI 0.37 or newer, or choose its folder in Plenio › Studio Settings".into(),
+                "no ComfyUI found: install ComfyUI 0.37 or newer, or choose its folder in Plenio › Studio and Models…".into(),
             )));
             return;
         };
@@ -478,14 +491,18 @@ fn download_models(events: &Sender<Event>, files: Vec<(String, PathBuf, u64)>) {
 }
 
 /// The job request for a song: what the add-in always asks of a release (FLAC, no MP3, the record,
-/// the timed lyrics) and who asks.
-pub fn job_body(template: &str, fields: &Value, documents: &Value, seeds: &Value) -> Value {
+/// the timed lyrics) and who asks. Each take gets a release folder of its own (`take` names it):
+/// in a shared folder Plenio numbers a title that is already there, and the second take of a song
+/// would come back as "Title (2)".
+pub fn job_body(template: &str, fields: &Value, documents: &Value, seeds: &Value, take: &str) -> Value {
+    let take: String = take.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(64).collect();
+    let folder = if take.is_empty() { "plenio/soundcraft".to_string() } else { format!("plenio/soundcraft/{take}") };
     json!({
         "template": template,
         "fields": fields,
         "documents": documents,
         "seeds": seeds,
-        "release": {"folder": "plenio/soundcraft", "flac": true, "mp3": false, "song_page": false, "lyrics_srt": true},
+        "release": {"folder": folder, "flac": true, "mp3": false, "song_page": false, "lyrics_srt": true},
         "client": {"name": "SoundCraft"},
         "strict": false,
     })
@@ -494,6 +511,17 @@ pub fn job_body(template: &str, fields: &Value, documents: &Value, seeds: &Value
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_take_has_a_release_folder_of_its_own() {
+        let a = job_body("yue2-song", &json!({}), &json!({}), &json!({}), "20261107-0812-3");
+        let b = job_body("yue2-song", &json!({}), &json!({}), &json!({}), "20261107-0812-4");
+        assert_eq!(a["release"]["folder"], "plenio/soundcraft/20261107-0812-3");
+        assert_ne!(a["release"]["folder"], b["release"]["folder"]);
+        // Nothing of a name leaves the studio's output folder.
+        assert_eq!(job_body("yue2-song", &json!({}), &json!({}), &json!({}), "../../x")["release"]["folder"], "plenio/soundcraft/x");
+        assert_eq!(job_body("yue2-song", &json!({}), &json!({}), &json!({}), "")["release"]["folder"], "plenio/soundcraft");
+    }
 
     #[test]
     fn names_from_the_api_are_made_safe() {

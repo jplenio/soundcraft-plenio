@@ -114,6 +114,19 @@ pub struct Song {
     pub unmastered: bool,
     /// A cover's recording as uploaded to the studio (the field `source.audio`).
     pub source: Option<String>,
+    /// Split every new take into stems as soon as it is on the tracks.
+    pub stems_right_away: bool,
+    /// Tells this song apart from a song of another session (or a later one of this session) with
+    /// the same `id`: work that arrives late lands only on the song that asked for it. 0 for songs of
+    /// sessions from before 0.1.0-alpha.
+    pub uid: u64,
+}
+
+impl Song {
+    /// Whether work asked for by the song `(id, uid)` belongs to this song.
+    pub fn is(&self, id: u64, uid: u64) -> bool {
+        self.id == id && self.uid == uid
+    }
 }
 
 impl Song {

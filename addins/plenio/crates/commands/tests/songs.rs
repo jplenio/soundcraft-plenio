@@ -561,3 +561,36 @@ fn without_a_usable_measurement_everything_starts_at_the_start() {
         t.near(clip.start + clip.length, 32.0 * 4.0 * 60.0 / 84.0, "the end of the score");
     }
 }
+
+/// Found by the tour: a second song (a cover of the first) conducts the session with its own bars.
+/// The first song's notes were not touched, so it must not report them as changed (which made its
+/// Generate sing "your notes").
+#[test]
+fn another_songs_tempo_is_not_an_edit_of_this_songs_notes() {
+    let mut t = scored_song("two-songs");
+    // The audio starts before the score: the score's clips start later than the session's start,
+    // where another tempo puts their bars elsewhere.
+    t.add_measured("first", wandering_bars(1.9, 0.25));
+    let first = t.song;
+    let score = Project::load(t.e.session()).unwrap().song(first).unwrap().track(Role::Melody).unwrap();
+    assert!(t.e.session().track(score).unwrap().clips()[0].start > 0);
+    let changed = |e: &Engine| {
+        let p = Project::load(e.session()).unwrap();
+        soundcraft_plenio_commands::changed_notes(e.session(), p.song(first).unwrap()).len()
+    };
+    assert_eq!(changed(&t.e), 0);
+    let made = t.e.execute("plenio.song.new", &json!({"title": "Winter (Cover)"})).unwrap();
+    t.song = made["song"].as_u64().unwrap();
+    let before = t.e.session().tempo.clone();
+    t.add_measured("cover", wandering_bars(-0.4, -0.35));
+    assert_ne!(t.e.session().tempo, before, "the cover conducts the session now");
+    assert_eq!(changed(&t.e), 0, "the cover's bars are not an edit of the first song's notes");
+    // An edit is still an edit.
+    let track = Project::load(t.e.session()).unwrap().song(first).unwrap().track(Role::Accompaniment).unwrap();
+    let session = t.e.session_mut();
+    let tr = session.track_mut(track).unwrap();
+    let active = tr.active_playlist;
+    let ClipContent::Midi { sequence } = &mut tr.playlists[active].clips[0].content else { panic!("not a MIDI clip") };
+    sequence.notes[0].pitch = 55;
+    assert_eq!(changed(&t.e), 1);
+}

@@ -8,10 +8,11 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 mod draw;
+mod fields;
 mod generate;
 mod windows;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use soundcraft_plenio_backend::song::Job;
 use soundcraft_plenio_backend::{Event, Request, Settings, State, Studio};
 use soundcraft_plenio_project::{Mode, Project, What};
@@ -20,11 +21,27 @@ use soundcraft_ui_egui::extension::{Lane, UiExtension};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+/// The Song API's templates the add-in makes songs with (no MiniMax).
+pub(crate) const TEMPLATES: [&str; 2] = ["yue2-song", "yue2-cover"];
+/// Where the studio lists its style templates.
+const BRIEFS_PATH: &str = "/plenio/api/v1/briefs?kind=song";
+
 /// Tell the owner something: the status line shows it, the log keeps it.
 pub(crate) fn say(app: &mut SoundApp, message: impl Into<String>) {
     let message = message.into();
     app.engine.message(message.clone());
     app.ui.status = message;
+}
+
+/// Run one of the add-in's commands; when it fails, the owner reads why in the status line.
+pub(crate) fn run_or_say(app: &mut SoundApp, id: &str, params: Value) -> Option<Value> {
+    match app.run(id, params) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            say(app, format!("Plenio: {e}"));
+            None
+        }
+    }
 }
 
 /// Register the add-in's commands; call it once, before the first command runs.
@@ -39,9 +56,24 @@ pub fn extension(config_dir: Option<PathBuf>) -> Box<dyn UiExtension> {
     Box::new(PlenioUi::new(config_dir))
 }
 
+/// Whether the session open now still holds the song `(id, uid)` that asked for some work: a take,
+/// stems or notes that arrive after their session was closed (or their song forgotten) land nowhere
+/// else, also not on another song with the same id.
+pub(crate) fn song_here(app: &SoundApp, song: u64, uid: u64) -> bool {
+    Project::load(app.engine.session()).ok().and_then(|p| p.song(song).map(|s| s.is(song, uid))).unwrap_or(false)
+}
+
+/// The uid of a song of the session open now (0 when there is none).
+pub(crate) fn uid_of(app: &SoundApp, song: u64) -> u64 {
+    Project::load(app.engine.session()).ok().and_then(|p| p.song(song).map(|s| s.uid)).unwrap_or(0)
+}
+
 /// A take being made.
 pub(crate) struct Pending {
     pub song: u64,
+    /// The song's uid when it was asked for ([`song_here`]).
+    pub uid: u64,
+    pub title: String,
     pub what: What,
     pub fields: BTreeMap<String, Value>,
     pub job: Option<Job>,
@@ -54,31 +86,40 @@ pub(crate) struct PlenioUi {
     pub state: State,
     /// `GET /templates/{id}` answers, by template id.
     pub templates: BTreeMap<String, Value>,
+    /// `GET /briefs`: the style templates, as answered (kept for the cache) and as read.
+    pub briefs: Option<Value>,
+    pub styles: fields::Styles,
     /// `GET /scp/v1/models`.
     pub models: Option<Value>,
     pub downloads: BTreeMap<String, (u64, u64)>,
     pub jobs: BTreeMap<u64, Pending>,
     pub next_tag: u64,
-    /// Takes asked for before the studio was ready.
-    pub waiting: Vec<(u64, Mode)>,
-    /// Covers whose recording is uploading: upload tag → song.
-    pub uploads: BTreeMap<u64, u64>,
+    /// Takes asked for before the studio was ready: (song, its uid, mode).
+    pub waiting: Vec<(u64, u64, Mode)>,
+    /// Covers whose recording is uploading: upload tag → (song, its uid).
+    pub uploads: BTreeMap<u64, (u64, u64)>,
     /// Plenio songs being brought in: tag → (the file chosen, what belongs to the song).
     pub imports: BTreeMap<u64, (PathBuf, soundcraft_plenio_backend::release::SongFiles)>,
     /// The songs of `imports` waiting for the studio: the notes and the song's fields come from it.
     pub waiting_imports: Vec<u64>,
     /// The player's address to open in the browser on the next frame.
     pub open_url: Option<String>,
-    /// Songs being split into stems.
-    pub splitting: std::collections::BTreeSet<u64>,
-    /// Takes waiting for their score's MIDI file: tag → (`plenio.take.add` parameters, the take's folder).
-    pub held: BTreeMap<u64, (Value, PathBuf)>,
+    /// Songs being split into stems: song → its uid.
+    pub splitting: BTreeMap<u64, u64>,
+    /// Notes of the owner being read into a song's score: song → its uid.
+    pub reading_notes: BTreeMap<u64, u64>,
+    /// Takes waiting for their score's MIDI file or their bars: tag → (`plenio.take.add` parameters,
+    /// the take's folder, the song's uid).
+    pub held: BTreeMap<u64, (Value, PathBuf, u64)>,
     /// The song the inspector shows.
     pub song: Option<u64>,
     pub show_activation: bool,
     pub show_about: bool,
+    pub show_help: bool,
     pub show_inspector: bool,
     pub show_studio: bool,
+    /// The ComfyUI folder being typed in the studio window.
+    pub comfyui_edit: Option<String>,
     pub new_song: Option<windows::NewSong>,
     /// The lyrics being edited: song, the text it started from, the text.
     pub lyrics_edit: Option<(u64, String, String)>,
@@ -99,12 +140,23 @@ impl PlenioUi {
             None => Settings::default(),
         };
         soundcraft_plenio_commands::set_activated(settings.activated);
+        // The studio's last description of its templates and styles: the dialogs are complete
+        // before it is ready again.
+        let cache = config_dir.as_deref().and_then(soundcraft_plenio_backend::settings::load_cache).unwrap_or(Value::Null);
+        let templates: BTreeMap<String, Value> = TEMPLATES
+            .iter()
+            .filter_map(|t| cache.get("templates").and_then(|m| m.get(*t)).filter(|v| v.is_object()).map(|v| (t.to_string(), v.clone())))
+            .collect();
+        let briefs = cache.get("briefs").filter(|b| b.is_object()).cloned();
+        let styles = briefs.as_ref().map(fields::Styles::parse).unwrap_or_default();
         let ui = PlenioUi {
             config_dir,
             settings,
             studio: Studio::spawn(),
             state: State::Stopped,
-            templates: BTreeMap::new(),
+            templates,
+            briefs,
+            styles,
             models: None,
             downloads: BTreeMap::new(),
             jobs: BTreeMap::new(),
@@ -112,15 +164,18 @@ impl PlenioUi {
             waiting: Vec::new(),
             uploads: BTreeMap::new(),
             held: BTreeMap::new(),
-            splitting: std::collections::BTreeSet::new(),
+            splitting: BTreeMap::new(),
+            reading_notes: BTreeMap::new(),
             open_url: None,
             imports: BTreeMap::new(),
             waiting_imports: Vec::new(),
             song: None,
             show_activation: false,
             show_about: false,
+            show_help: false,
             show_inspector: false,
             show_studio: false,
+            comfyui_edit: None,
             new_song: None,
             lyrics_edit: None,
             lyrics_check: None,
@@ -182,13 +237,23 @@ impl PlenioUi {
         self.templates.get(template)?.get("fields")?.as_array()?.iter().find(|f| f.get("id").and_then(Value::as_str) == Some(id))
     }
 
+    /// Keep the studio's description of its templates and styles for the next start.
+    fn save_cache(&self) {
+        let Some(dir) = &self.config_dir else { return };
+        let cache = json!({"templates": self.templates, "briefs": self.briefs});
+        if let Err(e) = soundcraft_plenio_backend::settings::save_cache(dir, &cache) {
+            log::warn!("{e}");
+        }
+    }
+
     fn handle(&mut self, app: &mut SoundApp, event: Event) {
         match event {
             Event::State(state) => {
                 if let State::Ready { .. } = &state {
-                    for t in ["yue2-song", "yue2-cover"] {
+                    for t in TEMPLATES {
                         self.studio.send(Request::Get { tag: format!("template:{t}"), path: format!("/plenio/api/v1/templates/{t}") });
                     }
+                    self.studio.send(Request::Get { tag: "briefs".into(), path: BRIEFS_PATH.into() });
                     self.studio.send(Request::Get { tag: "models".into(), path: "/scp/v1/models".into() });
                 }
                 if let State::Failed(why) = &state {
@@ -196,8 +261,10 @@ impl PlenioUi {
                 }
                 self.state = state;
                 if self.ready() {
-                    for (song, mode) in std::mem::take(&mut self.waiting) {
-                        self.generate(app, song, mode);
+                    for (song, uid, mode) in std::mem::take(&mut self.waiting) {
+                        if song_here(app, song, uid) {
+                            self.generate(app, song, mode);
+                        }
                     }
                     for tag in std::mem::take(&mut self.waiting_imports) {
                         self.ask_from_record(tag);
@@ -235,9 +302,11 @@ impl PlenioUi {
                 self.studio.send(Request::Get { tag: "models".into(), path: "/scp/v1/models".into() });
             }
             Event::Failed { tag, message } => {
-                let what = tag.and_then(|t| self.jobs.remove(&t)).map(|p| p.song);
-                let upload = tag.and_then(|t| self.uploads.remove(&t));
-                let title = what.or(upload).and_then(|s| Project::load(app.engine.session()).ok()?.song(s).map(|s| s.title.clone()));
+                let what = tag.and_then(|t| self.jobs.remove(&t)).map(|p| p.title);
+                let upload = tag
+                    .and_then(|t| self.uploads.remove(&t))
+                    .and_then(|(s, _)| Project::load(app.engine.session()).ok()?.song(s).map(|s| s.title.clone()));
+                let title = what.or(upload);
                 say(
                     app,
                     match title {
@@ -266,10 +335,22 @@ impl PlenioUi {
             }
         } else if let Some(template) = tag.strip_prefix("template:") {
             match result {
-                Ok(v) => {
+                Ok(v) if v.is_object() => {
                     self.templates.insert(template.to_string(), v);
+                    self.save_cache();
                 }
+                Ok(_) => log::warn!("Plenio: template {template}: not a description"),
                 Err(e) => log::warn!("Plenio: template {template}: {e}"),
+            }
+        } else if tag == "briefs" {
+            match result {
+                Ok(v) if v.is_object() => {
+                    self.styles = fields::Styles::parse(&v);
+                    self.briefs = Some(v);
+                    self.save_cache();
+                }
+                Ok(_) => log::warn!("Plenio: the styles are not a list"),
+                Err(e) => log::warn!("Plenio: the styles: {e}"),
             }
         } else if tag == "models" {
             self.models = result.ok();
