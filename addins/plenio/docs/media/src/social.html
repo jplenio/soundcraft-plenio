@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plenio for SoundCraft - social preview</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  /* 1280 x 640: GitHub's social preview, and the image of the announcements. */
+  .row.head { left: 80px; top: 120px; gap: 46px; }
+  .mark { width: 250px; height: 250px; }
+  .name { font-size: 128px; }
+  .sub { font-size: 26px; margin-top: 18px; }
+  .pill { font-size: 23px; margin-top: 26px; }
+  .claim { position: absolute; left: 80px; right: 80px; top: 430px; font-size: 34px; font-weight: 600; line-height: 1.35; color: #ffffff; }
+  .claim b { background: linear-gradient(90deg, var(--amber), var(--pink), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+  .foot { position: absolute; left: 80px; right: 80px; bottom: 44px; display: flex; justify-content: space-between; align-items: center; font-size: 19px; }
+  .foot .url { letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="sky"></div>
+<svg class="waves" viewBox="0 0 1280 640" height="640" preserveAspectRatio="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="w" x1="0" x2="1"><stop offset="0" stop-color="#ffb23e" stop-opacity="0"/><stop offset="0.3" stop-color="#ffb23e"/><stop offset="0.65" stop-color="#ff3d8b"/><stop offset="1" stop-color="#8a4dff"/></linearGradient>
+    <filter id="b"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <g fill="none" stroke="url(#w)" stroke-linecap="round">
+    <path d="M0 610 C 220 570, 380 640, 620 590 S 980 470, 1280 430" stroke-width="9" filter="url(#b)" opacity="0.5"/>
+    <path d="M0 610 C 220 570, 380 640, 620 590 S 980 470, 1280 430" stroke-width="2.2"/>
+    <path d="M0 628 C 260 600, 450 650, 700 610 S 1060 500, 1280 480" stroke-width="1.4" opacity="0.55"/>
+  </g>
+</svg>
+<div class="row head">
+  <img class="mark" src="../logo.svg" alt="">
+  <div>
+    <div class="name">PLENIO</div>
+    <div class="sub">MUSIC PRODUCTION SYSTEM</div>
+    <div class="pill">FOR SOUNDCRAFT</div>
+  </div>
+</div>
+<div class="claim">Write the words. <b>Generate the song.</b><br>Every take, lyric, note and stem on its own track.</div>
+<div class="foot"><span class="badge">OPEN SOURCE &middot; ALPHA</span><span class="url">github.com/jplenio/soundcraft-plenio</span></div>
+</body>
+</html>

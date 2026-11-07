@@ -6,8 +6,8 @@
 | **Branch** | `plenio-addin` (remote `upstream` = `storytold/soundcraft`) |
 | **Plenio source** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (version 1.5.0): **never changed**, code is copied |
 | **Plan made** | 2026-11-05 |
-| **Last updated** | 2026-11-06 |
-| **State** | Phases 0–5 done and checked live through the UI (song, notes, stems, cover, player); phase 6 mostly done, open points in the section "State on the evening of 2026-11-05"; the own fork is prepared, the repository on GitHub is still to come ([FORK.md](FORK.md)) |
+| **Last updated** | 2026-11-07 |
+| **State** | **Version 0.1.0-alpha ready to publish** (phase 7): phases 0–6 done and checked live through the UI (song, notes, stems, cover, player, import); the fork is on GitHub (`jplenio/soundcraft-plenio`); open points in "State on the evening of 2026-11-05" and phase 7 |
 
 Legend: `[x]` done · `[ ]` open · `[~]` started or partly done · 💡 note
 
@@ -24,7 +24,8 @@ Legend: `[x]` done · `[ ]` open · `[~]` started or partly done · 💡 note
 | 3 | Notes and stems | ✅ done (browser score editor open) |
 | 4 | YuE2 Cover | ✅ done (checked live) |
 | 5 | Player and release | ✅ done ("Open in SoundCraft" open) |
-| 6 | Hardening, update rehearsal, docs | 🔶 mostly done |
+| 6 | Hardening, update rehearsal, docs | ✅ done |
+| 7 | Release 0.1.0-alpha: review, more of the Song API, docs, media, teaser, announcements | ✅ ready (publishing is the owner's) |
 
 ---
 
@@ -138,6 +139,30 @@ Legend: `[x]` done · `[ ]` open · `[~]` started or partly done · 💡 note
 - [x] Fork prepared: its own `README.md`, ArtCraft marks removed (their licence requires it), the app's update source pointed at the fork, `tools/update_soundcraft.ps1` rewritten (merges instead of rebasing), [FORK.md](FORK.md)
   💡 Open with the owner: create the repository on GitHub and upload. Open before own installers: `packaging/` still names the folder `ArtCraft`.
 - [x] User and developer docs: `addins/plenio/README.md`, `docs/architecture.md › Extensions`
+
+### Phase 7: release 0.1.0-alpha (the owner's request of 2026-11-07)
+
+- [x] Everything in English: a scan of every file the fork adds or changes finds German only in data (song titles, test fixtures of Plenio's linguistics)
+- [x] SoundCraft taken in again: `bb0e070` (a Preferences window, the house rules in `AGENTS.md`), no conflict, all checks green
+- [x] Review of the app through a tour of the real UI (`examples/plenio_tour.rs`), with a real studio: activate, a song with typed lyrics, a second take, a cover, an import. It found, and the alpha fixes:
+  - [x] the New Song dialog hid **Make the Song** below its fold (now its buttons are always in view, the lyrics scroll on their own, windows open centred)
+  - [x] the second take of a song came back as "Title (2)", and renamed the song (each take has a release folder of its own now)
+  - [x] a take or stems that arrived after their session was closed landed in the session open then, even on another song with the same id (a uid per song, checked for every piece of work that arrives late)
+  - [x] a second song with its own tempo (a cover in the same session) made the first song's notes count as edited (notes are read in their own take's bars now)
+  - [x] the studio's window was as wide as the screen (the catalogue's long descriptions are shortened, with a tooltip)
+- [x] Code review: the brief's text fields and the ComfyUI folder kept no typed character (a buffer made anew every frame); number fields ignored their ranges (`minimum`/`maximum`); leaving a field unchanged marked the brief as changed; "What it is about" replaced the style's sound instead of being the lyrics' idea; failed commands were dropped silently (`run_or_say`); a crashed ComfyUI was noticed only at the next request (now within 2 s)
+- [x] More of the Song API in the New Song and New Cover dialogs: 250 styles with name, group and sound (`/briefs`), every other field under **More options** with the style's values as hints, `when` conditions honoured, the answers cached for the next start (`Plenio/api-cache.json`)
+- [x] Stems right away: per song (dialog and inspector), remembered for the next song, also for imports
+- [x] Studio and Models: opens after activation, **Download All Missing**, **Browse…** for the ComfyUI folder; **Getting Started** in the menu
+- [x] Maintainability: `windows.rs` split into `windows/{mod, song_dialog, inspector}.rs`, the fields in `fields.rs`; [DEVELOPMENT.md](DEVELOPMENT.md) (parts, rules, a take's journey, tests, releases)
+- [x] Version `0.1.0-alpha` in the add-in's crates, [CHANGELOG.md](../CHANGELOG.md), [NOTICE.md](../NOTICE.md); the licence: MIT OR Apache-2.0 like SoundCraft, Plenio's copy Apache-2.0, logo and banner Apache-2.0, screenshots MIT OR Apache-2.0, songs CC BY-NC 4.0 by the models
+  💡 Why not one licence for all: the add-in lives in SoundCraft's workspace (MIT OR Apache-2.0) and may give seams back; Plenio's code keeps its own licence and NOTICE (Apache-2.0 §4); the logo under Apache-2.0 keeps the name out of the grant (§6); YuE2's licence binds every song it makes, so also the teaser.
+- [x] README of the fork and of the add-in, [TUTORIAL.md](TUTORIAL.md), logo, banner, social preview, screenshots and the animation `tour.gif` (`tools/media/`), all made from the tour's real session
+- [x] Teaser 16:9 and 9:16 (`tools/media/make_teaser.py`): the tour's song, its scenes on its measured bars and sung lines; outside the repository (its music is CC BY-NC 4.0)
+- [x] The tutorial also as a video (`tools/media/make_tutorial.py`, 1:52): six chapters of the tour's real frames with captions, the tour's cover as quiet music
+- [x] Release text ([release/plenio-v0.1.0-alpha.md](release/plenio-v0.1.0-alpha.md)), announcements for every channel ([launch/ANNOUNCEMENTS.md](launch/ANNOUNCEMENTS.md)), the launch plan ([launch/README.md](launch/README.md))
+- [x] Windows package: `tools/package_windows.ps1` (portable zip with `plenio-addin/` beside the program, checksums)
+- [ ] Publishing: push, the tag `plenio-v0.1.0-alpha`, the GitHub release (pre-release), the video, the posts: the owner's ([launch/README.md](launch/README.md))
 
 ---
 
@@ -464,6 +489,7 @@ Tried and rejected, each with numbers on the same songs: a coarse search over th
 | 2026-11-05 | Rust 1.99.1 installed; baseline measured (3 Windows failures in `soundcraft-cli`, already before the add-in); phase 0 done: seams S1–S6, four add-in crates, Plenio menu and activation, offscreen screenshots checked; phase 1 started: sync script and first copy of Plenio 1.5.0 |
 | 2026-11-05 | Phases 1–3 and 5: studio, Song API connection, songs/takes/notes/stems, player, import; Plenio's unit tests against the copy: 1980 passed, 1 skipped; end to end through the UI; branch `extension-api` with the seams |
 | 2026-11-06 | Phase 4 live: cover through the UI (309 s), original muted on the first cover take |
+| 2026-11-07 | Phase 7, release 0.1.0-alpha, see [phase 7](#phase-7-release-010-alpha-the-owners-request-of-2026-11-07): SoundCraft `bb0e070` merged; the tour through the real UI found five faults, the code review seven more (one of them by the test harness's accessibility check), all fixed; the UI has 27 tests now, the commands 16 + 10, with tests for the faults (late work, another song's tempo and a word typed into the brief shown to fail without their fix; the hidden button and the wide window checked in renders); more of the Song API in the dialogs; stems right away; docs, media, teaser, announcements, the Windows package |
 | 2026-11-06 | The owner's feedback "the start of a song is bumpy, the 1 is not found at once": a wider search, and the bars before the first sure stretch reckoned back from it, see [The start of a song](#the-start-of-a-song-the-owners-feedback-2026-11-06). Checked through the app on the owner's four songs, and with a stress test with a known truth |
 | 2026-11-06 | The owner's request: everything in the project in English. This plan and [FORK.md](FORK.md) translated; no German left outside the byte-exact copy in `vendor/` |
 | 2026-11-06 | The owner's feedback "the metronome runs apart": the audio is the master and the session's tempo map follows it, see [section 10a](#10a-the-audio-is-the-master-the-owners-decision-2026-11-06). Live through the app, measured from outside on the audio files: A Winter Shroud 93 % of clicks within 15 ms of an onset, median 2.6 ms (best constant BPM 37 %, up to 308 ms off); Das Herz kommt an 90 %, 3.2 ms (58 %, 164 ms); Wo das Schweigen hält 75 %, 7.2 ms (43 %, 854 ms) |

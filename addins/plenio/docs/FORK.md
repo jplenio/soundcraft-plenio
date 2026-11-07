@@ -17,6 +17,9 @@ commit with the fork's own code never goes on `main`.
 
 ## What to do on GitHub (once)
 
+Done on 2026-11-06: the repository `jplenio/soundcraft-plenio` exists, `plenio-addin` and `main` are uploaded.
+The steps stay here for a second clone or another account.
+
 1. **Create the fork:** `github.com/storytold/soundcraft` → **Fork** → name `soundcraft-plenio`, keep "Copy the `main`
    branch only" ticked → **Create fork**.
    - A GitHub fork of a public repository is always public. For a private one, create an empty private repository
@@ -117,6 +120,20 @@ copyright lines in `LICENSE-MIT` and `NOTICE`, on the other hand, must stay.
 This is deliberately still unchanged: it is only needed once the fork builds its own releases, and every change there
 would be one more place for merge conflicts. This reading of the licence texts is not legal advice; for doubts or for
 a permission, the ArtCraft team can be reached through getartcraft.com.
+
+## Releases
+
+The add-in has versions of its own (`addins/plenio/crates/*/Cargo.toml`, [CHANGELOG.md](../CHANGELOG.md)); the app
+keeps SoundCraft's version, so that `Cargo.toml` never conflicts at a merge. A release is tagged
+`plenio-v<version>` on `plenio-addin`, and its GitHub release is marked as a **pre-release** while the version has a
+suffix (`-alpha`, `-beta`, `-rc.1`).
+
+- `pwsh addins/plenio/tools/package_windows.ps1` builds the Windows zip (with `plenio-addin/` beside the program,
+  where the add-in looks for its Python files) and `SHA256SUMS.txt` in `target/plenio-dist/`.
+- SoundCraft's updater (Help › Check for Updates, `UPDATE_APP`) looks at this fork's releases, skips pre-releases, and
+  reads only tags of the form `v<version>`. So the add-in's releases never offer themselves as an update of the app;
+  an update path for the fork's own builds is open until the fork builds installers.
+- The release's text and the launch plan: [release/](release/) and [launch/](launch/README.md).
 
 ## What becomes public with the repository
 
