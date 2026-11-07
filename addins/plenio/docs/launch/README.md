@@ -26,6 +26,19 @@ music is a YuE2 song, CC BY-NC 4.0, which the repository's asset rules do not ta
 | `release/plenio-tutorial.mp4` | the tutorial as a video, 1920 x 1080, 1:52 |
 | `release/SHA256SUMS.txt` | the checksums of the four |
 | `web/` | 720p copies of the three videos (8.9 to 11.3 MB): small enough for Discord's 10 MB and for a player in the release's text |
+
+## On YouTube
+
+| Video | Link |
+|---|---|
+| The teaser | https://youtu.be/NRKGa-Vvr_k |
+| The tutorial | https://youtu.be/QFgfxBdV52c |
+| The playlist, for every video to come | https://www.youtube.com/playlist?list=PLJfLcDGpXv1s |
+
+They are linked from the fork's README, the add-in's README, the tutorial, the release's text and the
+announcements. A new video joins the playlist, whose link stays. YouTube cannot swap a video's file, so a
+video made again gets a new link: put it in the old one's place in the playlist, and change its link in
+those files.
 | `tour/session/Plenio Demo.scraft` | the demo session the screenshots and the teaser come from (open it in SoundCraft) |
 | `tour/shots/`, `tour/frames/` | every screenshot and frame of the tour |
 
@@ -43,14 +56,20 @@ copies are two-pass H.264 at 900 kbit/s (the tutorial at 700) with AAC at 128 kb
    ```
 2. **Release:** GitHub › Releases › *Draft a new release* › tag `plenio-v0.1.0-alpha`, title
    `Plenio for SoundCraft 0.1.0-alpha`, the text of `docs/release/plenio-v0.1.0-alpha.md` (without its first
-   comment), attach the five files of `release/`, tick **Set as a pre-release**, publish. The README's teaser link
-   and the release text point at this release. For a player at the top of the text, drag
+   comment), attach the five files of `release/`, tick **Set as a pre-release**, publish. The README's
+   download link and the tutorial point at this release. For a player at the top of the text, drag
    `web/plenio-comes-to-soundcraft-720p.mp4` onto an empty line after its first paragraph: GitHub plays videos
    of up to 10 MB in place.
+   ✅ Published on 2026-11-07, before the videos were on YouTube: in its text (*Edit release*), replace the
+   line that starts with `▶ **Teaser:**` by the line with the two YouTube links from
+   `docs/release/plenio-v0.1.0-alpha.md`.
 3. **Repository settings:** description, website and topics from `ANNOUNCEMENTS.md › GitHub`; the social
-   preview image; Discussions on, if you want questions there rather than in issues.
-4. **Video:** upload the teaser to YouTube (title and description in `ANNOUNCEMENTS.md`), the vertical one
-   to Shorts, Instagram or TikTok.
+   preview image; Discussions on, if you want questions there rather than in issues. ✅ All but the topics,
+   which GitHub still showed empty on 2026-11-07: each topic has to turn into a chip before *Save changes*;
+   if pasting the list does not split it, type them one by one, each followed by a space.
+4. **Video:** ✅ the teaser and the tutorial are on YouTube ([above](#on-youtube)); their descriptions in
+   `ANNOUNCEMENTS.md` now link each other and the playlist. Still open: the vertical teaser on Shorts,
+   Instagram or TikTok.
 5. **Posts:** Hacker News and Reddit on a weekday morning US time (they reward being there for the
    comments), then X, Bluesky, Mastodon, LinkedIn, Discord, KVR, the newsletter.
 

@@ -6,8 +6,9 @@ In about half an hour you make a song from your own lyrics, give it a second tak
 cover it in another style and bring a song in that Plenio made elsewhere. Every picture here is a real
 screenshot of these steps, made by the add-in's [tour](DEVELOPMENT.md#tests).
 
-▶ **As a video (under two minutes):** `plenio-tutorial.mp4` on the
-[release page](https://github.com/jplenio/soundcraft-plenio/releases/tag/plenio-v0.1.0-alpha).
+▶ **As a video (under two minutes):** [on YouTube](https://youtu.be/QFgfxBdV52c), or `plenio-tutorial.mp4`
+on the [release page](https://github.com/jplenio/soundcraft-plenio/releases/tag/plenio-v0.1.0-alpha).
+New videos join [the playlist](https://www.youtube.com/playlist?list=PLJfLcDGpXv1s).
 
 **What you need:** SoundCraft with the Plenio add-in (the [release](https://github.com/jplenio/soundcraft-plenio/releases)
 or a build of this repository), [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 0.37 or later on the

@@ -1,9 +1,8 @@
 # Announcing Plenio for SoundCraft 0.1.0-alpha
 
-Ready-to-post texts for each channel, written in the owner's voice. Replace `<VIDEO>` with the teaser's
-link once it is uploaded (YouTube, or the release asset), and post in the order of
-[the launch plan](README.md). Images: `../media/social-preview.png` (1280 x 640) for link cards,
-`../media/banner.png` for headers, the teaser for video posts.
+Ready-to-post texts for each channel, written in the owner's voice, with the videos' YouTube links in
+place. Post in the order of [the launch plan](README.md). Images: `../media/social-preview.png`
+(1280 x 640) for link cards, `../media/banner.png` for headers, the teaser for video posts.
 
 Every text fits its channel: X 280 characters and Mastodon 500 (on both a link counts as 23), Bluesky 300,
 Hacker News titles 80, YouTube titles 100, Product Hunt's tagline 60 and description 260. Where a post's
@@ -16,6 +15,9 @@ Links used below:
 - Release: https://github.com/jplenio/soundcraft-plenio/releases/tag/plenio-v0.1.0-alpha
 - Tutorial: https://github.com/jplenio/soundcraft-plenio/blob/plenio-addin/addins/plenio/docs/TUTORIAL.md
 - Plenio: https://github.com/jplenio/Plenio-Music-Production-System
+- The teaser on YouTube: https://youtu.be/NRKGa-Vvr_k
+- The tutorial on YouTube: https://youtu.be/QFgfxBdV52c
+- Every video, new ones too (a YouTube playlist): https://www.youtube.com/playlist?list=PLJfLcDGpXv1s
 
 Keep in every longer post: it is an **alpha**, it runs **locally** (ComfyUI and a 16 GB GPU), songs made
 with YuE2 are **non-commercial** (CC BY-NC 4.0), and the fork is **independent** of the SoundCraft team.
@@ -24,8 +26,8 @@ with YuE2 are **non-commercial** (CC BY-NC 4.0), and the fork is **independent**
 
 ## X / Twitter (a thread)
 
-Post 1, then reply to it with 2 to 5. Better than the link in post 1: attach the teaser and leave the link
-out, so X plays it in the timeline.
+Post 1, then reply to it with 2 to 5. Better than the YouTube link in post 1: attach the teaser and leave
+the link out, so X plays it in the timeline.
 
 **1/5**
 
@@ -35,7 +37,7 @@ Plenio comes to SoundCraft. 🎛️
 Write your lyrics, pick a style, press Generate: a full song with vocals lands in an open-source DAW, with its lyrics, MIDI score, takes and stems on real tracks.
 
 Alpha 0.1.0, free, runs on your own GPU.
-<VIDEO>
+https://youtu.be/NRKGa-Vvr_k
 ```
 
 **2/5**
@@ -147,7 +149,8 @@ work the same way.
 It's free and open source (MIT/Apache-2.0), runs locally with ComfyUI on a 16 GB GPU, and is an independent
 fork. Songs made with the YuE2 models are for non-commercial use (CC BY-NC 4.0).
 
-Teaser, tutorial and download: https://github.com/jplenio/soundcraft-plenio
+Teaser (72 s): https://youtu.be/NRKGa-Vvr_k · Tutorial and download:
+https://github.com/jplenio/soundcraft-plenio
 
 #MusicTechnology #GenerativeAI #OpenSource #Rust #MusicProduction
 
@@ -175,7 +178,9 @@ Covers and imports of Plenio FLACs work too.
 
 Alpha 0.1.0, Windows tested, 16 GB GPU. YuE2 is CC BY-NC 4.0, so songs are non-commercial.
 
-Repo, tutorial, teaser: https://github.com/jplenio/soundcraft-plenio
+Teaser (72 s): https://youtu.be/NRKGa-Vvr_k
+
+Repo, tutorial and download: https://github.com/jplenio/soundcraft-plenio
 
 Happy to answer questions about the integration or the bar tracking.
 
@@ -198,6 +203,8 @@ session as ordinary tracks. Some things that might interest Rust folks:
 
 Alpha, MIT/Apache-2.0: https://github.com/jplenio/soundcraft-plenio
 
+What it makes, in 72 seconds: https://youtu.be/NRKGa-Vvr_k
+
 ### r/LocalLLaMA (or r/aimusic)
 
 **Title:** Local AI songwriting in a DAW: YuE2 + Plenio inside SoundCraft, with lyrics, MIDI and stems on tracks
@@ -205,6 +212,8 @@ Alpha, MIT/Apache-2.0: https://github.com/jplenio/soundcraft-plenio
 Everything runs on your own machine: a local writer model drafts the lyrics if you want, YuE2 (3B) composes
 and sings, BS-RoFormer splits stems, and the result lands as editable tracks in an open-source DAW. 16 GB VRAM
 is enough; a two-minute song takes three to six minutes on an RTX 5060 Ti.
+
+Teaser (72 s): https://youtu.be/NRKGa-Vvr_k
 
 Alpha, free, non-commercial models: https://github.com/jplenio/soundcraft-plenio
 
@@ -233,6 +242,8 @@ stay in sync without stretching the audio.
 
 It's an alpha (Windows tested, 16 GB GPU, ComfyUI required). The YuE2 models are CC BY-NC 4.0.
 
+A 72-second teaser, its song made with the add-in: https://youtu.be/NRKGa-Vvr_k
+
 ---
 
 ## Discord (ComfyUI, YuE and SoundCraft communities, #showcase or #projects)
@@ -240,14 +251,19 @@ It's an alpha (Windows tested, 16 GB GPU, ComfyUI required). The YuE2 models are
 ```text
 🎛️ **Plenio comes to SoundCraft** (alpha 0.1.0)
 YuE2 songs and covers straight into an open-source DAW: lyrics clips, MIDI score, takes and stems on real tracks, tempo map measured from the audio. Local, free, MIT/Apache-2.0 (models CC BY-NC).
-Teaser: <VIDEO> · Repo: https://github.com/jplenio/soundcraft-plenio
+Teaser: https://youtu.be/NRKGa-Vvr_k · Repo: https://github.com/jplenio/soundcraft-plenio
 ```
 
 ---
 
 ## YouTube
 
-**Title:** Plenio comes to SoundCraft – AI songs with editable lyrics, MIDI and stems (alpha)
+Both videos are on YouTube. The descriptions below are what they carry, and they link each other and the
+playlist, which also takes the videos still to come: https://www.youtube.com/playlist?list=PLJfLcDGpXv1s
+
+**The teaser:** https://youtu.be/NRKGa-Vvr_k
+
+**Title:** Plenio comes to SoundCraft – AI songs with editable lyrics, MIDI and stems
 
 **Description:**
 
@@ -257,9 +273,13 @@ Every song lands as tracks you can edit: lyrics, takes, the score as MIDI, and s
 The music of this video was made with the add-in itself: "Plenio Comes to SoundCraft", composed and sung by
 YuE2 (CC BY-NC 4.0) in Plenio.
 
-▶ Download, code and tutorial: https://github.com/jplenio/soundcraft-plenio
+▶ The tutorial as a video (1:52): https://youtu.be/QFgfxBdV52c
+
+▶ Download, code and the written tutorial: https://github.com/jplenio/soundcraft-plenio
 
 ▶ Plenio for ComfyUI: https://github.com/jplenio/Plenio-Music-Production-System
+
+▶ Every video of Plenio for SoundCraft: https://www.youtube.com/playlist?list=PLJfLcDGpXv1s
 
 Alpha 0.1.0 · runs locally (ComfyUI, 16 GB GPU) · songs are non-commercial · an independent fork of
 SoundCraft.
@@ -268,9 +288,9 @@ SoundCraft.
 
 ---
 
-**The tutorial video** (`plenio-tutorial.mp4`)
+**The tutorial:** https://youtu.be/QFgfxBdV52c
 
-**Title:** Plenio for SoundCraft tutorial – make, change, cover and import a song (alpha)
+**Title:** Plenio for SoundCraft tutorial – make, change, cover and import a song
 
 **Description:**
 
@@ -280,6 +300,12 @@ song Plenio made in ComfyUI. Every frame is the real app.
 
 Written tutorial with every step:
 https://github.com/jplenio/soundcraft-plenio/blob/plenio-addin/addins/plenio/docs/TUTORIAL.md
+
+▶ The teaser (72 s): https://youtu.be/NRKGa-Vvr_k
+
+▶ Download and code: https://github.com/jplenio/soundcraft-plenio
+
+▶ Every video of Plenio for SoundCraft: https://www.youtube.com/playlist?list=PLJfLcDGpXv1s
 
 Music: the tutorial's cover, made with Plenio in SoundCraft (YuE2, CC BY-NC 4.0).
 
@@ -303,6 +329,8 @@ On YouTube Shorts the first line is the title.
 
 **Description (260 characters):** Write lyrics, pick a style, press Generate: YuE2 makes the song on your GPU and an open-source DAW gets the parts – lyrics, takes, score as MIDI, stems – synced bar by bar. Change a word or a note and make it again. Free, alpha.
 
+**Video (the gallery takes a YouTube link):** https://youtu.be/NRKGa-Vvr_k
+
 **First comment:**
 
 Hi Product Hunt! I built Plenio to make songs with AI in ComfyUI; this is the step into a real DAW. What
@@ -320,7 +348,7 @@ with vocals locally and hands them over as a production: the lyrics as clips, th
 its own playlist, the stems on their own tracks, and a tempo map measured bar by bar from the audio. Alpha,
 Windows, needs ComfyUI and a 16 GB NVIDIA GPU; songs made with the YuE2 models are non-commercial.
 
-https://github.com/jplenio/soundcraft-plenio
+Teaser (72 s): https://youtu.be/NRKGa-Vvr_k · Download and code: https://github.com/jplenio/soundcraft-plenio
 
 ---
 
@@ -347,6 +375,8 @@ same way, and songs made with Plenio in ComfyUI come in from their FLAC.
 
 It's an alpha: tested on Windows, it needs ComfyUI and a 16 GB graphics card, and songs made with YuE2 are for
 non-commercial use. The teaser's song, "Plenio Comes to SoundCraft", was made with it.
+
+The teaser (72 s): https://youtu.be/NRKGa-Vvr_k · The tutorial (1:52): https://youtu.be/QFgfxBdV52c
 
 Try it, break it, tell me what you'd make with it: https://github.com/jplenio/soundcraft-plenio
 

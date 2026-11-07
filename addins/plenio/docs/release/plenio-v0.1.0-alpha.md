@@ -6,7 +6,7 @@
 
 **Plenio comes to SoundCraft.** The first alpha of the Plenio add-in: songs and covers made with YuE2 right in an open-source DAW, with their lyrics, score, takes and stems as tracks you edit, mix and make again. Everything runs on your own computer.
 
-▶ **Teaser:** `plenio-comes-to-soundcraft.mp4` below (its music was made with this release) · 📖 **[Tutorial](https://github.com/jplenio/soundcraft-plenio/blob/plenio-addin/addins/plenio/docs/TUTORIAL.md)** · 📋 **[Changelog](https://github.com/jplenio/soundcraft-plenio/blob/plenio-addin/addins/plenio/CHANGELOG.md)**
+▶ **[Teaser](https://youtu.be/NRKGa-Vvr_k)** (72 s; its music was made with this release) · ▶ **[Tutorial video](https://youtu.be/QFgfxBdV52c)** (1:52) · 📖 **[Tutorial](https://github.com/jplenio/soundcraft-plenio/blob/plenio-addin/addins/plenio/docs/TUTORIAL.md)** · 📋 **[Changelog](https://github.com/jplenio/soundcraft-plenio/blob/plenio-addin/addins/plenio/CHANGELOG.md)**
 
 ## What it does
 

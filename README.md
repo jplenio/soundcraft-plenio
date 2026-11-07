@@ -17,8 +17,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jplenio/soundcraft-plenio/releases/tag/plenio-v0.1.0-alpha"><b>▶ Teaser</b></a> ·
+  <a href="https://youtu.be/NRKGa-Vvr_k"><b>▶ Teaser</b></a> ·
   <a href="addins/plenio/docs/TUTORIAL.md"><b>Tutorial</b></a> ·
+  <a href="https://www.youtube.com/playlist?list=PLJfLcDGpXv1s"><b>▶ Videos</b></a> ·
   <a href="https://github.com/jplenio/soundcraft-plenio/releases"><b>Download</b></a> ·
   <a href="addins/plenio/README.md"><b>User guide</b></a> ·
   <a href="addins/plenio/CHANGELOG.md"><b>Changelog</b></a>
@@ -84,8 +85,9 @@ lyrics, score and tempo map, ready to edit and make again.</td>
 </table>
 
 <p align="center">
-  <a href="https://github.com/jplenio/soundcraft-plenio/releases/tag/plenio-v0.1.0-alpha"><img src="addins/plenio/docs/media/teaser-poster.png" alt="The teaser: Plenio comes to SoundCraft" width="640"></a><br>
-  <sub>▶ The teaser, on the release page. Its song, "Plenio Comes to SoundCraft", was made with the add-in itself.</sub>
+  <a href="https://youtu.be/NRKGa-Vvr_k"><img src="addins/plenio/docs/media/teaser-poster.png" alt="Watch the teaser on YouTube: Plenio comes to SoundCraft, 72 seconds" width="640"></a><br>
+  <sub>▶ <a href="https://youtu.be/NRKGa-Vvr_k">The teaser</a> (72 s). Its song, "Plenio Comes to SoundCraft", was made with the add-in itself.<br>
+  ▶ <a href="https://youtu.be/QFgfxBdV52c">The tutorial as a video</a> (1:52) · ▶ <a href="https://www.youtube.com/playlist?list=PLJfLcDGpXv1s">every video</a>, new ones too</sub>
 </p>
 
 ## How it works
