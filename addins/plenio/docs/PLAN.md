@@ -4,10 +4,10 @@
 |---|---|
 | **Goal** | Plenio (YuE2 · Song, YuE2 · Cover, Plenio Player, **without MiniMax**) as an add-in in SoundCraft, seamlessly integrated |
 | **Branch** | `plenio-addin` (remote `upstream` = `storytold/soundcraft`) |
-| **Plenio source** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (version 1.5.0): **never changed**, code is copied |
+| **Plenio source** | `D:\Daten2\Deepseek\ComfyUI-MiniMax\Plenio-Music-Production-System` (copied: version 1.5.1): **never changed**, code is copied |
 | **Plan made** | 2026-11-05 |
-| **Last updated** | 2026-11-07 |
-| **State** | **Version 0.1.0-alpha ready to publish** (phase 7): phases 0–6 done and checked live through the UI (song, notes, stems, cover, player, import); the fork is on GitHub (`jplenio/soundcraft-plenio`); open points in "State on the evening of 2026-11-05" and phase 7 |
+| **Last updated** | 2026-11-08 |
+| **State** | 0.1.0-alpha published (phase 7). **Version 0.1.1-alpha ready to publish** (phase 8), on SoundCraft 0.18.0 and Plenio 1.5.1; phases 0–6 done and checked live through the UI (song, notes, stems, cover, player, import); the fork is on GitHub (`jplenio/soundcraft-plenio`); open points in "State on the evening of 2026-11-05" and phases 7 and 8 |
 
 Legend: `[x]` done · `[ ]` open · `[~]` started or partly done · 💡 note
 
@@ -25,7 +25,8 @@ Legend: `[x]` done · `[ ]` open · `[~]` started or partly done · 💡 note
 | 4 | YuE2 Cover | ✅ done (checked live) |
 | 5 | Player and release | ✅ done ("Open in SoundCraft" open) |
 | 6 | Hardening, update rehearsal, docs | ✅ done |
-| 7 | Release 0.1.0-alpha: review, more of the Song API, docs, media, teaser, announcements | ✅ ready (publishing is the owner's) |
+| 7 | Release 0.1.0-alpha: review, more of the Song API, docs, media, teaser, announcements | ✅ published on 2026-11-07 (posts still the owner's) |
+| 8 | Release 0.1.1-alpha: SoundCraft 0.18.0, Plenio 1.5.1 | 🔄 in progress (publishing is the owner's) |
 
 ---
 
@@ -169,10 +170,26 @@ Legend: `[x]` done · `[ ]` open · `[~]` started or partly done · 💡 note
   - [x] The teaser and the tutorial on YouTube ([teaser](https://youtu.be/NRKGa-Vvr_k), [tutorial](https://youtu.be/QFgfxBdV52c)), in a [playlist](https://www.youtube.com/playlist?list=PLJfLcDGpXv1s) that takes the videos to come; linked from both READMEs, the tutorial, the release's text and the announcements
   - [x] The first post: r/comfyui
   - [ ] The published release's text: its teaser line from before the links (the line with them is in [release/plenio-v0.1.0-alpha.md](release/plenio-v0.1.0-alpha.md))
-  - [ ] The repository's topics (empty on GitHub on 2026-11-07)
-  - [ ] Push of the commits after `2591720` (the corrected launch texts, the YouTube links)
+  - [ ] The repository's topics (still empty on GitHub on 2026-11-08)
+  - [x] Push of the commits after `2591720` (the corrected launch texts, the YouTube links): the branch at `04463cb` since 2026-11-07, 20:59 UTC
   - [ ] The vertical teaser (Shorts, Reels, TikTok), the other posts
   💡 The README's poster stays the repository's own `teaser-poster.png`, linked to YouTube: GitHub cannot embed a YouTube player, and an image from YouTube's servers would be a request to Google on every view of the README.
+
+### Phase 8: release 0.1.1-alpha on SoundCraft 0.18.0 and Plenio 1.5.1 (the owner's request of 2026-11-08)
+
+- [x] SoundCraft 0.18.0 merged with `update_soundcraft.ps1 -Version 0.18.0` (merge `5771e39`), without a conflict: 0.18.0 is `bb0e070`, merged on 2026-11-07, with only its version raised
+  💡 Merged is the release's tag, not `main`: `main` had nine commits more on 2026-11-08 (strips rendered serially on the audio thread instead of with rayon, arrow keys and counters in the Edit window, Bounce Stems and Export Clips in the web build). They come with the next merge of `main` or of a later release.
+- [x] `update_soundcraft.ps1 -Version <x.y.z>`: a SoundCraft release instead of `main` ([FORK.md](FORK.md#taking-in-soundcraft-regularly))
+- [x] Plenio 1.5.1 copied: `sync_plenio.py --ref 2e745f5`, the commit of Plenio's tag `v1.5.1` (1 file added, 9 changed, 1 removed: changelog, README, version, the rebuilt player). 1.5.1's features were in the copy already, taken from `f269728`, the commit before
+- [x] The tests that named Plenio's version (`test_routes.py`, the live studio test) compare it with the copy's own version now
+- [x] Version 0.1.1-alpha: the crates, [CHANGELOG.md](../CHANGELOG.md), the README's badge, the user guide
+- [x] Release text ([release/plenio-v0.1.1-alpha.md](release/plenio-v0.1.1-alpha.md)): what is new, upgrading from 0.1.0-alpha, the zip and its checksum (the videos are on YouTube and stay with 0.1.0-alpha)
+- [x] Every check: `test_all.ps1 -Full -Live -Plenio <checkout>` passed on 2026-11-08: fmt, clippy, layers, assets; the add-in's tests (106) and the seams'; the copy unchanged; the app built with and without the add-in; no ArtCraft marks; SoundCraft's whole suite (1793 passed, 4 ignored; `soundcraft-cli` without its three known Windows timeouts); the wrapper's tests (6 + 20); Plenio's unit tests on the copy (1980 passed, 1 skipped); live, the studio started with Plenio 1.5.1 and the Plenio Player
+- [x] Windows package and its smoke test (the package starts, its add-in says 0.1.1-alpha, the Plenio menu is there): `soundcraft-plenio-0.1.1-alpha-windows-x64-portable.zip` (23.8 MB, SHA-256 `a43bd696…88bcd`) and `SHA256SUMS.txt` in the launch folder's `release-0.1.1-alpha/`, checked with `sha256sum -c`
+- [x] `package_windows.ps1`: the checksums list no zip of another version left in `target/plenio-dist` by an earlier run, and their lines end in LF
+  💡 0.1.0-alpha's published `SHA256SUMS.txt` has CRLF line ends: `sha256sum -c` on Linux reads the CR as part of each file's name and fails. The hashes themselves are right; a copy with LF can replace the asset.
+- [x] The tag `plenio-v0.1.1-alpha` (local, annotated)
+- [ ] Publishing: push the branch and the tag, the GitHub release (pre-release): the owner's
 
 ---
 
@@ -502,6 +519,7 @@ Tried and rejected, each with numbers on the same songs: a coarse search over th
 | 2026-11-07 | Phase 7, release 0.1.0-alpha, see [phase 7](#phase-7-release-010-alpha-the-owners-request-of-2026-11-07): SoundCraft `bb0e070` merged; the tour through the real UI found five faults, the code review seven more (one of them by the test harness's accessibility check), all fixed; the UI has 27 tests now, the commands 16 + 10, with tests for the faults (late work, another song's tempo and a word typed into the brief shown to fail without their fix; the hidden button and the wide window checked in renders); more of the Song API in the dialogs; stems right away; docs, media, teaser, announcements, the Windows package |
 | 2026-11-07 | Launch texts checked against each channel's limit: the Hacker News title (98 of 80 characters) and the Mastodon post (680 of 500) shortened; the Hacker News text gives the measured drift of [section 10a](#10a-the-audio-is-the-master-the-owners-decision-2026-11-06) instead of an estimate; the teaser's YouTube description no longer names a lyricist (its words were written for the tour); posts whose line breaks matter are in code blocks; the release's text has one line per paragraph, since GitHub shows every line break of a release. 720p copies of the videos in the launch folder's `web/` |
 | 2026-11-07 | The owner put the teaser and the tutorial on YouTube, in a playlist for the videos to come: the links are in both READMEs, the tutorial, the release's text, the launch plan and the announcements (X post 1 and Discord instead of the `<VIDEO>` placeholder; Reddit, Hacker News, LinkedIn, KVR and the newsletter with the teaser; Product Hunt's gallery video); the two YouTube descriptions link each other and the playlist; the YouTube titles as uploaded, without "(alpha)". The release was published before the links, so its text still names the teaser's file; the repository's topics are still empty |
+| 2026-11-08 | Phase 8, release 0.1.1-alpha, see [phase 8](#phase-8-release-011-alpha-on-soundcraft-0180-and-plenio-151-the-owners-request-of-2026-11-08): SoundCraft 0.18.0 merged by its tag (`update_soundcraft.ps1 -Version`, new), Plenio 1.5.1 copied by the commit of its tag; both brought only their versions, as their code was in 0.1.0-alpha already; the tests that named Plenio's version follow the copy now; every check passed, live too; the release text of 0.1.1-alpha |
 | 2026-11-06 | The owner's feedback "the start of a song is bumpy, the 1 is not found at once": a wider search, and the bars before the first sure stretch reckoned back from it, see [The start of a song](#the-start-of-a-song-the-owners-feedback-2026-11-06). Checked through the app on the owner's four songs, and with a stress test with a known truth |
 | 2026-11-06 | The owner's request: everything in the project in English. This plan and [FORK.md](FORK.md) translated; no German left outside the byte-exact copy in `vendor/` |
 | 2026-11-06 | The owner's feedback "the metronome runs apart": the audio is the master and the session's tempo map follows it, see [section 10a](#10a-the-audio-is-the-master-the-owners-decision-2026-11-06). Live through the app, measured from outside on the audio files: A Winter Shroud 93 % of clicks within 15 ms of an onset, median 2.6 ms (best constant BPM 37 %, up to 308 ms off); Das Herz kommt an 90 %, 3.2 ms (58 %, 164 ms); Wo das Schweigen hält 75 %, 7.2 ms (43 %, 854 ms) |

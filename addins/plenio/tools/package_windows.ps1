@@ -83,8 +83,14 @@ New-Item -ItemType Directory -Force $Dist | Out-Null
 $Zip = Join-Path $Dist "$Name.zip"
 Remove-Item -Force $Zip -ErrorAction SilentlyContinue
 Compress-Archive -Path $Stage -DestinationPath $Zip
-$sums = Get-ChildItem $Dist -File | Where-Object { $_.Name -ne "SHA256SUMS.txt" } | ForEach-Object {
+# Every file of the release in $Dist (other files, such as videos, may be put there to be listed too), but
+# not the zip of another version that an earlier run left behind: it is not part of this release.
+$release = Get-ChildItem $Dist -File | Where-Object {
+    $_.Name -ne "SHA256SUMS.txt" -and ($_.Name -eq "$Name.zip" -or $_.Name -notlike "soundcraft-plenio-*-windows-x64-portable.zip")
+}
+$sums = $release | ForEach-Object {
     "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
 }
-Set-Content -Path (Join-Path $Dist "SHA256SUMS.txt") -Value $sums -Encoding ascii
+# Lines end in LF: `sha256sum -c` (Linux, macOS, Git Bash) reads a CR as part of the file's name.
+[System.IO.File]::WriteAllText((Join-Path (Resolve-Path $Dist) "SHA256SUMS.txt"), (($sums -join "`n") + "`n"), [System.Text.Encoding]::ASCII)
 Write-Host "Done: $Zip ($([math]::Round((Get-Item $Zip).Length / 1MB, 1)) MB)"
