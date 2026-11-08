@@ -6,7 +6,7 @@
 
 YuE2 · Song, YuE2 · Cover and the Plenio Player from the
 [Plenio Music Production System](https://github.com/jplenio/Plenio-Music-Production-System) by Johannes
-Plenio, built into SoundCraft. Version **0.1.0-alpha** ([changelog](CHANGELOG.md)). New here? Start with
+Plenio, built into SoundCraft. Version **0.1.1-alpha** ([changelog](CHANGELOG.md)). New here? Start with
 the [tutorial](docs/TUTORIAL.md) (▶ [as a video](https://youtu.be/QFgfxBdV52c), 1:52); this guide is the
 reference for every menu entry and window. ▶ [The teaser](https://youtu.be/NRKGa-Vvr_k) shows a song made
 with the add-in; [the playlist](https://www.youtube.com/playlist?list=PLJfLcDGpXv1s) has every video.

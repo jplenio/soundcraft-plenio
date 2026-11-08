@@ -4,6 +4,25 @@ The add-in's versions are its own (`addins/plenio/crates/*/Cargo.toml`); the Sou
 was released on is named with each one. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/). Releases are tagged `plenio-v<version>`.
 
+## [0.1.1-alpha] - 2026-11-08
+
+On SoundCraft 0.18.0 (its release tag `v0.18.0`, `5ff012a`) with Plenio 1.5.1 (its release tag `v1.5.1`,
+`2e745f5`): the add-in on both releases. Its own code is unchanged.
+
+### Changed
+
+- **SoundCraft 0.18.0.** 0.1.0-alpha was built on SoundCraft's `main` at `bb0e070`, which SoundCraft then
+  released as 0.18.0 with no change but its version. The program now names itself 0.18.0.
+- **Plenio 1.5.1** in `vendor/`. The copy in 0.1.0-alpha was taken from the commit just before that release
+  (`f269728`), so 1.5.1's changes were already in it: notes fitted to their lyrics, locked tracks, your own
+  lyrics sung exactly as written, Gemma 4 12B as the default writer. New are its version, its changelog and
+  its rebuilt player page. The studio installs the new copy by itself at its next start.
+- **The videos on YouTube:** the teaser, the tutorial and a playlist for the videos to come, linked from both
+  READMEs, the tutorial and the release's text. The launch texts fit each channel's limits.
+- `tools/update_soundcraft.ps1 -Version 0.18.0` merges a SoundCraft release (its tag) instead of `main`.
+- The tests that named Plenio's version compare it with the version the copy declares, so a sync of a newer
+  Plenio needs no change to them.
+
 ## [0.1.0-alpha] - 2026-11-07
 
 The first release, on SoundCraft 0.17.0 (upstream `bb0e070`) with Plenio 1.5.0. **Alpha:** it works
@@ -63,4 +82,5 @@ commands may still change, and it has been used on Windows only.
   edited; notes are now read in their own take's bars.
 - The studio's window grew as wide as the screen with the catalogue's long model descriptions.
 
+[0.1.1-alpha]: https://github.com/jplenio/soundcraft-plenio/releases/tag/plenio-v0.1.1-alpha
 [0.1.0-alpha]: https://github.com/jplenio/soundcraft-plenio/releases/tag/plenio-v0.1.0-alpha

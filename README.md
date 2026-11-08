@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="addins/plenio/CHANGELOG.md"><img alt="Version 0.1.0-alpha" src="https://img.shields.io/badge/version-0.1.0--alpha-ff3d8b"></a>
+  <a href="addins/plenio/CHANGELOG.md"><img alt="Version 0.1.1-alpha" src="https://img.shields.io/badge/version-0.1.1--alpha-ff3d8b"></a>
   <a href="#license"><img alt="MIT or Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-8a4dff"></a>
   <img alt="Windows" src="https://img.shields.io/badge/tested%20on-Windows-ffb23e">
   <img alt="Rust" src="https://img.shields.io/badge/built%20with-Rust-dea584">

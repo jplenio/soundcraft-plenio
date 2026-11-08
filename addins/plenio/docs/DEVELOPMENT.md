@@ -17,7 +17,7 @@ flowchart LR
   end
   subgraph Studio["The studio (ComfyUI, a process of its own)"]
     WR["soundcraft_plenio<br/>/scp/v1: info, models,<br/>stems, beats"]
-    PL["Plenio 1.5.0 (vendor)<br/>Song API /plenio/api/v1,<br/>score, lyrics"]
+    PL["Plenio 1.5.1 (vendor)<br/>Song API /plenio/api/v1,<br/>score, lyrics"]
   end
   UI -- "app.run(plenio.*)" --> CMD
   CMD --> PRJ
@@ -149,7 +149,7 @@ Every committed image needs its row in the root `ATTRIBUTION.md` (`cargo xtask a
 
 ## Releasing
 
-1. Set the version in the four `crates/*/Cargo.toml` (`version = "0.1.0-alpha"`), and in `CHANGELOG.md`.
+1. Set the version in the four `crates/*/Cargo.toml` (`version = "0.1.1-alpha"`), and in `CHANGELOG.md`.
 2. `pwsh addins/plenio/tools/test_all.ps1 -Full` and the tour.
 3. `pwsh addins/plenio/tools/package_windows.ps1` builds `target/plenio-dist/soundcraft-plenio-<version>-windows-x64-portable.zip`
    and `SHA256SUMS.txt`: SoundCraft with the add-in and its Python files beside it (`plenio-addin/`).

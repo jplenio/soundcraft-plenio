@@ -4509,7 +4509,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-plenio-backend"
-version = "0.1.0-alpha"
+version = "0.1.1-alpha"
 dependencies = [
  "flate2",
  "log",
@@ -4523,7 +4523,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-plenio-commands"
-version = "0.1.0-alpha"
+version = "0.1.1-alpha"
 dependencies = [
  "log",
  "proptest",
@@ -4537,7 +4537,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-plenio-project"
-version = "0.1.0-alpha"
+version = "0.1.1-alpha"
 dependencies = [
  "serde",
  "serde_json",
@@ -4547,7 +4547,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-plenio-ui"
-version = "0.1.0-alpha"
+version = "0.1.1-alpha"
 dependencies = [
  "craft-ui",
  "egui",
