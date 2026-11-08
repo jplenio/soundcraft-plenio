@@ -5,6 +5,7 @@
 #   pwsh addins/plenio/tools/update_soundcraft.ps1 -Full       # the same with SoundCraft's whole test suite
 #   pwsh addins/plenio/tools/update_soundcraft.ps1 -Push       # on success also push the branch and the mirror of upstream
 #   pwsh addins/plenio/tools/update_soundcraft.ps1 -Continue   # after conflicts were resolved by hand and committed
+#   pwsh addins/plenio/tools/update_soundcraft.ps1 -Version 0.18.0   # a SoundCraft release (its tag) instead of main
 #
 # This fork is published, so it merges and never rebases: its history stays as others have seen it.
 # Conflicts can only come up in the few places where the fork differs from SoundCraft (FORK.md lists
@@ -20,11 +21,14 @@ param(
     [string]$Branch = "plenio-addin",
     [string]$Upstream = "upstream",
     [string]$UpstreamBranch = "main",
+    [string]$Version = "",
     [string]$Fork = "origin"
 )
 $ErrorActionPreference = "Stop"
 Set-Location (Resolve-Path "$PSScriptRoot/../../..")
-$incoming = "$Upstream/$UpstreamBranch"
+# A release is SoundCraft's tag `v<version>`; without one, whatever upstream's main has now. The commit
+# itself (^{commit}) is what is merged, compared and mirrored: a tag object cannot be pushed to a branch.
+$incoming = if ($Version) { "v$($Version.TrimStart('v'))^{commit}" } else { "$Upstream/$UpstreamBranch" }
 
 function Set-Up-Merging {
     # Local settings: they belong to this clone and cannot conflict with anything upstream does.
@@ -67,8 +71,10 @@ if ((git status --porcelain) -and -not $Preview) {
 }
 
 if (-not $Continue) {
-    git fetch $Upstream
+    git fetch --tags $Upstream
     if ($LASTEXITCODE -ne 0) { throw "git fetch $Upstream failed." }
+    git rev-parse --verify --quiet $incoming | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "SoundCraft has no $($incoming -replace '\^\{commit\}$', '') (git tag -l 'v*' lists its releases)." }
     $behind = [int](git rev-list --count "HEAD..$incoming")
     if ($behind -eq 0) {
         Write-Host "Up to date with $incoming."
@@ -94,7 +100,11 @@ if (-not $Continue) {
         exit 0
     }
     Set-Up-Merging
-    git merge --no-edit $incoming
+    if ($Version) {
+        git merge --no-edit -m "Merge SoundCraft $($incoming -replace '\^\{commit\}$', '') into $Branch" $incoming
+    } else {
+        git merge --no-edit $incoming
+    }
     if ($LASTEXITCODE -ne 0) {
         $open = Resolve-What-Is-Clear
         if ($open.Count -gt 0) {

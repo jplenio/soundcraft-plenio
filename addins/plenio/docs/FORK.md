@@ -45,7 +45,12 @@ needless, because the script moves `main` along.
 ```powershell
 pwsh addins/plenio/tools/update_soundcraft.ps1 -Preview    # what would come, and would it conflict? Changes nothing
 pwsh addins/plenio/tools/update_soundcraft.ps1 -Full -Push # merge, check everything, upload
+pwsh addins/plenio/tools/update_soundcraft.ps1 -Version 0.18.0 -Full   # a SoundCraft release instead of main
 ```
+
+Without `-Version` the script takes whatever SoundCraft's `main` has now; with it, SoundCraft's release tag
+`v<version>`, the state SoundCraft published as that release. A release of the add-in is best built on a release
+of SoundCraft. With `-Push`, the fork's `main` then mirrors that release's commit.
 
 The script always merges and never rebases, because the fork's history is published. It decides by itself what needs
 no decision:
