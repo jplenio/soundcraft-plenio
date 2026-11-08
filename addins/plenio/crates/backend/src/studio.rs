@@ -565,7 +565,10 @@ mod tests {
         };
         let State::Ready { port, plenio, comfyui } = ready else { panic!("{ready:?}") };
         eprintln!("ready on {port}: Plenio {plenio}, ComfyUI {comfyui}");
-        assert_eq!(plenio, "1.5.0");
+        // The studio runs the copy that was synced last (sync_plenio.py records its version).
+        let record = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vendor/VENDOR.toml")).unwrap();
+        let synced = record.lines().find_map(|l| l.strip_prefix("version = \"")?.strip_suffix('"'));
+        assert_eq!(Some(plenio.as_str()), synced);
         studio.send(Request::Get { tag: "api".into(), path: "/plenio/api/v1".into() });
         match studio.wait(Duration::from_secs(30)) {
             Some(Event::Answer { result: Ok(v), .. }) => assert_eq!(v["api"], "plenio-song-api"),

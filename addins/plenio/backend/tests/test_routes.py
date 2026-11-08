@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -92,7 +93,10 @@ class VendorInfo(unittest.TestCase):
     def test_the_sync_record_is_read(self) -> None:
         info = routes.vendor_info((ADDIN / "vendor" / "VENDOR.toml").read_text(encoding="utf-8"))
         self.assertEqual(len(info["commit"]), 40)
-        self.assertEqual(info["version"], "1.5.0")
+        # The version the copy itself declares, so a sync of a newer Plenio needs no change here.
+        declared = re.search(r'^version\s*=\s*"([^"]+)"', (VENDOR / "pyproject.toml").read_text(encoding="utf-8"), re.M)
+        self.assertIsNotNone(declared)
+        self.assertEqual(info["version"], declared.group(1))
 
 
 if __name__ == "__main__":
