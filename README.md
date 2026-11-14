@@ -1,3 +1,19 @@
+> [!IMPORTANT]
+> ## ⛔ This add-in is no longer maintained
+>
+> **SoundCraft now loads VST3 plug-ins, so this add-in is no longer needed.** Plenio comes to SoundCraft - and to
+> every other DAW that loads VST3 instruments - as **[Plenio VST3](https://github.com/jplenio/Plenio-Music-Production-System/tree/main/vst3)**, which is part of the
+> [Plenio Music Production System](https://github.com/jplenio/Plenio-Music-Production-System) and free to use at any time.
+>
+> ### ➡️ [Plenio VST3 in the Plenio Music Production System](https://github.com/jplenio/Plenio-Music-Production-System/tree/main/vst3) · [Download the newest version](https://github.com/jplenio/Plenio-Music-Production-System/releases/latest)
+>
+> This repository (a fork of [SoundCraft](https://github.com/storytold/soundcraft) with the Plenio add-in, last
+> version 0.1.1-alpha) stays readable as it is, but gets no updates, fixes or answers any more. SoundCraft itself
+> goes on at [storytold/soundcraft](https://github.com/storytold/soundcraft). Please open new issues and questions
+> about Plenio [in the Plenio Music Production System](https://github.com/jplenio/Plenio-Music-Production-System/issues).
+
+---
+
 <p align="center">
   <img src="addins/plenio/docs/media/banner.png" alt="Plenio Music Production System for SoundCraft" width="100%">
 </p>
